@@ -2,6 +2,20 @@ name: Windows development validation
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/nivo-mvp
+    paths:
+      - '.github/workflows/windows-validation.yml'
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'test/**'
+      - 'scripts/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'vite.config.mjs'
 
 permissions:
   contents: read
@@ -41,10 +55,3 @@ jobs:
           path: artifacts/
           retention-days: 7
           if-no-files-found: warn
-      - name: Keep development executable
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: nivo-windows-development-${{ github.sha }}
-          path: src-tauri/target/release/nivo-desktop.exe
-          retention-days: 7
-          if-no-files-found: error

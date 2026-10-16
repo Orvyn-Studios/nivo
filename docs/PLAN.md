@@ -2,11 +2,11 @@
 
 ## 1. Base independiente — preparada
 
-Repositorio local `feature/nivo-mvp`, shell Tauri, vista web y controlador de apertura, preferencias de movimiento, comandos acotados y pruebas Node. La música y las notificaciones se muestran como no conectadas. No se crea un repositorio público ni se publica un binario como parte de este arranque.
+Repositorio independiente [SnoW-099/nivo](https://github.com/SnoW-099/nivo), rama `feature/nivo-mvp`, shell Tauri, vista web y controlador de apertura, preferencias de movimiento, comandos acotados y pruebas Node. La música y las notificaciones se muestran como no conectadas. El código ya está subido; no se ha publicado un binario ni una release.
 
 ## 2. Aceptación de la ventana nativa — siguiente paso
 
-Rust MSVC, C++, WebView2 y dependencias ya están disponibles. Los lockfiles están generados; tipos, build Vite y38tests pasan. Cargo se bloquea por Control de aplicaciones (error4551) al cargar una dependencia, antes de compilar Nivo. Completar cargo test/check/clippy y el build en un entorno Windows autorizado que permita esas herramientas, sin cambiar protecciones de este equipo. Hay un workflow manual preparado, aún sin subir ni ejecutar. La fundación escrita incluye estados tipados, temporizador con recuperación, preferencias validadas, región Win32 y selección de pantalla; su integración sigue pendiente de compilación y prueba del ejecutable.
+Rust MSVC, C++, WebView2 y dependencias ya están disponibles. Los lockfiles están generados; tipos, build Vite y38tests pasan. Cargo se bloquea por Control de aplicaciones (error4551) al cargar una dependencia, antes de compilar Nivo. Completar cargo test/check/clippy y el build en un entorno Windows autorizado que permita esas herramientas, sin cambiar protecciones de este equipo. El usuario ha autorizado validación Windows en GitHub Actions; el workflow se activa con cambios de código en `feature/nivo-mvp` y conserva evidencias, sin distribuir ejecutables automáticamente. La fundación escrita incluye estados tipados, temporizador con recuperación, preferencias validadas, región Win32 y selección de pantalla; su integración sigue pendiente de compilación y prueba del ejecutable.
 
 Probar apertura sin robar el foco, activación por teclado, transparencia sin rectángulo blanco, salida fiable desde bandeja y exclusión de Alt+Tab. Verificar monitor con origen negativo, DPI 100/125/150/200 %, cambio de escala y desconexión de un monitor. Los tests Rust preparados no sustituyen esa matriz.
 

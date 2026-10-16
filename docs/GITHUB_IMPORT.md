@@ -25,3 +25,5 @@ Cuando la terminal vuelva a tener conectividad Git, obtener primero el remoto y 
 Se subieron código, pruebas y documentación. No se publicó una release ni un instalador, y no se ejecutó GitHub Actions. La aceptación de Windows continúa pendiente según [VALIDATION.md](VALIDATION.md).
 
 El workflow manual está en la rama de desarrollo; `main` solo contiene el README. GitHub exige que el workflow esté en la [rama predeterminada para recibir `workflow_dispatch`](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_dispatch). Habilitar su ejecución requiere resolver primero esa configuración, sin dar por aprobadas pruebas que aún no se han ejecutado.
+
+Posteriormente, el usuario autorizó ejecutar validación Windows en GitHub Actions para `feature/nivo-mvp`. Se añadió un disparador `push` limitado a esa rama y a cambios de código/configuración. Este disparador evita depender de la inicialización de workflows manuales en `main`. Se conservan logs e informes; no se publican ejecutables ni releases automáticamente. La autorización de CI no acredita por sí misma que una ejecución haya comenzado o pasado.
