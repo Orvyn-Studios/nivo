@@ -81,6 +81,28 @@ test('timer completion interrupts normal notifications and restores their remain
   assert.equal(state.notification.expiresAtMs, 6_000);
 });
 
+test('consecutive timer completions keep priority and FIFO order in a full notification queue', () => {
+  let state = reduceIsland(createIslandState(), { type: 'timer-start', durationMs: 1_000, now: 0 });
+  state = reduceIsland(state, { type: 'advance', now: 1_000 });
+  for (let index = 1; index <= MAX_QUEUED_NOTIFICATIONS; index++) state = notify(state, `message-${index}`, 1_000);
+  const originalQueue = state.pendingNotifications;
+  state = reduceIsland(state, { type: 'timer-start', durationMs: 1_000, now: 2_000 });
+  state = reduceIsland(state, { type: 'advance', now: 3_000 });
+  assert.equal(state.notification.notification.id, 'timer:1', 'an equally important visible alert is not interrupted');
+  assert.deepEqual(state.pendingNotifications.map(item => item.notification.id), ['timer:2', 'message-1', 'message-2']);
+  assert.deepEqual(originalQueue.map(item => item.notification.id), ['message-1', 'message-2', 'message-3'], 'the previous queue is unchanged');
+
+  state = reduceIsland(state, { type: 'timer-start', durationMs: 1_000, now: 3_000 });
+  state = reduceIsland(state, { type: 'advance', now: 4_000 });
+  assert.deepEqual(state.pendingNotifications.map(item => item.notification.id), ['timer:2', 'timer:3', 'message-1']);
+  for (const [now, expected] of [[4_000, 'timer:2'], [4_100, 'timer:3'], [4_200, 'message-1']]) {
+    state = reduceIsland(state, { type: 'dismiss-notification', now });
+    assert.equal(state.notification.notification.id, expected);
+    assert.equal(state.notification.expiresAtMs, now + 5_000, 'queued content retains its display duration');
+  }
+  assert.equal(state.pendingNotifications.length, 0);
+});
+
 test('privacy redacts a sensitive overlay; disabling notifications clears content immediately', () => {
   let state = notify(createIslandState(), 'private', 0, { sensitive: true, title: 'Personal message', body: 'Private contents' });
   const shown = presentation(state, 100).notification;

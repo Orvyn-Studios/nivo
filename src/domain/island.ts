@@ -81,8 +81,16 @@ function enqueue(state: IslandState, value: IslandNotification, now: number): Is
     const previous = { notification: next.notification.notification, remainingMs: Math.max(1, next.notification.expiresAtMs - now) };
     return { ...next, notification: { notification: normalized, expiresAtMs: now + normalized.durationMs! }, pendingNotifications: [previous, ...next.pendingNotifications].slice(0, MAX_QUEUED_NOTIFICATIONS) };
   }
+  const pending = { notification: normalized, remainingMs: normalized.durationMs! };
+  if (normalized.priority === 'timer') {
+    // Equal-priority alerts remain FIFO; when full, release the newest normal
+    // notification rather than losing a timer completion behind ordinary content.
+    const firstNormal = next.pendingNotifications.findIndex(item => item.notification.priority !== 'timer');
+    const index = firstNormal < 0 ? next.pendingNotifications.length : firstNormal;
+    return { ...next, pendingNotifications: [...next.pendingNotifications.slice(0, index), pending, ...next.pendingNotifications.slice(index)].slice(0, MAX_QUEUED_NOTIFICATIONS) };
+  }
   if (next.pendingNotifications.length >= MAX_QUEUED_NOTIFICATIONS) return next;
-  return { ...next, pendingNotifications: [...next.pendingNotifications, { notification: normalized, remainingMs: normalized.durationMs! }] };
+  return { ...next, pendingNotifications: [...next.pendingNotifications, pending] };
 }
 
 function setTimer(state: IslandState, timer: TimerState, now: number): IslandState {
