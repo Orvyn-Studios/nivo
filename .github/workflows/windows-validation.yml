@@ -2,20 +2,6 @@ name: Windows development validation
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/nivo-mvp
-    paths:
-      - '.github/workflows/windows-validation.yml'
-      - 'src/**'
-      - 'src-tauri/**'
-      - 'test/**'
-      - 'scripts/**'
-      - 'index.html'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'tsconfig.json'
-      - 'vite.config.mjs'
 
 permissions:
   contents: read

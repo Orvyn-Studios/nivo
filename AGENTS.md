@@ -5,7 +5,7 @@
 - Work on `feature/nivo-mvp`; keep native integrations, UI state and presentation separate.
 - Canonical repository: `https://github.com/SnoW-099/nivo.git`. Keep every Nivo change in this independent repository and use `origin` for this URL. The user authorized uploading development work here; do not push to StarOptimizer, modify `main`, or publish releases without separate authorization.
 - On 2026-10-17 the user authorized initializing the empty `main` with a README and importing the source into `feature/nivo-mvp` via GitHub's connector. The original local history is intact; the remote import has different ancestry. Read `docs/GITHUB_IMPORT.md` before syncing and never force-push to reconcile these histories.
-- The user authorized Windows validation in GitHub Actions for `feature/nivo-mvp`. CI may build and test there, retaining diagnostic evidence only. Do not modify `main` or publish releases or executable artifacts automatically.
+- After one failed Windows Actions run with no assigned runner, the user reported a billing issue and requested local validation instead. Keep Actions manual; do not trigger or rerun workflows. Continue local tests without altering Windows protections. Do not modify `main` or publish releases or executable artifacts automatically.
 - Native media/notification data must come from Windows APIs. Browser preview is explicitly labelled and must never invent active sessions or notifications.
 - No telemetry, remote scripts, filesystem/shell bridge, notification permission requests, autostart or security changes in the initial scaffold.
 - Keep commands finite and allowlisted, with capabilities limited to the island webview. Preserve CSP.
