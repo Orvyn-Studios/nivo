@@ -4,6 +4,8 @@ Isla de escritorio para Windows, independiente de StarOptimizer. Tauri 2 + Rust 
 
 Repositorio de Nivo: [SnoW-099/nivo](https://github.com/SnoW-099/nivo). El desarrollo continúa en `feature/nivo-mvp`. Los cambios de Nivo se guardan en este repositorio independiente; las releases requieren autorización y aceptación nativa.
 
+La primera subida se realizó mediante el conector de GitHub, con autorización para inicializar el repositorio vacío. El historial local se conserva y los commits remotos de importación tienen SHA diferentes. Consulta [la importación y sincronización](docs/GITHUB_IMPORT.md) antes de reconciliar ambas historias.
+
 ## Preparar y ejecutar
 
 Requiere Node 24+, Rust estable MSVC, herramientas C++ y WebView2. Consulta los [prerrequisitos oficiales de Tauri](https://v2.tauri.app/start/prerequisites/). No requiere administrador para el uso normal.
@@ -57,4 +59,4 @@ El 16 de octubre de 2026, tipos, build y las 38 pruebas pasan. Cargo se detiene 
 
 La prueba web permite seleccionar Edge mediante `NIVO_TEST_BROWSER=msedge`, o desactivar el uso de GPU únicamente en el navegador de pruebas mediante `NIVO_TEST_SOFTWARE_RENDERING=1`. Ambos mantienen el sandbox. El informe registra estas condiciones; sus tiempos RAF no acreditan rendimiento nativo.
 
-Se incluye un workflow **manual** en `.github/workflows/windows-validation.yml`: instala las dependencias, ejecuta las comprobaciones y puede conservar un ejecutable de desarrollo y sus evidencias en un runner Windows. Usa acciones oficiales fijadas por SHA y permisos de lectura. No se ha subido ni ejecutado, no crea releases y no sustituye la prueba del ejecutable en un escritorio real. Usar servicios de GitHub requiere autorizarlo por separado.
+Se incluye un workflow **manual** en `.github/workflows/windows-validation.yml`, dentro de `feature/nivo-mvp`: instala las dependencias, ejecuta las comprobaciones y puede conservar un ejecutable de desarrollo y sus evidencias en un runner Windows. Usa acciones oficiales fijadas por SHA y permisos de lectura. No se ha ejecutado, no crea releases y no sustituye la prueba del ejecutable en un escritorio real. Su activación en la rama predeterminada sigue pendiente; la autorización de subida no incluye ejecutar Actions.
