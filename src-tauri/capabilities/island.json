@@ -1,0 +1,6 @@
+{
+  "identifier": "island",
+  "description": "Finite local island/settings/display/exit commands; no general filesystem, shell or remote content.",
+  "windows": ["island"],
+  "permissions": ["allow-ready", "allow-set-expanded", "allow-hide-island", "allow-get-settings", "allow-save-settings", "allow-get-displays", "allow-quit-app", "core:event:allow-listen", "core:event:allow-unlisten"]
+}

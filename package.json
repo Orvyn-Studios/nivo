@@ -1,0 +1,30 @@
+{
+  "name": "nivo",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "description": "Dynamic Island para Windows, por Orvyn",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tauri-apps/cli": "2.12.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.4"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "test": "node --test test/*.test.mjs",
+    "test:ui": "node test/ui.mjs",
+    "typecheck": "tsc --noEmit",
+    "build:web": "npm run typecheck && vite build",
+    "desktop": "tauri dev",
+    "check:native": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "build": "tauri build",
+    "preflight": "node scripts/preflight.mjs",
+    "verify": "node scripts/verify.mjs",
+    "verify:web": "node scripts/verify.mjs --web-only"
+  }
+}

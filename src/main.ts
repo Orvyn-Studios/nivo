@@ -1,0 +1,228 @@
+import {
+  createIslandState, reduceIsland, presentation, remainingMs, shouldReduceMotion,
+  exportTimer, restoreTimer, type IslandEvent, type Preferences,
+} from './domain/index.ts';
+import { bridge, isNative } from './bridge.ts';
+import { IslandMotion } from './motion.ts';
+import { createTransitionController } from './transition.ts';
+import { transitionMetrics } from './metrics.ts';
+
+function element<T extends HTMLElement = HTMLElement>(id: string): T {
+  const value = document.getElementById(id);
+  if (!value) throw new Error(`Missing interface element: ${id}`);
+  return value as T;
+}
+const island = element('island');
+const panel = element('island-panel');
+const toggle = element<HTMLButtonElement>('toggle');
+const systemMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let state = createIslandState();
+let clockTimeout: ReturnType<typeof setTimeout> | undefined;
+let disposed = false;
+let preferenceWrite = Promise.resolve();
+let unlistenVisibility: (() => void) | undefined;
+const motion = new IslandMotion(island, panel);
+toggle.disabled = true;
+document.body.dataset.environment = isNative ? 'native' : 'preview';
+document.title = isNative ? 'Nivo by Orvyn' : 'Nivo by Orvyn · desarrollo';
+
+function report(error: unknown): void {
+  element('bridge-status').textContent = (error instanceof Error ? error.message : String(error)).slice(0, 280);
+}
+const transition = createTransitionController({
+  resize: bridge.resize,
+  cancelAnimation: () => motion.cancel(),
+  setInteractive: (expanded: boolean) => { panel.inert = !expanded; },
+  commit: (expanded: boolean) => {
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.setAttribute('aria-label', expanded ? 'Cerrar Nivo' : 'Abrir Nivo');
+    panel.hidden = !expanded;
+    if (!expanded) island.dataset.expanded = 'false';
+  },
+  animate: async (expanded: boolean) => {
+    if (!expanded && document.hasFocus() && panel.contains(document.activeElement)) toggle.focus({ preventScroll: true });
+    if (expanded) panel.hidden = false;
+    await motion.to(expanded, shouldReduceMotion(state.preferences, systemMotion.matches));
+  },
+  onError: error => {
+    motion.settle();
+    island.dataset.expanded = String(transition.expanded);
+    report(error);
+  },
+});
+
+function formatTime(milliseconds: number): string {
+  const seconds = Math.ceil(milliseconds / 1000);
+  const hours = Math.floor(seconds / 3600);
+  return hours ? `${hours}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+    : `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function render(): void {
+  const now = Date.now();
+  const view = presentation(state, now);
+  const notification = view.kind === 'notification';
+  island.dataset.hovered = String(state.hovered);
+  element('notification').hidden = !notification;
+  element('activity').hidden = notification || (state.base.kind === 'expanded' && state.base.view !== 'activity');
+  element('preferences').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'preferences';
+  for (const name of ['activity', 'preferences']) {
+    element(`${name}-tab`).setAttribute('aria-pressed', String(state.base.kind === 'expanded' && state.base.view === name));
+  }
+  if (notification) {
+    element('notification-source').textContent = view.notification.source;
+    element('notification-title').textContent = view.notification.title;
+    element('notification-body').textContent = view.notification.body ?? '';
+  }
+  const active = state.timer.phase !== 'idle';
+  const remaining = remainingMs(state.timer, now);
+  element('timer-idle').hidden = active;
+  element('timer-active').hidden = !active;
+  element('timer-count').textContent = formatTime(remaining);
+  element('timer-phase').textContent = ({ idle: 'A tu ritmo', running: 'En marcha', paused: 'En pausa', finished: 'Terminado' })[state.timer.phase];
+  element('timer-pause').hidden = state.timer.phase === 'finished';
+  element('timer-pause').textContent = state.timer.phase === 'paused' ? 'Reanudar' : 'Pausar';
+  element<HTMLProgressElement>('timer-progress').value = active && state.timer.phase !== 'idle' ? 1 - remaining / state.timer.durationMs : 0;
+  element('compact-label').textContent = active ? (state.timer.phase === 'finished' ? 'Listo' : formatTime(remaining)) : 'Nivo';
+  toggle.setAttribute('aria-label', `${transition.expanded ? 'Cerrar' : 'Abrir'} Nivo${active ? `, temporizador ${formatTime(remaining)}` : ''}`);
+}
+
+function scheduleClock(): void {
+  clearTimeout(clockTimeout);
+  if (disposed) return;
+  const now = Date.now();
+  const delays: number[] = [];
+  if (state.timer.phase === 'running') delays.push(document.hidden || state.hidden ? Math.max(1, state.timer.deadlineMs - now) : 1000 - now % 1000);
+  if (state.notification) delays.push(Math.max(1, state.notification.expiresAtMs - now));
+  if (delays.length) clockTimeout = setTimeout(() => dispatch({ type: 'advance', now: Date.now() }), Math.min(...delays, 2_147_483_647));
+}
+
+function persistTimer(): void {
+  try {
+    const snapshot = exportTimer(state.timer);
+    if (snapshot) localStorage.setItem('nivo:timer:v1', JSON.stringify(snapshot));
+    else localStorage.removeItem('nivo:timer:v1');
+  } catch { report('No se ha podido guardar el temporizador para la próxima apertura.'); }
+}
+
+function dispatch(event: IslandEvent): void {
+  const previous = state;
+  try { state = reduceIsland(state, event); }
+  catch (error) { report(error); return; }
+  if (!state.hidden && !document.hidden) render();
+  const desired = state.notification !== null || state.base.kind === 'expanded';
+  if (!state.hidden) void transition.set(desired).then(confirmed => {
+    // A failed native operation leaves the presentation in its confirmed state.
+    if (confirmed !== desired && !state.notification && transition.desired === confirmed) {
+      state = reduceIsland(state, confirmed ? { type: 'expand' } : { type: 'collapse' });
+      render();
+    }
+  });
+  if (previous.timer !== state.timer && event.type !== 'advance') persistTimer();
+  if (previous.timer.phase !== state.timer.phase && event.type === 'advance') persistTimer();
+  scheduleClock();
+}
+
+function renderPreferences(): void {
+  element<HTMLInputElement>('reduce-motion').checked = shouldReduceMotion(state.preferences, systemMotion.matches);
+  element<HTMLInputElement>('reduce-motion').disabled = systemMotion.matches;
+  element('motion-hint').textContent = systemMotion.matches ? 'Activado por la accesibilidad de Windows.' : 'Transiciones más discretas.';
+  element<HTMLInputElement>('notifications-enabled').checked = state.preferences.notifications_enabled;
+  element<HTMLInputElement>('privacy-mode').checked = state.preferences.privacy_mode;
+  element<HTMLSelectElement>('horizontal-position').value = String(state.preferences.horizontal_position);
+  element<HTMLInputElement>('top-gap').value = String(state.preferences.top_gap);
+}
+
+function savePreferences(patch: Partial<Preferences>): void {
+  // Serialize saves and derive each patch from the last confirmed native value.
+  preferenceWrite = preferenceWrite.then(async () => {
+    try {
+      const saved = await bridge.save({ ...state.preferences, ...patch });
+      dispatch({ type: 'preferences', value: saved });
+      renderPreferences();
+    } catch (error) { report(error); renderPreferences(); }
+  });
+}
+
+toggle.addEventListener('click', () => {
+  if (state.notification) dispatch({ type: 'dismiss-notification', now: Date.now() });
+  else dispatch(state.base.kind === 'expanded' ? { type: 'collapse' } : { type: 'expand' });
+});
+island.addEventListener('pointerenter', () => dispatch({ type: 'hover', active: true }));
+island.addEventListener('pointerleave', () => dispatch({ type: 'hover', active: false }));
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    if (state.notification) dispatch({ type: 'dismiss-notification', now: Date.now() });
+    else dispatch({ type: 'collapse' });
+  }
+});
+document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(button => button.addEventListener('click', () => dispatch({ type: 'expand', view: button.dataset.view === 'preferences' ? 'preferences' : 'activity' })));
+document.querySelectorAll<HTMLButtonElement>('[data-minutes]').forEach(button => button.addEventListener('click', () => dispatch({ type: 'timer-start', durationMs: Number(button.dataset.minutes) * 60_000, now: Date.now() })));
+element<HTMLFormElement>('timer-form').addEventListener('submit', event => {
+  event.preventDefault();
+  if (element<HTMLInputElement>('minutes').reportValidity()) dispatch({ type: 'timer-start', durationMs: Number(element<HTMLInputElement>('minutes').value) * 60_000, now: Date.now() });
+});
+element('timer-pause').addEventListener('click', () => dispatch({ type: state.timer.phase === 'paused' ? 'timer-resume' : 'timer-pause', now: Date.now() }));
+element('timer-cancel').addEventListener('click', () => dispatch({ type: 'timer-cancel', now: Date.now() }));
+element('notification-dismiss').addEventListener('click', () => dispatch({ type: 'dismiss-notification', now: Date.now() }));
+element<HTMLInputElement>('reduce-motion').addEventListener('change', event => {
+  const reduced = (event.target as HTMLInputElement).checked;
+  if (reduced) motion.settle();
+  savePreferences({ motion: reduced ? 'reduced' : 'system' });
+});
+element<HTMLInputElement>('notifications-enabled').addEventListener('change', event => savePreferences({ notifications_enabled: (event.target as HTMLInputElement).checked }));
+element<HTMLInputElement>('privacy-mode').addEventListener('change', event => savePreferences({ privacy_mode: (event.target as HTMLInputElement).checked }));
+element('save-position').addEventListener('click', () => {
+  if (!element<HTMLInputElement>('top-gap').reportValidity()) return;
+  savePreferences({ monitor_name: element<HTMLSelectElement>('monitor').value || null, horizontal_position: Number(element<HTMLSelectElement>('horizontal-position').value), top_gap: Number(element<HTMLInputElement>('top-gap').value) });
+});
+element('hide-island').hidden = !isNative;
+element('quit-app').hidden = !isNative;
+element('hide-island').addEventListener('click', () => void bridge.hide().catch(report));
+element('quit-app').addEventListener('click', () => void bridge.quit().catch(report));
+systemMotion.addEventListener('change', () => { if (systemMotion.matches) motion.settle(); renderPreferences(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) motion.settle();
+  dispatch({ type: 'advance', now: Date.now() });
+});
+window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
+window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
+window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); persistTimer(); });
+window.addEventListener('beforeunload', () => unlistenVisibility?.());
+
+// Local, bounded diagnostics; contains timings only, no titles or system activity.
+Object.defineProperty(window, '__NIVO_METRICS__', { value: transitionMetrics });
+render();
+void (async () => {
+  try {
+    state = createIslandState(await bridge.settings());
+    try { state = { ...state, timer: restoreTimer(JSON.parse(localStorage.getItem('nivo:timer:v1') ?? 'null'), Date.now()) }; }
+    catch { report('No se ha podido restaurar el temporizador guardado.'); }
+    renderPreferences(); render(); scheduleClock();
+  } catch (error) { report(error); }
+  try {
+    unlistenVisibility = await bridge.onVisibility(visible => {
+      if (!visible) motion.settle();
+      dispatch({ type: 'visibility', hidden: !visible });
+      if (visible) dispatch({ type: 'advance', now: Date.now() });
+    });
+  } catch (error) { report(error); }
+  toggle.disabled = false;
+  try { await bridge.ready(); } catch (error) { report(error); }
+  if (isNative) {
+    try {
+      const displays = await bridge.displays();
+      const select = element<HTMLSelectElement>('monitor');
+      for (const display of displays) {
+        if (!display.name) continue;
+        const option = document.createElement('option');
+        option.value = display.name;
+        option.textContent = `${display.name}${display.primary ? ' · Principal' : ''} · ${display.width} × ${display.height}`;
+        select.append(option);
+      }
+      select.value = state.preferences.monitor_name ?? '';
+      select.disabled = false;
+      element<HTMLButtonElement>('save-position').disabled = false;
+    } catch (error) { report(error); }
+  }
+})();

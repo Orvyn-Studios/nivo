@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Nivo by Orvyn</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script type="module" src="/src/main.ts">
+    </script>
+  </head>
+  <body data-environment="preview">
+    <header class="preview-only preview-heading">
+      <span>Orvyn <b>/ Nivo</b>
+      </span>
+      <span>Desarrollo · 0.1</span>
+    </header>
+    <main id="island" data-expanded="false" aria-label="Nivo">
+      <div class="island-surface">
+      </div>
+      <button id="toggle" aria-expanded="false" aria-controls="island-panel" aria-label="Abrir Nivo">
+        <svg class="nivo-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 15V9a3 3 0 0 1 6 0v6a3 3 0 0 0 6 0V9"/>
+          <circle cx="19" cy="5" r="1"/>
+        </svg>
+        <span id="compact-label">Nivo</span>
+        <span class="expanded-brand">by Orvyn</span>
+        <svg class="chevron" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="m6 8 4 4 4-4"/>
+        </svg>
+      </button>
+      <section id="island-panel" hidden inert aria-label="Panel de Nivo">
+        <nav aria-label="Vistas">
+          <button id="activity-tab" data-view="activity" aria-pressed="true">Actividad</button>
+          <button id="preferences-tab" data-view="preferences" aria-pressed="false">Preferencias</button>
+        </nav>
+        <div class="panel-scroll">
+          <section id="activity" aria-label="Actividad">
+            <div class="media-empty">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 18V5l11-2v13M9 8l11-2"/>
+                <ellipse cx="6" cy="18" rx="3" ry="2"/>
+                <ellipse cx="17" cy="16" rx="3" ry="2"/>
+              </svg>
+              <div>
+                <h1>Tu música, aquí.</h1>
+                <p>La integración multimedia aún no está disponible.</p>
+              </div>
+            </div>
+            <section class="timer-widget" aria-labelledby="timer-title">
+              <div class="section-heading">
+                <h2 id="timer-title">Temporizador</h2>
+                <span id="timer-phase">A tu ritmo</span>
+              </div>
+              <div id="timer-idle">
+                <div class="presets" aria-label="Duraciones">
+                  <button data-minutes="1">1 min</button>
+                  <button data-minutes="5">5 min</button>
+                  <button data-minutes="15">15 min</button>
+                </div>
+                <form id="timer-form">
+                  <label for="minutes">Minutos</label>
+                  <input id="minutes" type="number" value="5" min="1" max="1440" required />
+                  <button type="submit">Iniciar</button>
+                </form>
+              </div>
+              <div id="timer-active" hidden>
+                <div class="timer-row">
+                  <output id="timer-count" role="timer" aria-live="off">00:00</output>
+                  <div class="timer-actions">
+                    <button id="timer-pause">Pausar</button>
+                    <button id="timer-cancel" class="quiet">Cancelar</button>
+                  </div>
+                </div>
+                <progress id="timer-progress" max="1" value="0" aria-label="Tiempo transcurrido">
+                </progress>
+              </div>
+            </section>
+            <p class="local-note">Solo en tu equipo. Sin cuentas ni telemetría.</p>
+          </section>
+          <section id="preferences" aria-label="Preferencias" hidden>
+            <label class="setting">
+              <span>
+                <strong>Reducir movimiento</strong>
+                <small id="motion-hint">Transiciones más discretas.</small>
+              </span>
+              <input id="reduce-motion" type="checkbox" />
+            </label>
+            <label class="setting">
+              <span>
+                <strong>Avisos de Nivo</strong>
+                <small>Incluye el final de tus temporizadores.</small>
+              </span>
+              <input id="notifications-enabled" type="checkbox" checked />
+            </label>
+            <label class="setting">
+              <span>
+                <strong>Contenido privado</strong>
+                <small>Oculta el contenido marcado como sensible.</small>
+              </span>
+              <input id="privacy-mode" type="checkbox" checked />
+            </label>
+            <div class="setting-group">
+              <label for="monitor">Pantalla</label>
+              <select id="monitor" disabled>
+                <option value="">Pantalla principal</option>
+              </select>
+              <label for="horizontal-position">Posición</label>
+              <select id="horizontal-position">
+                <option value="0">Izquierda</option>
+                <option value="0.5" selected>Centro</option>
+                <option value="1">Derecha</option>
+              </select>
+              <label for="top-gap">Separación superior</label>
+              <div class="gap-input">
+                <input id="top-gap" type="number" min="0" max="128" value="8" />
+                <span>px lógicos</span>
+              </div>
+              <button id="save-position" disabled>Guardar posición</button>
+            </div>
+            <p id="position-hint" class="setting-note">La posición se aplica en la aplicación de Windows.</p>
+            <button id="hide-island" class="quiet" hidden>Ocultar Nivo</button>
+            <button id="quit-app" class="quiet" hidden>Salir de Nivo</button>
+            <p class="setting-note">Puedes recuperarlo y salir desde la bandeja del sistema.</p>
+            <p class="setting-note">Música, notificaciones de otras aplicaciones y ocultación en juegos: pendientes de validación nativa. Siempre visible desactivado en esta versión.</p>
+          </section>
+          <section id="notification" hidden aria-live="polite">
+            <div class="section-heading">
+              <span id="notification-source">Nivo</span>
+              <button id="notification-dismiss" aria-label="Cerrar aviso">Cerrar</button>
+            </div>
+            <h2 id="notification-title">
+            </h2>
+            <p id="notification-body">
+            </p>
+          </section>
+        </div>
+        <p id="bridge-status" role="status">
+        </p>
+      </section>
+    </main>
+    <footer class="preview-only">Vista de desarrollo · La ventana nativa se comprueba por separado.</footer>
+  </body>
+</html>
