@@ -100,7 +100,8 @@ try {
   await stable(true);
   await dimensions(388, 320);
   assert.equal(await page.locator('#activity').isVisible(), true);
-  assert.match(await page.locator('#activity').textContent(), /La integración multimedia aún no está disponible/);
+  assert.match(await page.locator('#media-empty-description').textContent(), /El reproductor se conecta al abrir la aplicación Nivo/);
+  assert.equal(await page.locator('#media-player').isVisible(), false, 'preview has no live Windows session');
   await capture('island-expanded.png');
   await page.getByRole('button', { name: 'Preferencias', exact: true }).click();
   await page.keyboard.press('Escape');

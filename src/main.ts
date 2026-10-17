@@ -6,6 +6,9 @@ import { bridge, isNative } from './bridge.ts';
 import { IslandMotion } from './motion.ts';
 import { createTransitionController } from './transition.ts';
 import { transitionMetrics } from './metrics.ts';
+import { activeMedia, MediaInbox, type MediaSnapshot } from './media-state.ts';
+import { createMediaView } from './components/media.ts';
+import { createWindowsPreferences } from './components/windows-preferences.ts';
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -21,14 +24,32 @@ let clockTimeout: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
 let preferenceWrite = Promise.resolve();
 let unlistenVisibility: (() => void) | undefined;
+let unlistenMedia: (() => void) | undefined;
+let unlistenView: (() => void) | undefined;
+let observedTransition: Promise<boolean> | undefined;
+let mediaDirty = false;
+const mediaInbox = new MediaInbox();
+let mediaRequestSerial = 0;
+let requestedMedia: boolean | undefined;
 const motion = new IslandMotion(island, panel);
 toggle.disabled = true;
 document.body.dataset.environment = isNative ? 'native' : 'preview';
 document.title = isNative ? 'Nivo by Orvyn' : 'Nivo by Orvyn · desarrollo';
+const mediaView = createMediaView({ control: bridge.controlMedia, select: bridge.selectMedia });
+
+function receiveMedia(snapshot: MediaSnapshot, reconcile = false): void {
+  mediaInbox.setEnabled(state.preferences.media_enabled && requestedMedia !== false);
+  if (!mediaInbox.receive(snapshot, reconcile)) return;
+  mediaDirty = true;
+  // Revoke private contents immediately, but defer ordinary visual updates while hidden.
+  if (!mediaInbox.enabled) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
+  if (mediaInbox.enabled) dispatch({ type: 'media', sequence: snapshot.sequence, session: activeMedia(snapshot) });
+}
 
 function report(error: unknown): void {
   element('bridge-status').textContent = (error instanceof Error ? error.message : String(error)).slice(0, 280);
 }
+const windowsPreferences = createWindowsPreferences({ preferences: () => state.preferences, save: savePreferences, report });
 const transition = createTransitionController({
   resize: bridge.resize,
   cancelAnimation: () => motion.cancel(),
@@ -59,6 +80,7 @@ function formatTime(milliseconds: number): string {
 }
 
 function render(): void {
+  if (mediaDirty) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
   const now = Date.now();
   const view = presentation(state, now);
   const notification = view.kind === 'notification';
@@ -83,8 +105,10 @@ function render(): void {
   element('timer-pause').hidden = state.timer.phase === 'finished';
   element('timer-pause').textContent = state.timer.phase === 'paused' ? 'Reanudar' : 'Pausar';
   element<HTMLProgressElement>('timer-progress').value = active && state.timer.phase !== 'idle' ? 1 - remaining / state.timer.durationMs : 0;
-  element('compact-label').textContent = active ? (state.timer.phase === 'finished' ? 'Listo' : formatTime(remaining)) : 'Nivo';
-  toggle.setAttribute('aria-label', `${transition.expanded ? 'Cerrar' : 'Abrir'} Nivo${active ? `, temporizador ${formatTime(remaining)}` : ''}`);
+  const currentMedia = activeMedia(mediaInbox.snapshot);
+  element('compact-label').textContent = active ? (state.timer.phase === 'finished' ? 'Listo' : formatTime(remaining))
+    : currentMedia ? (currentMedia.playback === 'playing' ? 'Música' : 'En pausa') : 'Nivo';
+  toggle.setAttribute('aria-label', `${transition.expanded ? 'Cerrar' : 'Abrir'} Nivo${active ? `, temporizador ${formatTime(remaining)}` : currentMedia ? `, ${currentMedia.title || 'reproductor multimedia'}` : ''}`);
 }
 
 function scheduleClock(): void {
@@ -111,36 +135,62 @@ function dispatch(event: IslandEvent): void {
   catch (error) { report(error); return; }
   if (!state.hidden && !document.hidden) render();
   const desired = state.notification !== null || state.base.kind === 'expanded';
-  if (!state.hidden) void transition.set(desired).then(confirmed => {
-    // A failed native operation leaves the presentation in its confirmed state.
-    if (confirmed !== desired && !state.notification && transition.desired === confirmed) {
-      state = reduceIsland(state, confirmed ? { type: 'expand' } : { type: 'collapse' });
-      render();
+  if (!state.hidden) {
+    const operation = transition.set(desired);
+    // Repeated timer/media updates share one observer during a slow native resize.
+    if (operation !== observedTransition) {
+      observedTransition = operation;
+      void operation.then(confirmed => {
+        if (observedTransition !== operation) return;
+        observedTransition = undefined;
+        const currentDesired = state.notification !== null || state.base.kind === 'expanded';
+        if (confirmed !== currentDesired && !state.notification && transition.desired === confirmed) {
+          state = reduceIsland(state, confirmed ? { type: 'expand' } : { type: 'collapse' });
+          if (!state.hidden && !document.hidden) render();
+        }
+      });
     }
-  });
+  }
   if (previous.timer !== state.timer && event.type !== 'advance') persistTimer();
   if (previous.timer.phase !== state.timer.phase && event.type === 'advance') persistTimer();
   scheduleClock();
 }
 
 function renderPreferences(): void {
+  windowsPreferences.render();
   element<HTMLInputElement>('reduce-motion').checked = shouldReduceMotion(state.preferences, systemMotion.matches);
   element<HTMLInputElement>('reduce-motion').disabled = systemMotion.matches;
   element('motion-hint').textContent = systemMotion.matches ? 'Activado por la accesibilidad de Windows.' : 'Transiciones más discretas.';
   element<HTMLInputElement>('notifications-enabled').checked = state.preferences.notifications_enabled;
   element<HTMLInputElement>('privacy-mode').checked = state.preferences.privacy_mode;
+  element<HTMLInputElement>('media-enabled').checked = state.preferences.media_enabled;
   element<HTMLSelectElement>('horizontal-position').value = String(state.preferences.horizontal_position);
   element<HTMLInputElement>('top-gap').value = String(state.preferences.top_gap);
 }
 
 function savePreferences(patch: Partial<Preferences>): void {
+  const mediaRequest = patch.media_enabled === undefined ? 0 : ++mediaRequestSerial;
+  if (patch.media_enabled !== undefined) requestedMedia = patch.media_enabled;
   // Serialize saves and derive each patch from the last confirmed native value.
   preferenceWrite = preferenceWrite.then(async () => {
     try {
       const saved = await bridge.save({ ...state.preferences, ...patch });
       dispatch({ type: 'preferences', value: saved });
       renderPreferences();
-    } catch (error) { report(error); renderPreferences(); }
+    } catch (error) {
+      // A preference can be persisted even if a dependent Windows provider fails.
+      // Re-read the authoritative value instead of inventing a successful rollback.
+      try { dispatch({ type: 'preferences', value: await bridge.settings() }); }
+      catch { /* Keep the last confirmed settings; report the original operation. */ }
+      report(error); renderPreferences();
+    } finally {
+      if (mediaRequest && mediaRequest === mediaRequestSerial) {
+        requestedMedia = undefined;
+        mediaInbox.setEnabled(state.preferences.media_enabled);
+        try { receiveMedia(await bridge.media(), true); }
+        catch (error) { report(error); }
+      }
+    }
   });
 }
 
@@ -172,6 +222,14 @@ element<HTMLInputElement>('reduce-motion').addEventListener('change', event => {
 });
 element<HTMLInputElement>('notifications-enabled').addEventListener('change', event => savePreferences({ notifications_enabled: (event.target as HTMLInputElement).checked }));
 element<HTMLInputElement>('privacy-mode').addEventListener('change', event => savePreferences({ privacy_mode: (event.target as HTMLInputElement).checked }));
+element<HTMLInputElement>('media-enabled').addEventListener('change', event => {
+  const enabled = (event.target as HTMLInputElement).checked;
+  if (!enabled) {
+    mediaView.render(mediaInbox.setEnabled(false));
+    dispatch({ type: 'preferences', value: { ...state.preferences, media_enabled: false } });
+  }
+  savePreferences({ media_enabled: enabled });
+});
 element('save-position').addEventListener('click', () => {
   if (!element<HTMLInputElement>('top-gap').reportValidity()) return;
   savePreferences({ monitor_name: element<HTMLSelectElement>('monitor').value || null, horizontal_position: Number(element<HTMLSelectElement>('horizontal-position').value), top_gap: Number(element<HTMLInputElement>('top-gap').value) });
@@ -188,7 +246,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
 window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); persistTimer(); });
-window.addEventListener('beforeunload', () => unlistenVisibility?.());
+window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); mediaView.dispose(); windowsPreferences.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
 Object.defineProperty(window, '__NIVO_METRICS__', { value: transitionMetrics });
@@ -201,28 +259,20 @@ void (async () => {
     renderPreferences(); render(); scheduleClock();
   } catch (error) { report(error); }
   try {
+    // Subscribe first: the initial snapshot cannot overwrite a newer event.
+    unlistenMedia = await bridge.onMedia(receiveMedia);
+    receiveMedia(await bridge.media());
+  } catch (error) { report(error); }
+  try { unlistenView = await bridge.onView(() => dispatch({ type: 'expand', view: 'preferences' })); }
+  catch (error) { report(error); }
+  try {
     unlistenVisibility = await bridge.onVisibility(visible => {
       if (!visible) motion.settle();
       dispatch({ type: 'visibility', hidden: !visible });
       if (visible) dispatch({ type: 'advance', now: Date.now() });
     });
   } catch (error) { report(error); }
+  await windowsPreferences.start();
   toggle.disabled = false;
   try { await bridge.ready(); } catch (error) { report(error); }
-  if (isNative) {
-    try {
-      const displays = await bridge.displays();
-      const select = element<HTMLSelectElement>('monitor');
-      for (const display of displays) {
-        if (!display.name) continue;
-        const option = document.createElement('option');
-        option.value = display.name;
-        option.textContent = `${display.name}${display.primary ? ' · Principal' : ''} · ${display.width} × ${display.height}`;
-        select.append(option);
-      }
-      select.value = state.preferences.monitor_name ?? '';
-      select.disabled = false;
-      element<HTMLButtonElement>('save-position').disabled = false;
-    } catch (error) { report(error); }
-  }
 })();

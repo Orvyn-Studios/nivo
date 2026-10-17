@@ -214,7 +214,7 @@ p {
   display:flex;
   align-items:center;
   gap:13px;
-  padding:0 0 15px
+  padding:1px 0 15px
 }
 .media-empty>svg {
   width:32px;
@@ -225,6 +225,175 @@ p {
 }
 .media-empty p {
   margin-top:3px
+}
+.media-widget {
+  padding-bottom:14px
+}
+.media-widget .media-empty {
+  padding-bottom:0
+}
+.media-empty-mark {
+  stroke-width:1.8;
+  color:var(--accent)!important
+}
+.media-empty-mark circle,.media-artwork circle,.compact-media circle {
+  fill:currentColor;
+  stroke:none
+}
+.media-track {
+  display:grid;
+  grid-template-columns:52px minmax(0,1fr);
+  align-items:center;
+  gap:13px
+}
+.media-artwork {
+  display:grid;
+  place-items:center;
+  width:52px;
+  height:52px;
+  border-radius:11px;
+  overflow:hidden;
+  background:var(--surface);
+  color:var(--accent)
+}
+.media-artwork img {
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover
+}
+.media-artwork svg {
+  width:27px;
+  height:27px;
+  stroke-width:1.8
+}
+.media-copy {
+  min-width:0
+}
+.media-copy h1,.media-copy p {
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.media-copy h1 {
+  letter-spacing:-.1px
+}
+.media-copy p {
+  margin-top:2px
+}
+#media-playback {
+  display:block;
+  margin-top:4px;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.3
+}
+.media-controls {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  margin-top:10px
+}
+.media-control {
+  display:grid;
+  place-items:center;
+  width:36px;
+  min-height:36px;
+  padding:8px;
+  border-radius:50%;
+  background:transparent;
+  color:var(--text)
+}
+.media-control svg {
+  display:block;
+  width:19px;
+  height:19px;
+  stroke-width:1.7
+}
+.media-control-primary {
+  width:40px;
+  min-height:40px;
+  background:var(--accent);
+  color:#142234
+}
+.media-control-primary:hover:not(:disabled) {
+  background:#d1e3ff
+}
+.media-control:active:not(:disabled) {
+  opacity:.8
+}
+.media-control:disabled {
+  opacity:.35
+}
+.media-timeline progress {
+  margin-top:9px
+}
+.media-times {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:5px;
+  color:var(--muted);
+  font-size:11px;
+  font-variant-numeric:tabular-nums
+}
+.media-session-switch {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:10px
+}
+.media-session-switch label {
+  flex:none;
+  color:var(--muted);
+  font-size:12px
+}
+.media-session-switch select {
+  width:100%;
+  min-width:0;
+  font-size:12px;
+  text-overflow:ellipsis
+}
+.media-error {
+  margin-top:10px;
+  overflow-wrap:anywhere
+}
+.compact-media {
+  position:relative;
+  display:grid;
+  place-items:center;
+  width:19px;
+  height:19px;
+  flex:none;
+  color:var(--accent)
+}
+.compact-media img {
+  width:19px;
+  height:19px;
+  border-radius:5px;
+  object-fit:cover
+}
+.compact-media svg {
+  width:19px;
+  height:19px
+}
+#island[data-playback=playing] .compact-media::after {
+  content:'';
+  position:absolute;
+  right:-1px;
+  bottom:-1px;
+  width:5px;
+  height:5px;
+  border:1px solid var(--bg);
+  border-radius:50%;
+  background:var(--accent)
+}
+#island[data-media=true][data-expanded=false] #toggle>.nivo-mark {
+  display:none
+}
+#island[data-expanded=true] .compact-media {
+  display:none
 }
 .timer-widget {
   padding-top:13px;
@@ -357,10 +526,32 @@ progress::-webkit-progress-value {
   margin-top:3px
 }
 .setting input {
-  width:16px;
-  height:16px;
+  appearance:none;
+  width:34px;
+  height:20px;
   flex:none;
-  accent-color:var(--accent)
+  margin:0;
+  border:1px solid rgb(255 255 255 / 16%);
+  border-radius:10px;
+  background:#20252e;
+  cursor:pointer
+}
+.setting input::before {
+  content:'';
+  display:block;
+  width:12px;
+  height:12px;
+  margin:3px;
+  border-radius:50%;
+  background:#a4abb7
+}
+.setting input:checked { background:var(--accent); border-color:transparent }
+.setting input:checked::before { transform:translateX(14px); background:#0c0e12 }
+.setting input:indeterminate::before { width:18px; height:2px; margin:8px 7px; border-radius:1px }
+.setting input:disabled { opacity:.45; cursor:not-allowed }
+@media (forced-colors:active) {
+  .setting input { appearance:auto }
+  .setting input::before { display:none }
 }
 .setting-group {
   display:grid;

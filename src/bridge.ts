@@ -1,9 +1,11 @@
 import { parsePreferences, type Preferences } from './domain/index.ts';
+import { parseMediaSnapshot, type MediaAction, type MediaSnapshot } from './media-state.ts';
+import { parseDisplays, type Display } from './display-state.ts';
+export type { Display } from './display-state.ts';
 
 type Core = { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> };
 type EventApi = { listen<T>(name: string, handler: (event: { payload: T }) => void, options?: { target: string }): Promise<() => void> };
 declare global { interface Window { __TAURI__?: { core: Core; event: EventApi } } }
-export interface Display { name: string | null; x: number; y: number; width: number; height: number; work_x: number; work_y: number; work_width: number; work_height: number; scale_factor: number; primary: boolean }
 const core = window.__TAURI__?.core;
 export const isNative = Boolean(core);
 export const bridge = {
@@ -11,12 +13,47 @@ export const bridge = {
   resize: (expanded: boolean) => core?.invoke<void>('set_expanded', { expanded }) ?? Promise.resolve(),
   hide: () => core?.invoke<void>('hide_island') ?? Promise.resolve(),
   quit: () => core?.invoke<void>('quit_app') ?? Promise.resolve(),
+  autostart: () => core ? core.invoke<boolean>('get_autostart') : Promise.resolve(false),
+  setAutostart: (enabled: boolean) => core ? core.invoke<boolean>('set_autostart', { enabled })
+    : Promise.reject(new Error('El inicio automático requiere la aplicación Windows.')),
+  onDisplays: (handler: (displays: Display[]) => void): Promise<() => void> => {
+    if (!core) return Promise.resolve(() => {});
+    return window.__TAURI__!.event.listen<unknown>('nivo://displays', event => {
+      const displays = parseDisplays(event.payload);
+      if (displays) handler(displays);
+    }, { target: 'island' });
+  },
   onVisibility: (handler: (visible: boolean) => void): Promise<() => void> => {
     if (!core) return Promise.resolve(() => {});
     return window.__TAURI__!.event.listen<{ visible: boolean }>('nivo://visibility', event => {
       if (typeof event.payload?.visible === 'boolean') handler(event.payload.visible);
     }, { target: 'island' });
   },
+  onMedia: (handler: (snapshot: MediaSnapshot) => void): Promise<() => void> => {
+    if (!core) return Promise.resolve(() => {});
+    return window.__TAURI__!.event.listen<unknown>('nivo://media', event => {
+      const snapshot = parseMediaSnapshot(event.payload);
+      if (snapshot) handler(snapshot);
+    }, { target: 'island' });
+  },
+  onView: (handler: () => void): Promise<() => void> => {
+    if (!core) return Promise.resolve(() => {});
+    return window.__TAURI__!.event.listen<{ view: unknown }>('nivo://view', event => {
+      if (event.payload?.view === 'preferences') handler();
+    }, { target: 'island' });
+  },
+  async media(): Promise<MediaSnapshot> {
+    if (!core) return { sequence: 0, status: 'unavailable', sessions: [], activeSessionId: null, error: 'Abre la aplicación Windows para conectar un reproductor real.' };
+    const snapshot = parseMediaSnapshot(await core.invoke('get_media_snapshot'));
+    if (!snapshot) throw new Error('Windows devolvió un estado multimedia no válido.');
+    return snapshot;
+  },
+  controlMedia: (sessionId: string, action: MediaAction) => core
+    ? core.invoke<void>('media_control', { sessionId, action })
+    : Promise.reject(new Error('El control multimedia requiere la aplicación Windows.')),
+  selectMedia: (sessionId: string) => core
+    ? core.invoke<void>('select_media_session', { sessionId })
+    : Promise.reject(new Error('La selección multimedia requiere la aplicación Windows.')),
   async settings(): Promise<Preferences> {
     if (core) return parsePreferences(await core.invoke('get_settings'));
     try { return parsePreferences(JSON.parse(localStorage.getItem('nivo:preferences:v1') ?? 'null')); }
@@ -27,5 +64,9 @@ export const bridge = {
     localStorage.setItem('nivo:preferences:v1', JSON.stringify(settings));
     return settings;
   },
-  displays: () => core?.invoke<Display[]>('get_displays') ?? Promise.resolve([]),
+  async displays(): Promise<Display[]> {
+    const displays = parseDisplays(core ? await core.invoke('get_displays') : []);
+    if (!displays) throw new Error('Windows devolvió una lista de pantallas no válida.');
+    return displays;
+  },
 };
