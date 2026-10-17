@@ -9,6 +9,8 @@ import { transitionMetrics } from './metrics.ts';
 import { activeMedia, MediaInbox, type MediaSnapshot } from './media-state.ts';
 import { createMediaView } from './components/media.ts';
 import { createWindowsPreferences } from './components/windows-preferences.ts';
+import { createCompanion } from './components/companion.ts';
+import { companionPose } from './companion-state.ts';
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -31,11 +33,23 @@ let mediaDirty = false;
 const mediaInbox = new MediaInbox();
 let mediaRequestSerial = 0;
 let requestedMedia: boolean | undefined;
-const motion = new IslandMotion(island, panel);
+const motion = new IslandMotion(island, panel, element('toggle-identity'));
 toggle.disabled = true;
 document.body.dataset.environment = isNative ? 'native' : 'preview';
 document.title = isNative ? 'Nivo by Orvyn' : 'Nivo by Orvyn · desarrollo';
 const mediaView = createMediaView({ control: bridge.controlMedia, select: bridge.selectMedia });
+const companion = createCompanion(element('nivo-companion'), toggle);
+const welcomeCompanion = createCompanion(element('companion-welcome'), element('media-empty'));
+
+function syncCompanion(): void {
+  const value = {
+    enabled: state.preferences.mascot_enabled,
+    visible: !state.hidden && !document.hidden,
+    reduced: shouldReduceMotion(state.preferences, systemMotion.matches),
+    pose: companionPose(state.timer.phase, activeMedia(mediaInbox.snapshot)?.playback),
+  };
+  companion.update(value); welcomeCompanion.update(value);
+}
 
 function receiveMedia(snapshot: MediaSnapshot, reconcile = false): void {
   mediaInbox.setEnabled(state.preferences.media_enabled && requestedMedia !== false);
@@ -80,11 +94,18 @@ function formatTime(milliseconds: number): string {
 }
 
 function render(): void {
+  syncCompanion();
   if (mediaDirty) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
   const now = Date.now();
   const view = presentation(state, now);
   const notification = view.kind === 'notification';
   island.dataset.hovered = String(state.hovered);
+  island.dataset.companion = String(state.preferences.mascot_enabled);
+  island.dataset.companionState = state.timer.phase === 'finished' ? 'complete'
+    : state.timer.phase === 'running' ? 'focus' : 'quiet';
+  element('nivo-companion').hidden = !state.preferences.mascot_enabled;
+  element('companion-welcome').hidden = !state.preferences.mascot_enabled;
+  document.querySelector('.media-empty-mark')?.toggleAttribute('hidden', state.preferences.mascot_enabled);
   element('notification').hidden = !notification;
   element('activity').hidden = notification || (state.base.kind === 'expanded' && state.base.view !== 'activity');
   element('preferences').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'preferences';
@@ -133,6 +154,7 @@ function dispatch(event: IslandEvent): void {
   const previous = state;
   try { state = reduceIsland(state, event); }
   catch (error) { report(error); return; }
+  if (state.hidden || document.hidden) syncCompanion();
   if (!state.hidden && !document.hidden) render();
   const desired = state.notification !== null || state.base.kind === 'expanded';
   if (!state.hidden) {
@@ -164,6 +186,7 @@ function renderPreferences(): void {
   element<HTMLInputElement>('notifications-enabled').checked = state.preferences.notifications_enabled;
   element<HTMLInputElement>('privacy-mode').checked = state.preferences.privacy_mode;
   element<HTMLInputElement>('media-enabled').checked = state.preferences.media_enabled;
+  element<HTMLInputElement>('mascot-enabled').checked = state.preferences.mascot_enabled;
   element<HTMLSelectElement>('horizontal-position').value = String(state.preferences.horizontal_position);
   element<HTMLInputElement>('top-gap').value = String(state.preferences.top_gap);
 }
@@ -222,6 +245,7 @@ element<HTMLInputElement>('reduce-motion').addEventListener('change', event => {
 });
 element<HTMLInputElement>('notifications-enabled').addEventListener('change', event => savePreferences({ notifications_enabled: (event.target as HTMLInputElement).checked }));
 element<HTMLInputElement>('privacy-mode').addEventListener('change', event => savePreferences({ privacy_mode: (event.target as HTMLInputElement).checked }));
+element<HTMLInputElement>('mascot-enabled').addEventListener('change', event => savePreferences({ mascot_enabled: (event.target as HTMLInputElement).checked }));
 element<HTMLInputElement>('media-enabled').addEventListener('change', event => {
   const enabled = (event.target as HTMLInputElement).checked;
   if (!enabled) {
@@ -238,7 +262,7 @@ element('hide-island').hidden = !isNative;
 element('quit-app').hidden = !isNative;
 element('hide-island').addEventListener('click', () => void bridge.hide().catch(report));
 element('quit-app').addEventListener('click', () => void bridge.quit().catch(report));
-systemMotion.addEventListener('change', () => { if (systemMotion.matches) motion.settle(); renderPreferences(); });
+systemMotion.addEventListener('change', () => { if (systemMotion.matches) motion.settle(); renderPreferences(); syncCompanion(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) motion.settle();
   dispatch({ type: 'advance', now: Date.now() });
@@ -246,7 +270,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
 window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); persistTimer(); });
-window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); mediaView.dispose(); windowsPreferences.dispose(); });
+window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
 Object.defineProperty(window, '__NIVO_METRICS__', { value: transitionMetrics });

@@ -16,7 +16,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   schema_version: 1,
   theme: 'system',
   motion: 'system',
-  mascot_enabled: false,
+  mascot_enabled: true,
   privacy_mode: true,
   media_enabled: true,
   notifications_enabled: true,

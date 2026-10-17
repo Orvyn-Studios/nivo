@@ -19,6 +19,7 @@
       <div class="island-surface">
       </div>
       <button id="toggle" aria-expanded="false" aria-controls="island-panel" aria-label="Abrir Nivo">
+        <span id="toggle-identity" class="toggle-identity">
         <svg class="nivo-mark" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 15V9a3 3 0 0 1 6 0v6a3 3 0 0 0 6 0V9"/>
           <circle cx="19" cy="5" r="1"/>
@@ -30,7 +31,14 @@
             <circle cx="19" cy="5" r="1"/>
           </svg>
         </span>
+        <svg id="nivo-companion" class="nivo-companion" viewBox="0 0 32 28" aria-hidden="true" hidden>
+          <path class="companion-body" d="M8 23C3 23 2 19 3 15L5 8C6 4 9 3 12 5L16 8L20 5C23 3 26 4 27 8L29 15C30 19 29 23 24 23L20 22C17 24 15 24 12 22Z"/>
+          <g class="companion-eyes"><path d="M11 13v3M21 13v3"/></g>
+          <path class="companion-smile" d="M12 18q4 4 8 0"/>
+          <path class="companion-rest" d="M14 19h4"/>
+        </svg>
         <span id="compact-label">Nivo</span>
+        </span>
         <span class="expanded-brand">by Orvyn</span>
         <svg class="chevron" viewBox="0 0 20 20" aria-hidden="true">
           <path d="m6 8 4 4 4-4"/>
@@ -45,6 +53,12 @@
           <section id="activity" aria-label="Actividad">
             <section id="media-widget" class="media-widget" aria-label="Reproductor de Windows" aria-busy="false">
               <div id="media-empty" class="media-empty">
+                <svg id="companion-welcome" class="nivo-companion companion-welcome" viewBox="0 0 32 28" aria-hidden="true" hidden>
+                  <path class="companion-body" d="M8 23C3 23 2 19 3 15L5 8C6 4 9 3 12 5L16 8L20 5C23 3 26 4 27 8L29 15C30 19 29 23 24 23L20 22C17 24 15 24 12 22Z"/>
+                  <g class="companion-eyes"><path d="M11 13v3M21 13v3"/></g>
+                  <path class="companion-smile" d="M12 18q4 4 8 0"/>
+                  <path class="companion-rest" d="M14 19h4"/>
+                </svg>
                 <svg class="media-empty-mark" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M5 15V9a3 3 0 0 1 6 0v6a3 3 0 0 0 6 0V9"/>
                   <circle cx="19" cy="5" r="1"/>
@@ -145,6 +159,10 @@
                 <small id="motion-hint">Transiciones más discretas.</small>
               </span>
               <input id="reduce-motion" type="checkbox" />
+            </label>
+            <label class="setting">
+              <span><strong>Compañero de Nivo</strong><small>Una presencia discreta, sin movimiento continuo.</small></span>
+              <input id="mascot-enabled" type="checkbox" />
             </label>
             <label class="setting">
               <span>

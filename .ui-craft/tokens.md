@@ -16,6 +16,6 @@
 | Visible top gap | default 8 DIP |
 | Main inset | 20 DIP; 16 on narrow viewports |
 | Controls | at least 32 DIP high; focus outline 2 DIP |
-| Motion | expansion 340 ms; collapse 260 ms; content exit 160 ms |
+| Motion | expansion 280 ms; collapse 200 ms; content exit 120 ms |
 
 Durations are current tuning values, not measured frame-rate guarantees. Motion preferences suppress transitions; no decorative animation runs in idle. The native clipping region removes the exterior CSS shadow: a final shadow treatment requires Windows visual testing.

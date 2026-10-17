@@ -91,6 +91,7 @@ try {
   await page.waitForFunction(() => !document.getElementById('toggle').disabled);
   assert.equal(await page.locator('body').getAttribute('data-environment'), 'preview');
   assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(await page.locator('#nivo-companion').isVisible(), true);
   await dimensions(112, 34);
   await capture('island-compact.png');
   report.checks.push('Current Vite/TypeScript frontend, quiet 112x34 capsule.');
@@ -151,6 +152,12 @@ try {
   await stable(true);
   await page.getByRole('button', { name: 'Preferencias', exact: true }).click();
   assert.equal(await page.locator('#reduce-motion').isChecked(), true);
+  await page.locator('#mascot-enabled').uncheck();
+  await page.waitForFunction(() => !JSON.parse(localStorage.getItem('nivo:preferences:v1')).mascot_enabled);
+  assert.equal(await page.locator('#nivo-companion').isVisible(), false);
+  await page.locator('#mascot-enabled').check();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('nivo:preferences:v1')).mascot_enabled);
+  assert.equal(await page.locator('#nivo-companion').isVisible(), true);
   await capture('island-preferences.png');
   await page.locator('#reduce-motion').uncheck();
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('nivo:preferences:v1')).motion === 'system');

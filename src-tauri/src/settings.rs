@@ -53,7 +53,7 @@ impl Default for Settings {
             schema_version: SCHEMA_VERSION,
             theme: Theme::System,
             motion: Motion::System,
-            mascot_enabled: false,
+            mascot_enabled: true,
             privacy_mode: true,
             media_enabled: true,
             notifications_enabled: true,
