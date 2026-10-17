@@ -4,6 +4,18 @@
 
 Este apartado sustituye las conclusiones de los registros históricos posteriores.
 
+### Nueva copia privada generada
+
+Después de que el usuario cerrara Nivo, `npm run build -- --no-bundle` terminó correctamente en modo release el 17 de octubre de 2026, 12:24 UTC. El intento previo había fallado porque Windows no permitía reemplazar el ejecutable abierto; no se modificaron permisos para resolverlo.
+
+- Fuente: `83d5939140a86751ae0d27acd6d61bbff99d688d`, aplicación incluida en el commit de interfaz `9a2a822`.
+- Binario: 3.402.752 bytes, Windows x64, recursos incluidos, sin firma Authenticode.
+- SHA256: `9aa6aa69faf00b03e1d10f7e7932c0fd9a77cf4f41c2337267e6fc8ce8d5bab7`.
+- Copia local: `artifacts/private-test/83d59391-9aa6aa69/Nivo.exe`, con `build.json`, `LEEME.txt` y licencia del código adaptado. No se sube ningún ejecutable a GitHub.
+- El exportador rechazó el ejecutable anterior por ser más antiguo que las fuentes. La exportación de la build nueva pasó. Su carpeta depende de commit y hash para separar las pruebas de futuras compilaciones.
+
+Esta build contiene el compañero propio y las nuevas animaciones. Su aceptación visual y de rendimiento sigue pendiente. El éxito del build separado no convierte la última ejecución fallida de `npm run verify` en una ejecución aprobada.
+
 ### Actualización: ejecución confirmada y revisión Coucou
 
 - El usuario abrió la build release y confirmó que aparece la cápsula. También señaló falta de fluidez, acabado y mascota. Esto acredita apertura observada por el usuario, no los demás criterios de beta.

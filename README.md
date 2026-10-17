@@ -24,6 +24,8 @@ El script prepara las dependencias npm y descarga los crates Rust. La CLI Tauri 
 
 Los lockfiles ya están generados por npm y Cargo; instalaciones repetibles con `npm ci` y `cargo fetch --locked`. La compilación `npm run build` incorpora `dist/` al ejecutable: el producto instalado no necesita Node ni un servidor local. El empaquetado y las releases siguen desactivados hasta completar la aceptación nativa y recibir autorización.
 
+Después de compilar, `node scripts/export-private-test.mjs` prepara una copia local de evaluación en `artifacts/private-test/<commit>-<hash>/Nivo.exe`, con hash, referencia de código, licencia y límites de aceptación. Rechaza fuentes sin commit y ejecutables anteriores a las fuentes. Usa esa copia para probar y deja libre el `.exe` de `target/release` para la siguiente compilación. La exportación no publica nada ni acredita beta, rendimiento o firma.
+
 ## Implementación actual
 
 - Máquina de estados TypeScript: intención compacta/expandida, hover, notificaciones superpuestas con prioridad y restauración, colas acotadas y protección frente a eventos multimedia obsoletos.
