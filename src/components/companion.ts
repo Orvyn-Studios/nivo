@@ -29,6 +29,9 @@ export function createCompanion(face: Element, target: HTMLElement) {
     animations.add(animation);
     void animation.finished.catch(() => undefined).then(() => animations.delete(animation));
   }
+  function celebrate(): void {
+    react(face, [{ transform: 'translateY(0)' }, { transform: 'translateY(-2px)', offset: .4 }, { transform: 'translateY(0)' }], 240);
+  }
 
   target.addEventListener('pointerenter', () => {
     if (!enabled || !visible || reduced) return;
@@ -56,6 +59,7 @@ export function createCompanion(face: Element, target: HTMLElement) {
   ], 140), { signal: listeners.signal });
 
   return {
+    celebrate,
     update(next: { enabled: boolean; visible: boolean; reduced: boolean; pose: CompanionPose }) {
       const changed = next.pose !== pose;
       const availabilityChanged = next.enabled !== enabled || next.visible !== visible || next.reduced !== reduced;
@@ -64,9 +68,7 @@ export function createCompanion(face: Element, target: HTMLElement) {
       if (changed) face.setAttribute('data-pose', pose);
       if (availabilityChanged) face.setAttribute('data-motion', reduced ? 'reduced' : 'full');
       if (!enabled || !visible || reduced) clear();
-      else if (changed && pose === 'complete') react(face, [
-        { transform: 'translateY(0)' }, { transform: 'translateY(-2px)', offset: .4 }, { transform: 'translateY(0)' },
-      ], 240);
+      else if (changed && pose === 'complete') celebrate();
       else if (changed && pose === 'music') react(face, [
         { transform: 'rotate(0deg)' }, { transform: 'rotate(-4deg)', offset: .4 }, { transform: 'rotate(0deg)' },
       ], 320);

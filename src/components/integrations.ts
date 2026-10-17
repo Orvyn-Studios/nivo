@@ -16,6 +16,7 @@ export function renderIntegrations(inbox: IntegrationInbox, privateMode: boolean
     const detail = document.createElement('span'); detail.className = 'detail-note';
     detail.textContent = event.state === 'activity' ? 'Actividad detectada · sin progreso confirmado' : progress === undefined ? 'Descargando · tamaño desconocido' : `${Math.round(progress * 100)} %`;
     if (event.bytesPerSecond !== null && event.state === 'active') detail.textContent += ` · ${(event.bytesPerSecond / 1024).toFixed(0)} KiB/s`;
+    detail.textContent = `${event.source === 'browser' ? 'Navegador' : event.source === 'bits' ? 'Windows · BITS' : 'Carpeta'} · ${detail.textContent}`;
     row.append(detail);
     if (progress !== undefined) { const bar = document.createElement('progress'); bar.max = 1; bar.value = progress; bar.setAttribute('aria-label', privateMode ? 'Progreso de transferencia' : `Progreso de ${event.name}`); row.append(bar); }
     list.append(row);

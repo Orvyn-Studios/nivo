@@ -36,12 +36,14 @@ export function createAudioView(actions: { control(action: AudioAction): Promise
         row = document.createElement('div'); row.className = 'audio-session';
         const name = document.createElement('span'); name.className = 'audio-session-name'; row.append(name);
         row.append(range(session.volume, session.id, 'sessionVolume', session.name));
+        const level = document.createElement('output'); level.className = 'audio-session-level'; row.append(level);
         const button = document.createElement('button'); button.dataset.id = session.id; button.dataset.kind = 'sessionMute'; row.append(button);
         rows.set(session.id, row); list.append(row);
       }
       row.querySelector('span')!.textContent = session.name;
       row.querySelector('span')!.title = session.name;
       const slider = row.querySelector('input')!; slider.value = String(Math.round(session.volume * 100)); slider.disabled = pending;
+      row.querySelector('output')!.textContent = `${Math.round(session.volume * 100)} %`;
       slider.setAttribute('aria-label', `Volumen de ${session.name}`);
       const button = row.querySelector('button')!; button.textContent = session.muted ? 'Activar' : 'Silenciar'; button.disabled = pending;
       button.setAttribute('aria-label', `${session.muted ? 'Activar' : 'Silenciar'} ${session.name}`);

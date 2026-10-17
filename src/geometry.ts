@@ -11,6 +11,7 @@ const sizes: Record<Context, [number, number, number]> = {
 export function contextGeometry(context: Context, count = 0, hasTimeline = true): Geometry {
   const [width, initial, duration] = sizes[context];
   const height = context === 'drop' && count ? Math.min(300, 116 + Math.min(16, count) * 88)
+    : context === 'audio' && !count ? 138
     : context === 'downloads' ? Math.min(280, 90 + Math.max(1, Math.min(32, count)) * 64)
     : context === 'music' ? (hasTimeline ? 202 : 174) + (count > 1 ? 32 : 0) : initial;
   return { width, height, radius: Math.min(28, height / 2), duration };

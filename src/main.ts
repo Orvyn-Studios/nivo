@@ -33,6 +33,7 @@ let state = createIslandState();
 let clockTimeout: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
 let lastReportAt = 0;
+let celebratedEvent: string | undefined;
 let unlistenVisibility: (() => void) | undefined;
 let unlistenMedia: (() => void) | undefined;
 let unlistenView: (() => void) | undefined;
@@ -168,6 +169,10 @@ const transition = createTransitionController({
     if (!expanded && document.hasFocus() && panel.contains(document.activeElement)) toggle.focus({ preventScroll: true });
     if (expanded) panel.hidden = false;
     await motion.to(expanded, shouldReduceMotion(state.preferences, systemMotion.matches));
+    const event = state.notification?.notification;
+    if (expanded && event?.kind === 'agent' && event.reaction === 'complete' && event.id !== celebratedEvent) {
+      celebratedEvent = event.id; eventCompanion.celebrate();
+    }
   },
   onError: error => {
     motion.settle();
@@ -190,7 +195,8 @@ function render(): void {
     : state.base.kind === 'expanded' && state.base.view === 'audio' ? 'audio'
     : state.base.kind === 'expanded' && state.base.view === 'drop' ? 'drop'
     : currentMedia ? 'music' : downloads.length ? 'downloads' : agent ? 'agent' : 'summary';
-  const geometry = contextGeometry(context, context === 'drop' ? droppedFiles.length : context === 'music' ? mediaInbox.snapshot.sessions.length : downloads.length,
+  const geometry = contextGeometry(context, context === 'drop' ? droppedFiles.length : context === 'music' ? mediaInbox.snapshot.sessions.length
+    : context === 'audio' ? audioSnapshot?.status === 'ready' ? 2 + audioSnapshot.sessions.length : 0 : downloads.length,
     currentMedia?.positionMs != null && currentMedia.durationMs != null && currentMedia.durationMs > 0);
   const key = `${context}:${geometry.width}:${geometry.height}`;
   if (island.dataset.geometry !== key) {

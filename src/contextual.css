@@ -62,7 +62,8 @@ body #island .audio-section h2 { font-size:12px }
 body #island .device-name { font-size:11px; margin:5px 0 10px }
 body #island .text-action { min-height:28px; padding:4px 0; font-size:11px; color:var(--muted); border-radius:5px }
 body #island .audio-button { border-radius:8px; font-size:11px; padding:8px 10px; min-height:30px }
-body #island .audio-session { display:grid; grid-template-columns:minmax(75px,1fr) minmax(60px,1fr) 56px; gap:10px; align-items:center }
+body #island .audio-session { display:grid; grid-template-columns:minmax(70px,1fr) minmax(50px,1fr) 34px 52px; gap:8px; align-items:center }
+body #island .audio-session-level { font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; text-align:right }
 body #island .audio-session-name { font-size:12px }
 body #island .audio-session button { font-size:10px; padding:5px; border-radius:6px }
 body #island .section-heading { padding-right:14px }
