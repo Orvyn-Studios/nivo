@@ -1,6 +1,10 @@
 # Nivo — próximos hitos
 
-## Estado actual — 2026-10-17
+## Estado vigente — iteración en la torre
+
+Consultar [PHASE_STATUS](PHASE_STATUS.md): coordinador contextual sin temporizador, región animada, Core Audio, energía/teclas optativas, adaptadores autenticados y Nivo Drop. La aceptación física de ventana, arrastre, hardware y adaptadores voluntarios es el siguiente hito. BITS, carpetas, USB/Bluetooth generales y Compartir permanecen pendientes. Las secciones siguientes documentan hitos anteriores.
+
+## Estado histórico — antes de la iteración en la torre
 
 La integración completa Tauri compila localmente. Pasan 62 pruebas Node, 39 de biblioteca Rust, tipos, build web y Clippy. El harness vacío de `main` vuelve a estar bloqueado por la política de Windows; la verificación completa queda fallida. GSMTC, fullscreen, eventos de pantallas/energía/sesión y startup optativo están implementados. El usuario confirmó que la cápsula abre y señaló falta de fluidez y acabado: se han añadido máscara animada, resorte con velocidad conservada y compañero original tras revisar Coucou. Su nueva aceptación interactiva sigue pendiente. Actions permanece manual por petición del usuario.
 

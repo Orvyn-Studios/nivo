@@ -29,16 +29,20 @@ Después de compilar, `node scripts/export-private-test.mjs` prepara una copia l
 ## Implementación actual
 
 - Máquina de estados TypeScript: intención compacta/expandida, hover, notificaciones superpuestas con prioridad y restauración, colas acotadas y protección frente a eventos multimedia obsoletos.
-- Temporizador real con plazo absoluto, pausa, reanudación, cancelación y recuperación local. No acumula deriva de intervalos; incluye suspensión. Un cambio manual del reloj hacia delante puede anticipar el final. La validación de suspensión/ocultación en WebView2 está pendiente.
-- Interfaz de 112 × 34 DIP con panel de 388 × 320 DIP, teclado, Escape, movimiento reducido y notificaciones propias del temporizador. Máscara animada sin cambiar ancho/alto en cada frame y resorte que conserva velocidad al interrumpir. Fluidez pendiente de medición en Windows.
+- Temporizador retirado del dominio, controles, eventos y persistencia activa. El almacenamiento antiguo se conserva sin leerlo. Coordinador de actividad con prioridades, interrupción, agrupación, cola acotada y pausa de avisos.
+- Interfaz de 112 × 34 DIP con panel de 388 × 320 DIP y cápsulas contextuales de 236 × 48 DIP. Máscara animada y región Win32 sincronizadas con la misma geometría; IPC serializado y protegido frente a respuestas obsoletas. Fluidez perceptiva pendiente de aceptación.
 - Compañero vectorial original y opcional: mirada dentro de la isla, parpadeo al pulsar y reacción a estados reales. Sin seguimiento global ni movimiento continuo. Activo por defecto en configuraciones nuevas; respeta las preferencias existentes.
-- Backend modular con preferencias validadas y guardado local atómico, selección de pantalla y posición, región redondeada Win32, estilo de herramienta y operaciones sin activación. Compila y supera 39 pruebas Rust en Windows; la aceptación visual e interactiva sigue pendiente.
+- Backend modular con preferencias validadas y guardado local atómico, selección de pantalla y posición, región redondeada Win32, estilo de herramienta y operaciones sin activación.
 - Proveedor GSMTC real por eventos: sesiones, metadatos, portada acotada y controles cuando Windows los permite. El frontend nunca inventa una sesión. Desactivar la integración borra inmediatamente sus datos y descarta respuestas obsoletas.
 - Observación Win32 de pantalla completa, bloqueo, suspensión y cambios de pantalla. La intención de ocultar o pausar sobrevive a estos eventos. No usa hooks de entrada ni inyección. Su matriz de aceptación en juegos y varios monitores está pendiente.
 - Bandeja Mostrar/Ocultar/Pausar/Preferencias/Salir. Inicio automático opcional desde Preferencias, limitado a la entrada propia `Orvyn.Nivo` en HKCU. Nunca se activa en la instalación o en las pruebas automatizadas.
-- Puente de doce comandos finitos, sin plugins de shell, archivos arbitrarios, red ni ejecución remota. Preferencias nativas en el directorio de configuración de `com.orvyn.nivo`; temporizador en almacenamiento local del webview. No se guarda historial de notificaciones.
+- Core Audio por eventos: salida, silencio, micrófono y volumen/silencio por sesión. No graba audio ni atribuye uso del micrófono. Las nuevas integraciones son optativas.
+- Energía real mediante Windows, sin batería ficticia en sobremesa. Umbrales configurables y Caps/Num Lock optativos mediante Raw Input, descartando el resto de teclas sin traducir texto.
+- Canal local autenticado y adaptadores de Codex y descargas Chrome/Edge; requieren activación voluntaria. Consulta [instalación y límites](docs/LOCAL_INTEGRATIONS.md).
+- Nivo Drop para hasta 16 archivos locales: ruta, carpeta, copia y ZIP con selector nativo. No recibe rutas arbitrarias desde JavaScript ni sobrescribe destinos. No implementa todavía Compartir de Windows.
+- Comandos finitos con capabilities restringidas; sin shell general, telemetría ni historial de actividad. Configuración nativa en el directorio propio `com.orvyn.nivo`.
 
-Pendientes de aceptación: nueva animación y compañero, música con un reproductor compatible, fullscreen/juegos, cambios de monitor/DPI, suspensión y startup real. Notificaciones externas y agentes siguen sin implementarse. Siempre visible permanece desactivado. La región nativa usa el tamaño final durante las transiciones y recorta la sombra exterior: faltan pruebas y correcciones de esa interacción antes de beta.
+Pendientes de aceptación: fluidez, foco/Alt+Tab, clics a través de márgenes, fullscreen/juegos, cambios de monitor/DPI, suspensión, arrastre OLE y startup real. Siempre visible permanece desactivado. No están implementados notificaciones ajenas, dispositivos USB/Bluetooth generales, proveedores BITS/carpetas ni Compartir. Los adaptadores de Codex/navegador están preparados, sin instalarse ni alterar los perfiles del usuario.
 
 ## Comprobar cambios
 
@@ -58,9 +62,9 @@ Consulta [validación](docs/VALIDATION.md), [aceptación y medición nativa](doc
 
 ## Verificación repetible y bloqueos actuales
 
-`npm run verify:web` ejecuta las 62 pruebas actuales y comprueba tipos/build, con logs e informe en `artifacts/verify-web.json`. `npm run verify` añade Rustfmt, tests Cargo con lock, Clippy y compilación del ejecutable. Se detiene ante el primer fallo y no presenta las comprobaciones posteriores como aprobadas. Las pruebas de navegador y aceptación nativa son pasos separados.
+`npm run verify:web` ejecuta las pruebas Node y comprueba tipos/build, con logs e informe en `artifacts/verify-web.json`. `npm run verify` añade Rustfmt, tests Cargo con lock, Clippy y compilación del ejecutable. Se detiene ante el primer fallo. Las pruebas de navegador y aceptación nativa son pasos separados.
 
-El 17 de octubre de 2026 pasan tipos, build web, 62 pruebas Node, 39 pruebas de biblioteca Rust y Clippy con advertencias como errores. El usuario confirma que la build anterior muestra la cápsula, pero indica falta de fluidez y acabado. La última verificación completa falla por error4551 al ejecutar el harness vacío de `main`; las 39 pruebas de biblioteca sí se ejecutan. No se cambian protecciones. Chromium sigue sin crear página, incluso con renderizado por software. No hay capturas ni medidas FPS aprobadas. Consulta [VALIDATION.md](docs/VALIDATION.md) y [la revisión de Coucou](docs/COUCOU_REVIEW.md).
+El avance actual y sus pruebas se registran en [estado por fases](docs/PHASE_STATUS.md). Los informes anteriores en VALIDATION conservan su contexto histórico; sus bloqueos no deben atribuirse automáticamente a esta torre. No se declaran cifras de CPU, RAM o FPS sin mediciones del ejecutable.
 
 La prueba web permite seleccionar Edge mediante `NIVO_TEST_BROWSER=msedge`, o desactivar el uso de GPU únicamente en el navegador de pruebas mediante `NIVO_TEST_SOFTWARE_RENDERING=1`. Ambos mantienen el sandbox. El informe registra estas condiciones; sus tiempos RAF no acreditan rendimiento nativo.
 

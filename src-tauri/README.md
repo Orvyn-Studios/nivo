@@ -1,6 +1,6 @@
 # Fundación nativa de Nivo
 
-Tauri 2 y WebView2, sin administrador, shell, telemetría, carga remota ni permisos generales de archivos. La lectura y escritura de preferencias solo usa una ruta calculada por Rust: `app_config_dir()/settings.json`.
+Tauri 2 y WebView2, sin administrador, shell general, telemetría, carga remota ni permisos generales de archivos. Preferencias en `app_config_dir()/settings.json`. El canal optativo guarda credenciales propias bajo `integrations/` con DACL restringida. Drop recibe capacidades de archivos exclusivamente desde el evento nativo, nunca rutas arbitrarias del frontend.
 
 ## Contratos IPC
 
@@ -20,6 +20,15 @@ Todos los comandos comprueban que la ventana invocante sea `island` y están enu
 | `media_control` | `{ sessionId, action }` | Acción `playPause`, `previous` o `next` en un worker, con plazo y validación de sesión/capacidad. |
 | `select_media_session` | `{ sessionId }` | Selecciona una sesión conocida y actualiza la instantánea. |
 | `quit_app` | ninguna | Salida explícita del proceso; alternativa a Salir desde bandeja. |
+| `set_surface_geometry` | `{ shape, epoch }` | Región Win32 acotada al cliente; ignora épocas obsoletas. |
+| `get_audio_snapshot` | ninguna | Endpoints y sesiones reales o estado desactivado. |
+| `audio_control` | `{ action }` | Solo volumen/silencio de endpoints o sesiones conocidos; worker con plazo. |
+| `open_sound_settings` | ninguna | Abre el destino fijo ms-settings:sound. |
+| `get_power_snapshot` | ninguna | Energía real; ausencia y datos desconocidos explícitos. |
+| `get_drop_snapshot` | ninguna | IDs, nombres y tamaños de archivos aceptados nativamente, sin rutas. |
+| `drop_action` | `{ action, id }` | Ruta/carpeta/copia de una capacidad conocida o ZIP del lote; selector nativo y create_new. |
+
+Los campos nuevos de preferencias son optativos con `serde(default)`: audio, batería, aviso de carga completa, Caps/Num Lock, canal local y Drop están desactivados en configuraciones nuevas y al migrar ajustes antiguos. Umbrales por defecto 20/10/5. Los campos previos se conservan.
 
 Después de mostrar u ocultar realmente la ventana, Rust emite `nivo://visibility` exclusivamente hacia `island`, con payload `{ "visible": true }` o `{ "visible": false }`. Esto permite suspender las actualizaciones visuales aunque WebView2 no cambie `document.hidden`. El frontend debe esperar la suscripción antes de llamar a `ready`:
 

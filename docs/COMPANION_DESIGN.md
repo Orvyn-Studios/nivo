@@ -6,8 +6,8 @@ Una sola silueta blanca mate, suavemente asimétrica y con base estable. Sin cre
 
 ## Expresiones y prioridad
 
-1. `complete`: temporizador finalizado; ojos en arco hacia arriba y sonrisa pequeña. Elevación única de 240 ms.
-2. `timer`: temporizador activo o pausado; trazos inclinados hacia el centro que expresan concentración. La UI distingue la pausa mediante texto.
+1. `complete`: evento real de finalización; ojos en arco hacia arriba y sonrisa pequeña. Elevación única de 240 ms.
+2. `working`: tarea activa; trazos inclinados hacia el centro que expresan concentración. El estado textual procede del adaptador autorizado.
 3. `unavailable`: proveedor multimedia nativo indisponible; un ojo redondo, otro oblicuo y boca ladeada. Una vista web o reproductor vacío no implican error.
 4. `music`: reproducción real; ojos cerrados en curva relajada, sin boca. Inclinación y balanceo único de 320 ms al entrar.
 5. `focus`: panel abierto; ojos altos, más juntos y centrados, sin boca.
@@ -26,6 +26,6 @@ No se añaden dependencias, listeners ni temporizadores. RAF solo ante movimient
 
 ## Validación
 
-`npm run verify:web`: 64 pruebas, tipos y build aprobados. `npm run test:ui`: aprobado en Chromium con sandbox, incluidos temporizador, preferencias, movimiento reducido y viewport de 320 px. La galería verifica una única expresión visible por estado a ambos tamaños y permite revisar las diferencias con el SVG y CSS reales.
+La iteración actual pasa 73 pruebas Node, tipos y build web. `npm run test:ui` pasa en Chromium con sandbox, incluida la retirada del temporizador, preferencias, movimiento reducido, audio mediante fixture, Drop y viewport de 320 px. La galería verifica una única expresión visible por estado a ambos tamaños y permite revisar las diferencias con el SVG y CSS reales.
 
-Capturas inspeccionadas: compacto 112×34, expandido 388×320 y siete expresiones a 24 px y 52 px. Los fixtures solo viven en las pruebas. La aceptación del ejecutable WebView2, DPI, música real y consumo nativo sigue pendiente: esta torre carece de Rust/Cargo y MSVC.
+Capturas inspeccionadas: compacto 112×34, expandido 388×320 y siete expresiones a 24 px y 52 px. Los fixtures solo viven en las pruebas. Rust/Cargo y MSVC ya están instalados con autorización y el ejecutable compila. La aceptación completa de DPI, fluidez y consumo nativo sigue pendiente; consultar PHASE_STATUS.

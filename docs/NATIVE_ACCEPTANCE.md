@@ -23,6 +23,15 @@ Con dependencias resueltas, generar y revisar `Cargo.lock`. Para las verificacio
 
 ## Matriz de aceptación
 
+Para el ensayo automatizado limitado sobre el release ya compilado:
+
+```powershell
+$env:NIVO_NATIVE_TEST_PROFILE = 'release'
+node test/native-ui.mjs
+```
+
+Arranca un proceso propio con depuración WebView2 limitada a loopback y un perfil de pruebas separado. Registra hash del binario, prueba audio real en lectura y transporte de eventos mediante fixtures, restaura preferencias y sale. No activa autostart, no registra extensiones y no sustituye las filas de aceptación física siguientes. Los archivos de evidencia quedan en `artifacts/native-ui/`.
+
 Registrar cada fila como `aprobada`, `fallida`, `bloqueada` o `no implementada`, con fecha y evidencia. No marcar una integración aprobada si solo se comprobó su estado vacío.
 
 | Ensayo | Pasos y resultado exigido |
@@ -38,8 +47,11 @@ Registrar cada fila como `aprobada`, `fallida`, `bloqueada` o `no implementada`,
 | Bandeja | Mostrar, pausar/reanudar, preferencias y salir según funciones disponibles. Ocultar no impide recuperar la isla. La salida sigue disponible cuando una API falla. |
 | Multimedia real | Reproducir contenido en una aplicación que exponga GSMTC. Comparar canción, artista, portada y estado con el reproductor. Pausar/reanudar/anterior/siguiente cambian la sesión real cuando están permitidos. Probar cierre de reproductor, dos sesiones y controles no disponibles. |
 | Medios incompletos | Usar una fuente real sin portada, sin duración o con texto largo cuando sea posible. La interfaz muestra ausencia de datos con claridad. No inventar progreso ni mostrar imágenes de demostración. |
-| Temporizador | Iniciar, pausar, reanudar y cancelar. Comparar con una referencia; registrar error observado. Probar ocultación, cambio de foco y suspensión/reanudación. La finalización ocurre una sola vez y no abre ventanas invasivas. Documentar la política de tiempo durante suspensión. |
-| Eventos superpuestos | Durante música o temporizador, disparar una notificación propia real. Al expirar vuelve al contexto correcto. Repeticiones, cancelación y eventos antiguos no destruyen el estado actual. |
+| Temporizador retirado | No quedan controles, tareas ni lectura de su persistencia antigua. Se conserva el almacenamiento anterior sin usarlo. |
+| Eventos superpuestos | Durante música, disparar un evento real autorizado de audio o integración. Comprobar prioridades, agrupación y pausa. Al expirar vuelve al contexto correcto; los eventos antiguos no lo destruyen. |
+| Audio y micrófono | Activar voluntariamente audio. Comparar niveles/sesiones con Windows y probar controles explícitamente. Silencio no equivale a ausencia ni a grabación. Desactivar borra datos y revoca callbacks. |
+| Nivo Drop | Activar voluntariamente; arrastrar archivos de prueba, abandonar el arrastre y completar otro. Comprobar ruta, carpeta, cancelación del selector, copia y ZIP, originales intactos y rechazo de sobrescritura. Sin Compartir por ahora. |
+| Adaptadores | Revisar y activar hooks/extensión voluntariamente. Verificar eventos reales, desconexión y revocación. Los fixtures de transporte no sustituyen esta aceptación. |
 | Privacidad/notificaciones | Comprobar modo privado y notificaciones desactivadas. No se persiste contenido de mensajes. Si no hay identidad/permiso compatible, las notificaciones externas figuran como no disponibles; las propias siguen funcionando. No activar lectura global sin permiso. |
 | Preferencias | Cambiar ajustes, salir y reiniciar. Se restauran; un archivo inválido provoca valores seguros y un error recuperable. Inicio automático permanece opcional y solo se modifica tras una acción explícita. |
 | Ciclo de vida | Bloquear/desbloquear Windows y suspender/reanudar. La isla restaura visibilidad, pantalla y estado de forma coherente. Una API indisponible degrada su función sin bloquear toda la aplicación. |

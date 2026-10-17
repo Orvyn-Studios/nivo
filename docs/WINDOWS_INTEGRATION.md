@@ -2,7 +2,7 @@
 
 ## Límites y ciclo de vida
 
-Rust es propietario de las preferencias, la ventana y los proveedores Windows. TypeScript presenta instantáneas validadas y envía comandos finitos. No hay servidor de integración, PowerShell periódico, shell IPC, telemetría ni carga remota. La configuración no requiere cuenta ni administrador.
+Rust es propietario de las preferencias, la ventana y los proveedores Windows. TypeScript presenta instantáneas validadas y envía comandos finitos. El canal optativo de integración usa una tubería Windows autenticada, sin servidor TCP. No hay PowerShell periódico, shell IPC, telemetría ni carga remota. La configuración no requiere cuenta ni administrador. Estado actual y límites en [PHASE_STATUS](PHASE_STATUS.md).
 
 `window.rs` aplica una política explícita de visibilidad: intención Mostrar/Ocultar/Pausar y bloqueos independientes por pantalla completa, sesión bloqueada y suspensión. Un evento temporal no sustituye la intención del usuario. Mostrar desde bandeja tampoco elimina un bloqueo del sistema. La entrega de visibilidad y la operación HWND confirman el cambio conjuntamente, con restauración y error si falla.
 
@@ -30,7 +30,7 @@ Solo una acción explícita de Preferencias puede crear o borrar `HKCU\Software\
 
 ## Notificaciones y privacidad
 
-Las notificaciones propias del temporizador funcionan sin acceso a otras aplicaciones. El contenido es efímero y la cola está acotada. El modo privado y el ajuste de desactivación no conceden permisos de Windows.
+El temporizador se ha retirado. Los avisos de audio, teclado, energía y adaptadores usan el coordinador con prioridades y cola acotada; no requieren acceso global a notificaciones ajenas. El modo privado y el ajuste de desactivación no conceden permisos de Windows.
 
 La documentación de Microsoft exige la capability `userNotificationListener` en un manifiesto de paquete, autorización explícita solicitada desde el hilo UI y comprobar el permiso antes de leer. La build actual es un Win32 Tauri sin identidad MSIX configurada. Por tanto, **no ofrece lectura de notificaciones ajenas**. Se conserva el fallback de avisos propios; no se muestran mensajes de demostración. Una futura distribución con identidad necesita una investigación y aceptación propias, incluida revocación del permiso y No molestar.
 
@@ -38,4 +38,4 @@ Referencias: [Notification listener](https://learn.microsoft.com/en-us/windows/a
 
 ## Aceptación pendiente
 
-Compilar y pasar pruebas no acredita comportamiento de la ventana. Antes de beta faltan pruebas reales de foco, clics durante animación, sombra, bandeja, DPI/hotplug, bloqueo/suspensión, juegos, sesiones musicales y mediciones de CPU/RAM/FPS. Siempre visible sigue desactivado. La región Win32 sigue usando el destino durante las transiciones y recorta la sombra: se mantiene como defecto conocido, no como criterio aprobado.
+Compilar y pasar pruebas no acredita toda la ventana. Antes de beta faltan pruebas reales de foco, clics durante animación, bandeja, DPI/hotplug, bloqueo/suspensión, juegos y mediciones de CPU/RAM/FPS. Siempre visible sigue desactivado. La región Win32 ahora sigue las muestras de la máscara animada, con epoch para ignorar muestras antiguas. La sombra se dibuja dentro de la superficie. Esto corrige la implementación anterior; no acredita aún clics físicos ni sincronización con cada frame presentado.

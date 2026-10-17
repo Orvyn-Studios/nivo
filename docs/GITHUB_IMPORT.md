@@ -1,5 +1,7 @@
 # Importación inicial a GitHub
 
+Actualización de la iteración en la torre: `work/nivo` es una copia clonada de la rama remota de desarrollo. Los cambios actuales descienden de `d1b794d` y se sincronizan por avance normal, sin forzar referencias. El relato siguiente documenta la importación original; no exige reconciliar de nuevo esta copia ya basada en el remoto ni reemplazar el historial original conservado.
+
 El 17 de octubre de 2026 el usuario autorizó inicializar el repositorio vacío `SnoW-099/nivo` con un README en `main` y subir el código a `feature/nivo-mvp` mediante el conector de GitHub. Git en la terminal de esta sesión no podía conectar con `github.com:443`.
 
 ## Evidencia de la copia
