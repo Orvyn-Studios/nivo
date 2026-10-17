@@ -140,17 +140,20 @@
                     <span id="media-playback"></span>
                   </div>
                 </div>
+                <div class="media-toolbar">
                 <div class="media-controls" aria-label="Controles de reproducci&oacute;n">
                   <button id="media-previous" class="media-control" aria-label="Pista anterior" disabled>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14m13-1V6L9 12z"/></svg>
                   </button>
                   <button id="media-play-pause" class="media-control media-control-primary" aria-label="Reproducir" disabled>
-                    <svg id="media-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7z"/></svg>
+                    <svg id="media-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg>
                     <svg id="media-pause-icon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M8 5v14M16 5v14"/></svg>
                   </button>
                   <button id="media-next" class="media-control" aria-label="Pista siguiente" disabled>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M5 6v12l10-6z"/></svg>
                   </button>
+                </div>
+                <div id="media-actions-slot" class="media-actions-slot"></div>
                 </div>
                 <div id="media-timeline" class="media-timeline" hidden>
                   <progress id="media-progress" max="1" value="0" aria-label="Progreso de reproducci&oacute;n"></progress>
@@ -165,9 +168,11 @@
               <p id="agent-status" hidden></p><div id="download-activity"></div>
             </section>
 
-            <div id="activity-footer" class="activity-footer">
+            <div id="activity-actions-slot">
+            <div id="activity-footer" class="activity-footer" role="group" aria-label="Acciones de Nivo">
               <button id="open-audio" class="icon-button" aria-label="Abrir mezclador" data-icon="sound"></button><button id="open-preferences" class="icon-button" aria-label="Abrir preferencias" data-icon="settings"></button>
               <button id="pause-events" class="quiet">Pausar avisos</button>
+            </div>
             </div>
           </section>
           <section id="drop" aria-label="Nivo Drop" hidden>

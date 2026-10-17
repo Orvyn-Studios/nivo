@@ -64,12 +64,12 @@ try {
   await page.locator('#toggle').click();await stable(page);await shot(page,'05-musica');
   assert.equal(await page.locator('#media-pause-icon').isVisible(),true);
   assert.equal(await page.locator('#media-play-icon').isVisible(),false);
-  size=await page.locator('#island').boundingBox();assert.equal(size.height,202);
+  size=await page.locator('#island').boundingBox();assert.equal(size.height,172);
   await page.locator('#media-play-pause').click();assert.equal(await page.evaluate(()=>window.__test.calls[0].action),'playPause');
   const automatic={...media,sequence:2,activeSessionId:'windows-current',sessions:[media.sessions[0],{...media.sessions[0],id:'windows-current',playback:'paused'}]};
   await emit(page,'nivo://media',automatic);
   assert.equal(await page.locator('#media-widget select').count(),0);
-  assert.equal((await page.locator('#island').boundingBox()).height,202);
+  assert.equal((await page.locator('#island').boundingBox()).height,172);
   assert.equal(await page.locator('#media-play-icon').isVisible(),true);
   await page.locator('#media-play-pause').click();
   assert.equal(await page.evaluate(()=>window.__test.calls.at(-1).sessionId),'windows-current');

@@ -2,7 +2,7 @@
 import { chromium } from '@playwright/test';
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer, createConnection } from 'node:net';
@@ -40,6 +40,19 @@ try {
   page.setDefaultTimeout(10000);
   await page.waitForFunction(() => document.getElementById('toggle')?.disabled === false);
   assert.equal(await page.locator('body').getAttribute('data-environment'), 'native');
+  const duplicateDirectory=fileURLToPath(new URL('duplicate/',artifacts));
+  await mkdir(duplicateDirectory,{recursive:true});
+  const duplicateExecutable=path.join(duplicateDirectory,'Nivo.exe');
+  await copyFile(executable,duplicateExecutable);
+  const duplicate=spawn(duplicateExecutable,[],{cwd:root,windowsHide:true,stdio:'ignore'});
+  const duplicateCode=await new Promise((resolve,reject)=>{
+    const deadline=setTimeout(()=>{duplicate.kill();reject(new Error('A second desktop copy remained running.'))},3000);
+    duplicate.once('error',error=>{clearTimeout(deadline);reject(error)});
+    duplicate.once('exit',code=>{clearTimeout(deadline);resolve(code)});
+  });
+  assert.equal(duplicateCode,0);
+  assert.equal(child.exitCode,null,'primary desktop must remain running');
+  report.checks.push('A second executable copied to another directory exits before creating a second island; the primary continues. Native-messaging hosts remain independent.');
   original = await page.evaluate(() => window.__TAURI__.core.invoke('get_settings'));
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.evaluate(async settings => {
@@ -97,6 +110,11 @@ try {
   await page.waitForFunction(()=>document.getElementById('toggle').getAttribute('aria-expanded')==='true');
   assert.equal(await page.locator('#toggle').evaluate(el=>getComputedStyle(el).outlineStyle),'none');
   assert.equal(await page.locator('.panel-scroll').evaluate(el=>getComputedStyle(el).scrollbarWidth),'none');
+  assert.equal(await page.locator('#activity-footer').count(),1);
+  for(const id of ['open-audio','open-preferences']){
+    assert.equal(await page.locator(`#${id}:visible`).count(),1);
+    assert.equal(await page.locator(`#${id} svg`).count(),1);
+  }
   await page.locator('#island').screenshot({path:fileURLToPath(new URL('native-chevron-fixed.png',artifacts))});
   report.checks.push('Actual WebView2 chevron retains keyboard focus, removes pointer-click ring and hides the island scrollbar.');
   const context = browser.contexts()[0];
@@ -159,6 +177,30 @@ try {
   assert.equal(JSON.parse(response.subarray(4).toString()).ok, true);
   await page.waitForFunction(() => document.querySelector('#download-activity progress')?.value === .25);
   report.checks.push('Authenticated local pipe and native-messaging executable deliver typed fixture events into the actual UI; no user hooks or browser registration changed.');
+  await page.evaluate(async()=>{
+    const settings=await window.__TAURI__.core.invoke('get_settings');
+    await window.__TAURI__.core.invoke('save_settings',{settings:{...settings,media_enabled:true,integrations_enabled:false,notifications_enabled:false}});
+  });
+  await page.waitForFunction(async()=>(await window.__TAURI__.core.invoke('get_media_snapshot')).status==='ready');
+  report.nativeMusic=await page.evaluate(async()=>{
+    const value=await window.__TAURI__.core.invoke('get_media_snapshot');
+    return{status:value.status,sessions:value.sessions.length,active:Boolean(value.activeSessionId)};
+  });
+  if(report.nativeMusic.active){
+    await page.waitForFunction(()=>document.getElementById('island').dataset.context==='music');
+    await page.waitForFunction(()=>document.getElementById('island').getAnimations({subtree:true}).every(a=>a.playState!=='running'));
+    assert.equal(await page.locator('#media-widget select').count(),0);
+    for(const id of ['open-audio','open-preferences'])assert.equal(await page.locator(`#${id}:visible`).count(),1);
+    const alignment=await page.evaluate(()=>{
+      const rect=id=>document.getElementById(id).getBoundingClientRect();
+      return{start:Math.abs(rect('media-elapsed').left-rect('media-progress').left),end:Math.abs(rect('media-duration').right-rect('media-progress').right),height:rect('island').height,timeline:!document.getElementById('media-timeline').hidden};
+    });
+    assert.equal(alignment.height,alignment.timeline?172:140);
+    if(alignment.timeline){assert.ok(alignment.start<1);assert.ok(alignment.end<1)}
+    report.nativeMusic.alignment=alignment;
+    await page.locator('#island').screenshot({path:fileURLToPath(new URL('native-music-real.png',artifacts))});
+    report.checks.push('Current actual GSMTC session renders the polished player: one action group, automatic session, aligned times and semantic height. No playback action was sent.');
+  }
   for (let index = 0; index < 4; index++) {
     await page.locator('#toggle').evaluate(button => button.click());
     await page.waitForFunction(() => document.getElementById('island').getAnimations({ subtree: true }).every(value => value.playState !== 'running'));

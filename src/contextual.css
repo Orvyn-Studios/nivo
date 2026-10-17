@@ -30,18 +30,27 @@ body #island .icon-button svg { width:17px; height:17px }
 body #island .icon-button:hover { color:var(--text); background:var(--raised) }
 body #island .media-track { grid-template-columns:56px minmax(0,1fr); gap:14px; padding-right:14px }
 body #island .media-artwork { width:56px; height:56px; border-radius:12px }
-body #island .media-copy h1 { font-size:15px }
-body #island .media-copy p { font-size:12px }
-body #island #media-playback { font-size:10px; margin-top:5px }
-body #island .media-controls { gap:14px; margin-top:12px }
-body #island .media-control { width:32px; height:32px; min-height:32px; padding:6px }
+body #island .media-copy h1 { font-size:15px; line-height:20px }
+body #island .media-copy p { font-size:12px; line-height:16px; margin-top:3px }
+body #island #media-playback { font-size:10px; line-height:13px; margin-top:4px }
+body #island .media-toolbar { position:relative; margin-top:10px; height:36px }
+body #island .media-controls { gap:12px; margin-top:0; height:36px }
+body #island .media-control { width:36px; height:36px; min-height:36px; padding:8px; transition:background-color 120ms ease,opacity 120ms ease,transform 100ms ease }
+body #island .media-control svg { grid-area:1/1; width:19px; height:19px }
 body #island .media-control-primary { width:36px; height:36px; min-height:36px; background:var(--text); color:var(--bg) }
+body #island .media-control-primary:hover:not(:disabled) { background:#e3e9f2 }
+body #island .media-control:active:not(:disabled) { transform:translateY(1px); opacity:.75 }
 body #island .media-timeline progress { height:3px; margin-top:10px }
-body #island .media-times { font-size:10px; margin-top:4px }
-body #island[data-context=music] .activity-footer { position:absolute; right:17px; bottom:12px; margin:0 }
+body #island .media-times { font-size:10px; line-height:14px; margin-top:5px; font-variant-numeric:tabular-nums; white-space:nowrap }
+body #island .media-actions-slot { position:absolute; right:0; top:2px }
+body #island[data-context=music] .panel-scroll { padding:18px 20px }
+body #island[data-context=music] .media-widget { padding-bottom:0 }
+body #island[data-context=music] .activity-footer { position:static; margin:0; gap:2px }
 body #island[data-context=music] #pause-events { display:none }
-body #island[data-context=music] .activity-footer .icon-button { width:25px; min-width:25px; height:25px; padding:5px }
-body #island[data-context=music] .media-times { padding-right:70px }
+body #island[data-context=music] .activity-footer .icon-button { width:32px; min-width:32px; height:32px; padding:8px }
+body #island .media-artwork img,body #island .media-artwork svg { grid-area:1/1 }
+@media (prefers-reduced-motion:reduce) { body #island .media-control { transition:none } }
+body #island[data-media-reduced=true] .media-control { transition:none }
 body #island #notification { display:flex; align-items:center; gap:14px; min-height:100% }
 body #island .notice-icon { display:grid; place-items:center; flex:none; width:36px; height:36px; color:var(--accent) }
 body #island .notice-icon svg { width:26px; height:26px; stroke-width:1.55 }

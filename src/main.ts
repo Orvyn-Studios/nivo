@@ -195,6 +195,7 @@ const transition = createTransitionController({
 });
 
 function render(): void {
+  mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden);
   syncCompanion();
   if (mediaDirty) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
   if (state.base.kind === 'expanded' && state.base.view === 'activity') renderIntegrations(integrationInbox, state.preferences.privacy_mode);
@@ -220,6 +221,10 @@ function render(): void {
     island.style.setProperty('--context-duration', String(geometry.duration));
   }
   island.dataset.context = context;
+  // One shared action group, moved rather than cloned between the two layouts.
+  const actionSlot = element(context === 'music' ? 'media-actions-slot' : 'activity-actions-slot');
+  const actions = element('activity-footer');
+  if (actions.parentElement !== actionSlot) actionSlot.append(actions);
   island.dataset.overlay = String(notification);
   island.dataset.notice = 'false';
   island.dataset.hovered = String(state.hovered);
@@ -269,6 +274,7 @@ function scheduleClock(): void {
 function dispatch(event: IslandEvent): void {
   try { state = reduceIsland(state, event); }
   catch (error) { report(error); return; }
+  mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden);
   if (state.hidden || document.hidden) syncCompanion();
   if (!state.hidden && !document.hidden) render();
   const desired = state.notification !== null || state.base.kind === 'expanded';
@@ -318,7 +324,7 @@ window.addEventListener('storage', event => { if (event.key === 'nivo:preference
 element('pause-events').addEventListener('click', () => dispatch({ type: 'pause-events', paused: !state.eventsPaused }));
 
 element('notification-dismiss').addEventListener('click', () => dispatch({ type: 'dismiss-notification', now: Date.now() }));
-systemMotion.addEventListener('change', () => { if (systemMotion.matches) motion.settle(); syncCompanion(); });
+systemMotion.addEventListener('change', () => { if (systemMotion.matches) motion.settle(); mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden); syncCompanion(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) motion.settle();
   dispatch({ type: 'advance', now: Date.now() });
