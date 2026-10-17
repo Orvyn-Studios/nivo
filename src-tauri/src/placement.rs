@@ -20,6 +20,56 @@ pub struct SurfaceRegion {
     pub diameter: i32,
 }
 
+#[derive(Clone, Copy, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SurfaceGeometry {
+    pub left: f64,
+    pub top: f64,
+    pub width: f64,
+    pub height: f64,
+    pub radius: f64,
+}
+
+/// The webview may only refine a region inside its own actual client area.
+/// Reject stale/out-of-bounds geometry rather than clipping another window.
+pub fn animated_region(
+    size: (u32, u32),
+    scale: f64,
+    shape: SurfaceGeometry,
+) -> Result<SurfaceRegion, &'static str> {
+    if !scale.is_finite()
+        || !(0.25..=16.0).contains(&scale)
+        || ![
+            shape.left,
+            shape.top,
+            shape.width,
+            shape.height,
+            shape.radius,
+        ]
+        .iter()
+        .all(|v| v.is_finite())
+        || shape.left < 0.0
+        || shape.top < 0.0
+        || shape.width < 1.0
+        || shape.height < 1.0
+        || shape.width > EXPANDED_SURFACE.0
+        || shape.height > EXPANDED_SURFACE.1
+        || shape.radius < 0.0
+        || shape.radius > shape.width.min(shape.height) / 2.0
+        || (shape.left + shape.width) * scale > f64::from(size.0) + 1.0
+        || (shape.top + shape.height) * scale > f64::from(size.1) + 1.0
+    {
+        return Err("Geometría visual fuera de la isla.");
+    }
+    Ok(SurfaceRegion {
+        left: (shape.left * scale).round() as i32,
+        top: (shape.top * scale).round() as i32,
+        right: ((shape.left + shape.width) * scale).round() as i32,
+        bottom: ((shape.top + shape.height) * scale).round() as i32,
+        diameter: (shape.radius * 2.0 * scale).round().max(1.0) as i32,
+    })
+}
+
 // Desktop coordinates are physical. DIP dimensions are scaled exactly once.
 pub fn fit(
     origin: (i32, i32),
@@ -91,6 +141,49 @@ pub fn surface_region(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn animation_geometry_is_finite_bounded_and_scaled_once() {
+        let shape = SurfaceGeometry {
+            left: 154.0,
+            top: 16.0,
+            width: 112.0,
+            height: 34.0,
+            radius: 17.0,
+        };
+        let region = animated_region((630, 528), 1.5, shape).unwrap();
+        assert_eq!(
+            (
+                region.left,
+                region.top,
+                region.right,
+                region.bottom,
+                region.diameter
+            ),
+            (231, 24, 399, 75, 51)
+        );
+        for invalid in [
+            SurfaceGeometry {
+                width: f64::NAN,
+                ..shape
+            },
+            SurfaceGeometry {
+                left: -1.0,
+                ..shape
+            },
+            SurfaceGeometry {
+                width: 500.0,
+                ..shape
+            },
+            SurfaceGeometry {
+                radius: 50.0,
+                ..shape
+            },
+        ] {
+            assert!(animated_region((420, 352), 1.0, invalid).is_err());
+        }
+        assert!(animated_region((144, 66), 1.0, shape).is_err());
+    }
 
     #[test]
     fn supports_negative_monitor_origins() {

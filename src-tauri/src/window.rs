@@ -6,7 +6,7 @@ use crate::{
     visibility::{Blocker, VisibilityPolicy},
 };
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Mutex,
 };
 use tauri::{App, Manager, WebviewWindow};
@@ -22,11 +22,15 @@ struct NativeVisibility {
 #[derive(Default)]
 pub struct IslandState {
     expanded: AtomicBool,
+    surface_epoch: AtomicU64,
     tray_available: AtomicBool,
     visibility: Mutex<NativeVisibility>,
 }
 
 impl IslandState {
+    pub fn surface_epoch(&self) -> u64 {
+        self.surface_epoch.load(Ordering::Acquire)
+    }
     pub fn expanded(&self) -> bool {
         self.expanded.load(Ordering::Relaxed)
     }
@@ -69,6 +73,10 @@ pub fn place(window: &WebviewWindow, expanded: bool, settings: &Settings) -> Res
     )
     .map_err(str::to_owned)?;
     let region = placement::surface_region(&p, expanded).map_err(str::to_owned)?;
+    window
+        .state::<IslandState>()
+        .surface_epoch
+        .fetch_add(1, Ordering::AcqRel);
     platform::set_bounds(window, &p)?;
     platform::set_surface_region(window, &region)?;
     let state = window
@@ -81,6 +89,24 @@ pub fn place(window: &WebviewWindow, expanded: bool, settings: &Settings) -> Res
     })?;
     refresh_fullscreen(window);
     Ok(())
+}
+
+pub fn set_surface_geometry(
+    window: &WebviewWindow,
+    state: &IslandState,
+    epoch: u64,
+    shape: placement::SurfaceGeometry,
+) -> Result<bool, String> {
+    require_island(window)?;
+    if epoch != state.surface_epoch() {
+        return Ok(false);
+    }
+    let size = window.inner_size().map_err(|error| error.to_string())?;
+    let scale = window.scale_factor().map_err(|error| error.to_string())?;
+    let region = placement::animated_region((size.width, size.height), scale, shape)
+        .map_err(str::to_owned)?;
+    platform::set_surface_region(window, &region)?;
+    Ok(true)
 }
 
 pub fn show(

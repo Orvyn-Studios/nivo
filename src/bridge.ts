@@ -1,6 +1,7 @@
 import { parsePreferences, type Preferences } from './domain/index.ts';
 import { parseMediaSnapshot, type MediaAction, type MediaSnapshot } from './media-state.ts';
 import { parseDisplays, type Display } from './display-state.ts';
+import type { SurfaceGeometry } from './native-surface.ts';
 export type { Display } from './display-state.ts';
 
 type Core = { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> };
@@ -8,9 +9,14 @@ type EventApi = { listen<T>(name: string, handler: (event: { payload: T }) => vo
 declare global { interface Window { __TAURI__?: { core: Core; event: EventApi } } }
 const core = window.__TAURI__?.core;
 export const isNative = Boolean(core);
+let surfaceEpoch = 0;
 export const bridge = {
   ready: () => core?.invoke<void>('ready') ?? Promise.resolve(),
-  resize: (expanded: boolean) => core?.invoke<void>('set_expanded', { expanded }) ?? Promise.resolve(),
+  async resize(expanded: boolean): Promise<void> {
+    if (core) surfaceEpoch = await core.invoke<number>('set_expanded', { expanded });
+  },
+  surfaceEpoch: () => surfaceEpoch,
+  surface: (shape: SurfaceGeometry, epoch: number) => core?.invoke<boolean>('set_surface_geometry', { shape, epoch }) ?? Promise.resolve(true),
   hide: () => core?.invoke<void>('hide_island') ?? Promise.resolve(),
   quit: () => core?.invoke<void>('quit_app') ?? Promise.resolve(),
   autostart: () => core ? core.invoke<boolean>('get_autostart') : Promise.resolve(false),

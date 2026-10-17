@@ -33,7 +33,9 @@ let mediaDirty = false;
 const mediaInbox = new MediaInbox();
 let mediaRequestSerial = 0;
 let requestedMedia: boolean | undefined;
-const motion = new IslandMotion(island, panel, element('toggle-identity'));
+const motion = new IslandMotion(island, panel, element('toggle-identity'), isNative ? {
+  send: bridge.surface, epoch: bridge.surfaceEpoch, onError: report,
+} : undefined);
 toggle.disabled = true;
 document.body.dataset.environment = isNative ? 'native' : 'preview';
 document.title = isNative ? 'Nivo by Orvyn' : 'Nivo by Orvyn · desarrollo';

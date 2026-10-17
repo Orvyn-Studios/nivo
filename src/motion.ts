@@ -1,5 +1,6 @@
 import { measureTransition } from './metrics.ts';
 import { springTrack, trackVelocity, type SpringPoint } from './spring.ts';
+import { createSurfaceWriter, type SurfaceGeometry } from './native-surface.ts';
 
 interface Geometry { width: number; height: number; radius: number }
 
@@ -18,11 +19,17 @@ export class IslandMotion {
   private island: HTMLElement;
   private panel: HTMLElement;
   private identity: HTMLElement | undefined;
-  constructor(island: HTMLElement, panel: HTMLElement, identity?: HTMLElement) {
+  private surface: ReturnType<typeof createSurfaceWriter> | undefined;
+  private epoch: () => number;
+  constructor(island: HTMLElement, panel: HTMLElement, identity?: HTMLElement,
+    native?: { send(shape: SurfaceGeometry, epoch: number): Promise<unknown>; epoch(): number; onError(error: unknown): void }) {
     this.island = island; this.panel = panel; this.identity = identity;
+    this.epoch = native?.epoch ?? (() => 0);
+    if (native) this.surface = createSurfaceWriter(native.send, native.onError);
   }
 
   cancel(): void {
+    this.surface?.cancel();
     if (this.active.length) {
       const time = this.active[0]?.currentTime;
       if (this.tracks && typeof time === 'number') {
@@ -61,6 +68,14 @@ export class IslandMotion {
     this.island.dataset.expanded = String(this.targetExpanded);
     this.clearFrozen();
     this.velocity = { width: 0, height: 0, radius: 0 };
+    this.syncSettled();
+  }
+
+  private syncSettled(): void {
+    if (!this.surface || document.hidden) return;
+    const box = this.island.getBoundingClientRect();
+    this.surface.submit({ left: box.left, top: box.top, width: box.width, height: box.height,
+      radius: this.targetExpanded ? 28 : 17 }, this.epoch());
   }
 
   private clearFrozen(): void {
@@ -78,6 +93,7 @@ export class IslandMotion {
     if (reduced || document.hidden) {
       this.island.dataset.expanded = String(expanded);
       this.velocity = { width: 0, height: 0, radius: 0 };
+      this.syncSettled();
       return;
     }
 
@@ -97,11 +113,24 @@ export class IslandMotion {
     const widths = tracks.width.map(point => Math.max(1, Math.min(layout.width, point.value)));
     const heights = tracks.height.map(point => Math.max(1, Math.min(layout.height, point.value)));
     const radii = tracks.radius.map(point => Math.max(1, point.value));
-    const stopMeasurement = measureTransition();
-    this.stopMeasurement = stopMeasurement;
     const geometry = this.island.animate(widths.map((width, index) => ({
       clipPath: mask(layout, { width, height: heights[index]!, radius: radii[index]! }),
     })), { duration, easing: 'linear', fill: 'both' });
+    const epoch = this.epoch();
+    const syncGeometry = () => {
+      if (!this.surface) return;
+      const time = typeof geometry.currentTime === 'number' ? geometry.currentTime : 0;
+      const position = Math.min(widths.length - 1, Math.max(0, time / duration * (widths.length - 1)));
+      const index = Math.floor(position), next = Math.min(index + 1, widths.length - 1), mix = position - index;
+      const sample = (values: number[]) => values[index]! + (values[next]! - values[index]!) * mix;
+      const width = sample(widths), height = sample(heights);
+      this.surface.submit({ left: full.left + (full.width - width) / 2, top: full.top, width, height,
+        radius: Math.min(sample(radii), width / 2, height / 2) }, epoch);
+    };
+    syncGeometry();
+    // Reuse the finite measurement frame; no extra loop or per-frame DOM reads.
+    const stopMeasurement = measureTransition(syncGeometry);
+    this.stopMeasurement = stopMeasurement;
     const content = this.panel.animate(expanded ? [
       { opacity: 0, transform: 'translateY(-4px)', offset: 0 },
       { opacity: 0, transform: 'translateY(-4px)', offset: .18 },
@@ -124,6 +153,7 @@ export class IslandMotion {
       this.clearFrozen();
       this.tracks = undefined;
       this.velocity = { width: 0, height: 0, radius: 0 };
+      this.syncSettled();
       stopMeasurement(false); this.stopMeasurement = undefined;
     }
   }

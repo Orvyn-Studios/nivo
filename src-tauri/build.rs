@@ -3,6 +3,7 @@ fn main() {
         tauri_build::AppManifest::new().commands(&[
             "ready",
             "set_expanded",
+            "set_surface_geometry",
             "hide_island",
             "get_settings",
             "save_settings",

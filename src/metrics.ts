@@ -9,13 +9,13 @@ export interface TransitionSample {
 const samples: TransitionSample[] = [];
 
 /** Sampling exists only while a visible transition is in progress. No idle loop. */
-export function measureTransition(): (interrupted: boolean) => void {
+export function measureTransition(onFrame?: () => void): (interrupted: boolean) => void {
   const start = performance.now();
   let previous = start;
   let frame = 0;
   const intervals: number[] = [];
   const tick = (now: number) => {
-    if (!document.hidden) intervals.push(now - previous);
+    if (!document.hidden) { intervals.push(now - previous); onFrame?.(); }
     previous = now;
     frame = requestAnimationFrame(tick);
   };

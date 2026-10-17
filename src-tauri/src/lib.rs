@@ -70,7 +70,8 @@ fn set_expanded(
     state: State<IslandState>,
     settings: State<SettingsStore>,
     expanded: bool,
-) -> Result<(), String> {
+) -> Result<u64, String> {
+    window::require_island(&window)?;
     let previous = state.expanded();
     let settings = settings.snapshot()?;
     if let Err(error) = window::place(&window, expanded, &settings) {
@@ -82,7 +83,33 @@ fn set_expanded(
         return Err(error);
     }
     state.set_expanded(expanded);
-    Ok(())
+    if expanded && !previous {
+        let size = window.inner_size().map_err(|error| error.to_string())?;
+        let scale = window.scale_factor().map_err(|error| error.to_string())?;
+        window::set_surface_geometry(
+            &window,
+            &state,
+            state.surface_epoch(),
+            placement::SurfaceGeometry {
+                left: (f64::from(size.width) / scale - 112.0) / 2.0,
+                top: 16.0,
+                width: 112.0,
+                height: 34.0,
+                radius: 17.0,
+            },
+        )?;
+    }
+    Ok(state.surface_epoch())
+}
+
+#[tauri::command]
+fn set_surface_geometry(
+    window: WebviewWindow,
+    state: State<IslandState>,
+    epoch: u64,
+    shape: placement::SurfaceGeometry,
+) -> Result<bool, String> {
+    window::set_surface_geometry(&window, &state, epoch, shape)
 }
 
 #[tauri::command]
@@ -205,6 +232,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ready,
             set_expanded,
+            set_surface_geometry,
             hide_island,
             get_settings,
             save_settings,
