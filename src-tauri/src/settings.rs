@@ -61,6 +61,8 @@ pub struct Settings {
     pub battery_thresholds: [u8; 3],
     pub notifications_enabled: bool,
     pub hide_in_fullscreen: bool,
+    #[serde(default)]
+    pub hide_behind_apps: bool,
     pub monitor_name: Option<String>,
     pub horizontal_position: f64,
     pub top_gap: u16,
@@ -84,7 +86,8 @@ impl Default for Settings {
             drop_enabled: false,
             battery_thresholds: battery_thresholds(),
             notifications_enabled: true,
-            hide_in_fullscreen: true,
+            hide_in_fullscreen: false,
+            hide_behind_apps: false,
             monitor_name: None,
             horizontal_position: 0.5,
             top_gap: 8,

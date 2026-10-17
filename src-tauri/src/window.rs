@@ -103,6 +103,7 @@ pub fn place(window: &WebviewWindow, expanded: bool, settings: &Settings) -> Res
         platform::set_bounds(window, &p)?;
     }
     platform::set_surface_region(window, &region)?;
+    platform::set_app_occlusion(window, settings.hide_behind_apps)?;
     let state = window.state::<IslandState>();
     *state
         .last_region
@@ -218,7 +219,8 @@ fn set_physical_visibility(window: &WebviewWindow, visible: bool) -> Result<(), 
     if visible {
         platform::show_without_activation(window)
     } else {
-        window.hide().map_err(|error| error.to_string())
+        // Match the direct Win32 show path; Tao retains its initial hidden flag.
+        platform::hide_without_activation(window)
     }
 }
 

@@ -5,9 +5,9 @@ use windows_sys::Win32::{
     Foundation::{GetLastError, SetLastError, HWND},
     Graphics::Gdi::{CreateRoundRectRgn, DeleteObject, SetWindowRgn},
     UI::WindowsAndMessaging::{
-        GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, SWP_FRAMECHANGED,
-        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, WS_EX_APPWINDOW,
-        WS_EX_TOOLWINDOW,
+        GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, HWND_NOTOPMOST,
+        HWND_TOPMOST, SWP_FRAMECHANGED, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        SWP_NOZORDER, SWP_SHOWWINDOW, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
     },
 };
 
@@ -57,8 +57,16 @@ pub fn initialize(window: &WebviewWindow) -> Result<(), String> {
 }
 
 pub fn show_without_activation(window: &WebviewWindow) -> Result<(), String> {
+    set_visibility_without_activation(window, true)
+}
+
+pub fn hide_without_activation(window: &WebviewWindow) -> Result<(), String> {
+    set_visibility_without_activation(window, false)
+}
+
+fn set_visibility_without_activation(window: &WebviewWindow, visible: bool) -> Result<(), String> {
     let hwnd = hwnd(window)?;
-    // SAFETY: the live owned HWND is shown without moving/resizing, changing
+    // SAFETY: the live owned HWND changes visibility without moving/resizing, changing
     // z-order or activating it. SetWindowPos reports actual operation failure.
     let result = unsafe {
         SetWindowPos(
@@ -68,14 +76,57 @@ pub fn show_without_activation(window: &WebviewWindow) -> Result<(), String> {
             0,
             0,
             0,
-            SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW,
+            SWP_NOACTIVATE
+                | SWP_NOMOVE
+                | SWP_NOSIZE
+                | SWP_NOZORDER
+                | if visible {
+                    SWP_SHOWWINDOW
+                } else {
+                    SWP_HIDEWINDOW
+                },
         )
     };
     if result == 0 {
-        Err(last_error("Mostrar Nivo sin activar"))
+        Err(last_error("Cambiar visibilidad de Nivo sin activar"))
     } else {
         Ok(())
     }
+}
+
+/// Keep the island above ordinary app windows by default, without taking focus.
+/// Only changes our owned HWND; no foreground-event z-order fighting or polling.
+pub fn set_app_occlusion(window: &WebviewWindow, hide_behind_apps: bool) -> Result<(), String> {
+    let hwnd = hwnd(window)?;
+    // SAFETY: query and update the z-order of this live owned HWND only.
+    unsafe {
+        SetLastError(0);
+        let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        if style == 0 && GetLastError() != 0 {
+            return Err(last_error("Consultar visibilidad sobre aplicaciones"));
+        }
+        let topmost = style & WS_EX_TOPMOST as isize != 0;
+        if topmost == !hide_behind_apps {
+            return Ok(());
+        }
+        if SetWindowPos(
+            hwnd,
+            if hide_behind_apps {
+                HWND_NOTOPMOST
+            } else {
+                HWND_TOPMOST
+            },
+            0,
+            0,
+            0,
+            0,
+            SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE,
+        ) == 0
+        {
+            return Err(last_error("Cambiar visibilidad sobre aplicaciones"));
+        }
+    }
+    Ok(())
 }
 
 pub fn set_bounds(window: &WebviewWindow, placement: &Placement) -> Result<(), String> {

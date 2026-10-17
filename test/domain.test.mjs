@@ -15,6 +15,16 @@ const notify = (state, id, now = 0, extra = {}) => reduceIsland(state, {
   type: 'notify', now, notification: { id, source: 'Nivo', title: id, ...extra },
 });
 
+test('visibility defaults keep Nivo above apps and preserve explicit occlusion choices', () => {
+  const legacy=parsePreferences({schema_version:1,hide_in_fullscreen:true});
+  assert.equal(DEFAULT_PREFERENCES.hide_behind_apps,false);
+  assert.equal(DEFAULT_PREFERENCES.hide_in_fullscreen,false);
+  assert.equal(legacy.hide_behind_apps,false);
+  assert.equal(legacy.hide_in_fullscreen,true);
+  assert.equal(parsePreferences({schema_version:1,hide_behind_apps:true}).hide_behind_apps,true);
+  assert.equal(parsePreferences({schema_version:1,hide_behind_apps:'true'}).hide_behind_apps,false);
+});
+
 test('domain starts quiet without a fabricated player or notification', () => {
   const state = createIslandState();
   assert.deepEqual(presentation(state, 0), { kind: 'compact' });

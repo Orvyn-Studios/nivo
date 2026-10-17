@@ -10,7 +10,20 @@ mod foreground;
 pub use foreground::FullscreenObserver;
 
 #[cfg(windows)]
-pub use windows::{initialize, set_bounds, set_surface_region, show_without_activation};
+pub use windows::{
+    hide_without_activation, initialize, set_app_occlusion, set_bounds, set_surface_region,
+    show_without_activation,
+};
+
+#[cfg(not(windows))]
+pub fn set_app_occlusion(
+    window: &tauri::WebviewWindow,
+    hide_behind_apps: bool,
+) -> Result<(), String> {
+    window
+        .set_always_on_top(!hide_behind_apps)
+        .map_err(|error| error.to_string())
+}
 
 #[cfg(not(windows))]
 pub fn initialize(_: &tauri::WebviewWindow) -> Result<(), String> {
@@ -41,4 +54,9 @@ pub fn set_surface_region(
 #[cfg(not(windows))]
 pub fn show_without_activation(window: &tauri::WebviewWindow) -> Result<(), String> {
     window.show().map_err(|error| error.to_string())
+}
+
+#[cfg(not(windows))]
+pub fn hide_without_activation(window: &tauri::WebviewWindow) -> Result<(), String> {
+    window.hide().map_err(|error| error.to_string())
 }

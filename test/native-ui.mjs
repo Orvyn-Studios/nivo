@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer, createConnection } from 'node:net';
 import assert from 'node:assert/strict';
+import {checkNativeVisibility} from './native-visibility.mjs';
 
 if (process.platform !== 'win32') throw new Error('Native Windows test requires Windows.');
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -24,7 +25,7 @@ const child = spawn(executable, [], {
 });
 let log = '', browser, page, original;
 child.stdout.on('data', data => { log += data; }); child.stderr.on('data', data => { log += data; });
-const report = { environment: `actual ${profile} Tauri executable / WebView2`, status: 'running', checks: [], limits: 'Does not validate games, fullscreen, Alt+Tab, DPI combinations, perceived smoothness or long-session performance.' };
+const report = { environment: `actual ${profile} Tauri executable / WebView2`, status: 'running', checks: [], limits: 'Does not validate games/exclusive fullscreen, Alt+Tab, DPI combinations, perceived smoothness or long-session performance. Borderless fullscreen is checked with an owned external fixture.' };
 report.executableSha256 = createHash('sha256').update(await readFile(executable)).digest('hex');
 report.sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim();
 try {
@@ -54,6 +55,8 @@ try {
   assert.equal(child.exitCode,null,'primary desktop must remain running');
   report.checks.push('A second executable copied to another directory exits before creating a second island; the primary continues. Native-messaging hosts remain independent.');
   original = await page.evaluate(() => window.__TAURI__.core.invoke('get_settings'));
+  report.appVisibility=await checkNativeVisibility(page,child.pid,root);
+  report.checks.push('External ordinary HWND: Nivo stays above by default without taking focus, opt-in permits occlusion. External borderless fullscreen HWND: opt-in hides, exit restores, disabled setting remains visible.');
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.evaluate(async settings => {
     await window.__TAURI__.core.invoke('save_settings',{settings:{...settings,media_enabled:false,motion:'full',mascot_enabled:true}});
@@ -129,6 +132,11 @@ try {
   const context = browser.contexts()[0];
   const [preferencesPage] = await Promise.all([context.waitForEvent('page'), page.locator('#open-preferences').click()]);
   await preferencesPage.waitForSelector('body[data-ready=true]');
+  await preferencesPage.locator('#hide-behind-apps').check();
+  await preferencesPage.waitForFunction(async()=>(await window.__TAURI__.core.invoke('get_settings')).hide_behind_apps===true);
+  await preferencesPage.locator('#hide-behind-apps').uncheck();
+  await preferencesPage.waitForFunction(async()=>(await window.__TAURI__.core.invoke('get_settings')).hide_behind_apps===false);
+  await preferencesPage.screenshot({path:fileURLToPath(new URL('native-visibility-preferences.png',artifacts))});
   await preferencesPage.screenshot({ path: fileURLToPath(new URL('native-preferences.png', artifacts)) });
   await preferencesPage.getByRole('button', { name: 'Audio', exact: true }).click();
   await preferencesPage.locator('#audio-enabled').check();
@@ -253,7 +261,11 @@ try {
   }
 } finally {
   if (page && original) {
-    try { await page.evaluate(settings => window.__TAURI__.core.invoke('save_settings', { settings }), original); }
+    try {
+      const restore=process.env.NIVO_APPLY_VISIBLE_DEFAULTS==='1'?{...original,hide_behind_apps:false,hide_in_fullscreen:false}:original;
+      await page.evaluate(settings => window.__TAURI__.core.invoke('save_settings', { settings }), restore);
+      if(process.env.NIVO_APPLY_VISIBLE_DEFAULTS==='1')report.appliedUserVisibilityDefaults=true;
+    }
     catch (error) { report.restoreError = error.message; process.exitCode = 1; report.status = 'failed'; }
   }
   if (page) await page.evaluate(() => window.__TAURI__.core.invoke('quit_app')).catch(() => {});

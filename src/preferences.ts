@@ -27,7 +27,7 @@ function move(id: string, group: string): void {
   const node = get(id); if (!node) return;
   groups.get(group)!.append(node.closest('.setting') ?? node);
 }
-for (const id of ['startup-setting', 'hide-fullscreen']) move(id, 'general');
+for (const id of ['startup-setting', 'hide-behind-apps', 'hide-fullscreen']) move(id, 'general');
 const position = get('monitor').closest('.position-settings') ?? get('monitor').parentElement!;
 groups.get('general')!.append(position, get('position-hint'));
 for (const id of ['mascot-enabled', 'reduce-motion']) move(id, 'appearance');

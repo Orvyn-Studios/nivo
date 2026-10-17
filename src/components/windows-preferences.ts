@@ -14,12 +14,15 @@ export function createWindowsPreferences(options: {
 }): { start(): Promise<void>; render(): void; dispose(): void } {
   const startup = element<HTMLInputElement>('start-with-windows');
   const fullscreen = element<HTMLInputElement>('hide-fullscreen');
+  const behindApps = element<HTMLInputElement>('hide-behind-apps');
   const monitor = element<HTMLSelectElement>('monitor');
   const listeners = new AbortController();
   let unlisten: (() => void) | undefined;
   let disposed = false;
   element('startup-setting').hidden = !isNative;
   fullscreen.disabled = !isNative;
+  behindApps.disabled = !isNative;
+  behindApps.addEventListener('change', () => options.save({ hide_behind_apps: behindApps.checked }), { signal: listeners.signal });
   fullscreen.addEventListener('change', () => options.save({ hide_in_fullscreen: fullscreen.checked }), { signal: listeners.signal });
   startup.addEventListener('change', () => {
     const requested = startup.checked;
@@ -73,7 +76,7 @@ export function createWindowsPreferences(options: {
       try { const enabled = await bridge.autostart(); if (!disposed) { startup.checked = enabled; startup.disabled = false; } }
       catch (error) { if (!disposed) options.report(error); }
     },
-    render() { fullscreen.checked = options.preferences().hide_in_fullscreen; },
+    render() { fullscreen.checked = options.preferences().hide_in_fullscreen; behindApps.checked = options.preferences().hide_behind_apps; },
     dispose() { disposed = true; unlisten?.(); listeners.abort(); },
   };
 }
