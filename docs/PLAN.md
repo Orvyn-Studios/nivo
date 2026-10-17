@@ -1,5 +1,13 @@
 # Nivo — próximos hitos
 
+## Estado actual — 2026-10-17
+
+La integración completa Tauri compila localmente. Pasan 62 pruebas Node, 39 de biblioteca Rust, tipos, build web y Clippy. El harness vacío de `main` vuelve a estar bloqueado por la política de Windows; la verificación completa queda fallida. GSMTC, fullscreen, eventos de pantallas/energía/sesión y startup optativo están implementados. El usuario confirmó que la cápsula abre y señaló falta de fluidez y acabado: se han añadido máscara animada, resorte con velocidad conservada y compañero original tras revisar Coucou. Su nueva aceptación interactiva sigue pendiente. Actions permanece manual por petición del usuario.
+
+El siguiente hito es ejecutar el binario autónomo y validar ventana, controles musicales, bandeja y recuperación. Corregir la región durante las animaciones y la sombra antes de declarar beta; medir CPU/RAM/fluidez y completar la matriz de [aceptación](NATIVE_ACCEPTANCE.md). Mantener topmost desactivado hasta validar fullscreen. Sin publicación automática.
+
+Los apartados siguientes conservan el plan inicial y no sustituyen este estado ni el registro de [validación](VALIDATION.md).
+
 ## 1. Base independiente — preparada
 
 Repositorio independiente [SnoW-099/nivo](https://github.com/SnoW-099/nivo), rama `feature/nivo-mvp`, shell Tauri, vista web y controlador de apertura, preferencias de movimiento, comandos acotados y pruebas Node. La música y las notificaciones se muestran como no conectadas. El código ya está subido; no se ha publicado un binario ni una release.

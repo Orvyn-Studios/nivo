@@ -26,14 +26,17 @@ Los lockfiles ya están generados por npm y Cargo; instalaciones repetibles con 
 
 ## Implementación actual
 
-- Máquina de estados TypeScript: intención compacta/expandida, hover, notificaciones superpuestas con prioridad y restauración, colas acotadas y protección frente a eventos multimedia obsoletos. El contrato multimedia aún no tiene proveedor Windows conectado.
+- Máquina de estados TypeScript: intención compacta/expandida, hover, notificaciones superpuestas con prioridad y restauración, colas acotadas y protección frente a eventos multimedia obsoletos.
 - Temporizador real con plazo absoluto, pausa, reanudación, cancelación y recuperación local. No acumula deriva de intervalos; incluye suspensión. Un cambio manual del reloj hacia delante puede anticipar el final. La validación de suspensión/ocultación en WebView2 está pendiente.
-- Interfaz de 112 × 34 DIP con panel de 388 × 320 DIP, teclado, Escape, movimiento reducido y notificaciones propias del temporizador. Trayectorias amortiguadas cancelables, sin bucle de animación en reposo.
-- Backend modular con preferencias validadas y guardado local atómico, selección de pantalla y posición, región redondeada Win32, estilo de herramienta y operaciones sin activación. Código escrito; Control de aplicaciones de Windows impide completar la compilación Tauri en esta sesión (error4551 en una dependencia). Su aceptación real sigue pendiente.
-- Bandeja Mostrar/Ocultar/Salir y salida de emergencia desde Preferencias. Si la bandeja falla se impide ocultar una app irrecuperable.
-- Puente limitado a siete comandos, sin plugins de shell, archivos arbitrarios, red ni ejecución remota. Preferencias nativas en el directorio de configuración de `com.orvyn.nivo`; temporizador en almacenamiento local del webview. No se guarda historial de notificaciones.
+- Interfaz de 112 × 34 DIP con panel de 388 × 320 DIP, teclado, Escape, movimiento reducido y notificaciones propias del temporizador. Máscara animada sin cambiar ancho/alto en cada frame y resorte que conserva velocidad al interrumpir. Fluidez pendiente de medición en Windows.
+- Compañero vectorial original y opcional: mirada dentro de la isla, parpadeo al pulsar y reacción a estados reales. Sin seguimiento global ni movimiento continuo. Activo por defecto en configuraciones nuevas; respeta las preferencias existentes.
+- Backend modular con preferencias validadas y guardado local atómico, selección de pantalla y posición, región redondeada Win32, estilo de herramienta y operaciones sin activación. Compila y supera 39 pruebas Rust en Windows; la aceptación visual e interactiva sigue pendiente.
+- Proveedor GSMTC real por eventos: sesiones, metadatos, portada acotada y controles cuando Windows los permite. El frontend nunca inventa una sesión. Desactivar la integración borra inmediatamente sus datos y descarta respuestas obsoletas.
+- Observación Win32 de pantalla completa, bloqueo, suspensión y cambios de pantalla. La intención de ocultar o pausar sobrevive a estos eventos. No usa hooks de entrada ni inyección. Su matriz de aceptación en juegos y varios monitores está pendiente.
+- Bandeja Mostrar/Ocultar/Pausar/Preferencias/Salir. Inicio automático opcional desde Preferencias, limitado a la entrada propia `Orvyn.Nivo` en HKCU. Nunca se activa en la instalación o en las pruebas automatizadas.
+- Puente de doce comandos finitos, sin plugins de shell, archivos arbitrarios, red ni ejecución remota. Preferencias nativas en el directorio de configuración de `com.orvyn.nivo`; temporizador en almacenamiento local del webview. No se guarda historial de notificaciones.
 
-Pendientes: GSMTC real y controles musicales; fullscreen/juegos; hotplug inmediato; autostart optativo; permisos e identidad para notificaciones externas; mascota e integración real de agentes. Siempre visible permanece desactivado. La región nativa usa el tamaño final durante las transiciones y recorta la sombra exterior: faltan pruebas y correcciones de esa interacción antes de beta.
+Pendientes de aceptación: nueva animación y compañero, música con un reproductor compatible, fullscreen/juegos, cambios de monitor/DPI, suspensión y startup real. Notificaciones externas y agentes siguen sin implementarse. Siempre visible permanece desactivado. La región nativa usa el tamaño final durante las transiciones y recorta la sombra exterior: faltan pruebas y correcciones de esa interacción antes de beta.
 
 ## Comprobar cambios
 
@@ -53,9 +56,9 @@ Consulta [validación](docs/VALIDATION.md), [aceptación y medición nativa](doc
 
 ## Verificación repetible y bloqueos actuales
 
-`npm run verify:web` ejecuta las 38 pruebas actuales y comprueba tipos/build, con logs e informe en `artifacts/verify-web.json`. `npm run verify` añade Rustfmt, tests Cargo con lock, Clippy y compilación del ejecutable. Se detiene ante el primer fallo y no presenta las comprobaciones posteriores como aprobadas. Las pruebas de navegador y aceptación nativa son pasos separados.
+`npm run verify:web` ejecuta las 62 pruebas actuales y comprueba tipos/build, con logs e informe en `artifacts/verify-web.json`. `npm run verify` añade Rustfmt, tests Cargo con lock, Clippy y compilación del ejecutable. Se detiene ante el primer fallo y no presenta las comprobaciones posteriores como aprobadas. Las pruebas de navegador y aceptación nativa son pasos separados.
 
-El 16 de octubre de 2026, tipos, build y las 38 pruebas pasan. Cargo se detiene al cargar `schemars_derive.dll` con error4551 de Control de aplicaciones, antes de compilar Nivo. No se modifica ninguna protección. Chromium y Edge no consiguen crear la página de prueba; el proceso GPU de Chromium falla con `0xC0000022`. Se ha preparado un timeout explícito y cierre del navegador para evitar esperas indefinidas. No hay capturas ni mediciones FPS aprobadas.
+El 17 de octubre de 2026 pasan tipos, build web, 62 pruebas Node, 39 pruebas de biblioteca Rust y Clippy con advertencias como errores. El usuario confirma que la build anterior muestra la cápsula, pero indica falta de fluidez y acabado. La última verificación completa falla por error4551 al ejecutar el harness vacío de `main`; las 39 pruebas de biblioteca sí se ejecutan. No se cambian protecciones. Chromium sigue sin crear página, incluso con renderizado por software. No hay capturas ni medidas FPS aprobadas. Consulta [VALIDATION.md](docs/VALIDATION.md) y [la revisión de Coucou](docs/COUCOU_REVIEW.md).
 
 La prueba web permite seleccionar Edge mediante `NIVO_TEST_BROWSER=msedge`, o desactivar el uso de GPU únicamente en el navegador de pruebas mediante `NIVO_TEST_SOFTWARE_RENDERING=1`. Ambos mantienen el sandbox. El informe registra estas condiciones; sus tiempos RAF no acreditan rendimiento nativo.
 

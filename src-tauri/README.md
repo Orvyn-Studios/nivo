@@ -14,6 +14,11 @@ Todos los comandos comprueban que la ventana invocante sea `island` y están enu
 | `get_settings` | ninguna | Preferencias completas del esquema 1. |
 | `save_settings` | `{ settings: Settings }` | Valida, aplica posición y persiste; devuelve el objeto guardado. El fallo de escritura restaura la posición previa. |
 | `get_displays` | ninguna | Lista nombres, geometría física, área de trabajo, DPI y pantalla principal. |
+| `get_autostart` | ninguna | Consulta si este ejecutable está registrado en la entrada HKCU propia. No modifica Windows. |
+| `set_autostart` | `{ enabled: boolean }` | Registra o elimina únicamente `Orvyn.Nivo`, tras una acción explícita del usuario. Ruta local del ejecutable actual; sin argumentos arbitrarios. |
+| `get_media_snapshot` | ninguna | Estado GSMTC real, secuencia y hasta ocho sesiones; nunca datos de demostración. |
+| `media_control` | `{ sessionId, action }` | Acción `playPause`, `previous` o `next` en un worker, con plazo y validación de sesión/capacidad. |
+| `select_media_session` | `{ sessionId }` | Selecciona una sesión conocida y actualiza la instantánea. |
 | `quit_app` | ninguna | Salida explícita del proceso; alternativa a Salir desde bandeja. |
 
 Después de mostrar u ocultar realmente la ventana, Rust emite `nivo://visibility` exclusivamente hacia `island`, con payload `{ "visible": true }` o `{ "visible": false }`. Esto permite suspender las actualizaciones visuales aunque WebView2 no cambie `document.hidden`. El frontend debe esperar la suscripción antes de llamar a `ready`:
@@ -37,7 +42,7 @@ El payload se valida en el puente TypeScript. Las capabilities solo permiten `co
   "schema_version": 1,
   "theme": "system",
   "motion": "system",
-  "mascot_enabled": false,
+  "mascot_enabled": true,
   "privacy_mode": true,
   "media_enabled": true,
   "notifications_enabled": true,
@@ -48,7 +53,7 @@ El payload se valida en el puente TypeScript. Las capabilities solo permiten `co
 }
 ```
 
-Los campos de multimedia, mascota y pantalla completa preparan el contrato; no conectan proveedores que todavía no existen. `notifications_enabled` se limita a eventos propios de Nivo. No concede acceso a notificaciones ajenas. No hay ajuste de inicio automático.
+Multimedia y pantalla completa están conectadas a proveedores Windows. `mascot_enabled` controla el compañero vectorial original del frontend. `notifications_enabled` se limita a eventos propios de Nivo y no concede acceso a notificaciones ajenas. El inicio automático se consulta directamente en su entrada HKCU; no se duplica en JSON ni se activa por defecto.
 
 `theme`: `system`, `dark`, `light`. `motion`: `system`, `reduced`, `full`. Posición horizontal entre 0 y 1; separación superior entre 0 y 128 DIP, medida desde el borde visible de la cápsula. Nombres de monitor opcionales, máximo 256 bytes y sin caracteres de control. Se rechazan campos desconocidos, esquemas futuros y valores fuera de rango. El archivo tiene un límite de 16 KiB. Un archivo ilegible o inválido permanece intacto, se cargan valores predeterminados y `ready` comunica el problema. Guardar expresamente preferencias nuevas lo sustituye.
 
@@ -62,7 +67,7 @@ La superficie compacta mide 112 × 34 DIP; la expandida 388 × 320 DIP. Ambas ti
 
 `CreateRoundRectRgn` y `SetWindowRgn` restringen el HWND a la superficie redondeada; al transferirla con éxito, Windows asume la propiedad de la región. Los márgenes y esquinas exteriores se excluyen. **Esto también recorta la sombra exterior.** El acabado de esa sombra necesita una solución y validación posterior.
 
-El nombre persistido selecciona una pantalla si hay una coincidencia única; si desaparece o resulta ambiguo, se usa la principal. Se conserva la preferencia para una reconexión futura. La posición se recalcula al mostrar, guardar preferencias y cambiar DPI. **La detección inmediata de desconexiones y cambios de área de trabajo sigue pendiente:** no se afirma soporte completo de hotplug.
+El nombre persistido selecciona una pantalla si hay una coincidencia única; si desaparece o resulta ambiguo, se usa la principal. Se conserva la preferencia para una reconexión futura. La posición se recalcula al mostrar, guardar preferencias, cambiar DPI y recibir `WM_DISPLAYCHANGE`. La aceptación de hotplug y cambios de área de trabajo reales sigue pendiente.
 
 La región usa la geometría del estado de destino. **Durante una expansión CSS puede existir una región interactiva mayor que el contenido visible durante la transición.** El script siguiente comprueba el estado compacto estable, no acredita ese criterio durante una transición. Tampoco acredita fullscreen, exclusión de juegos, transparencia visual o lectura multimedia.
 
@@ -96,7 +101,7 @@ powershell -NoProfile -File src-tauri/scripts/Test-NativeWindow.ps1 -Executable 
 
 El script lanza su propio proceso, comprueba foco, visibilidad, TOOLWINDOW, ausencia de topmost/NOACTIVATE permanente, tamaño físico según DPI y región nativa. Lo cierra enviando `WM_CLOSE`; `-KeepOpen` permite inspección manual. Devuelve una medición observada del tiempo hasta ventana visible, sin confundirla con una medida de fluidez. No modifica políticas ni captura pantalla, teclado o datos de otras aplicaciones.
 
-En la sesión del 16 de octubre de 2026: Rust/MSVC compila y ejecuta los **5 tests de geometría**, y `cargo fmt --check` pasa. Tras descargar las dependencias y generar Cargo.lock, Cargo avanza pero Windows impide cargar `schemars_derive.dll` con **Control de aplicaciones, os error4551**, antes de compilar Nivo. No están acreditados los13tests Cargo de la aplicación. El script de ventana ha superado análisis sintáctico, **todavía no se ha ejecutado contra un binario Tauri**. No hay mediciones acreditadas de CPU, RAM o FPS.
+El 17 de octubre de 2026 se completó una build release y el usuario confirmó la apertura de la cápsula. La nueva revisión ejecuta las 39 pruebas de biblioteca y pasa Clippy para todos los targets con `-D warnings`; el harness vacío de `main` volvió a quedar bloqueado por error4551, por lo que el comando completo de pruebas no se considera aprobado. No se cambian políticas. La apertura anterior no acredita fluidez de las nuevas animaciones, foco, clics ni consumo. Registro: [VALIDATION.md](../docs/VALIDATION.md).
 
 ## Referencias primarias
 

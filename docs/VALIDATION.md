@@ -1,4 +1,33 @@
-# Validación inicial — 2026-10-16
+# Validación de Nivo
+
+## Estado actual — 2026-10-17, validación local
+
+Este apartado sustituye las conclusiones de los registros históricos posteriores.
+
+### Actualización: ejecución confirmada y revisión Coucou
+
+- El usuario abrió la build release y confirmó que aparece la cápsula. También señaló falta de fluidez, acabado y mascota. Esto acredita apertura observada por el usuario, no los demás criterios de beta.
+- Se generó y ejecutó `src-tauri/target/release/nivo-desktop.exe` con recursos incluidos. Hash de esa build anterior: `3414C8401371C2F775AE2708225BB82C9CE84E29EC277A78D7924527B93F0108`, sin firma Authenticode. El proceso permaneció vivo; Computer Use no expuso su ventana en esta sesión. No se infiere de ello que la ventana no aparezca en el escritorio del usuario.
+- A continuación se revisó Coucou en el commit `434d6a2`, incluidas ambas licencias. [Revisión y decisiones](COUCOU_REVIEW.md). Se implementaron máscara en lugar de dimensiones de layout animadas, resorte con velocidad conservada y compañero SVG original con interacción local acotada.
+- Última validación web: **62 pruebas, 0 fallos, 0 omitidas**, tipos y build aprobados. Las nuevas pruebas cubren física, mirada local, agrupación de cien eventos en un frame y cancelación al ocultar/desactivar/reducir movimiento. No hay un bucle de mascota en reposo en esos tests.
+- La última ejecución completa de `npm run verify` volvió a fallar por **4551 al ejecutar el harness vacío de `main`**. Las **39 pruebas de biblioteca Rust sí se ejecutaron y pasaron**. Clippy se ejecutó después, por separado, con todos los targets y `-D warnings`: aprobado. No se presenta la verificación completa como aprobada ni se cambian protecciones.
+- Chromium volvió a fallar al crear página incluso con renderizado por software y sandbox. No hay capturas visuales ni nuevas medidas de FPS. El muestreador PowerShell fue bloqueado por ExecutionPolicy al intentar medir el PID de Nivo; no se omitió esa política ni se ejecutó su cuerpo por otra vía.
+- La nueva animación y mascota aún requieren aceptación en Windows. El compañero está activo por defecto en configuraciones nuevas y respeta un `mascot_enabled: false` ya guardado; el usuario puede activarlo en Preferencias.
+
+Los puntos siguientes describen la validación anterior, antes de estas correcciones de diseño.
+
+- Rama `feature/nivo-mvp`, repositorio independiente `SnoW-099/nivo`. Sin cambios en StarOptimizer, `main`, políticas de Windows o releases. Actions permanece manual por petición del usuario.
+- Node 24.20.0; Rust/Cargo 1.99.1 MSVC. `npm run verify:web`: **53 aprobadas, 0 fallos, 0 omitidas**, tipos y build Vite aprobados. Incluye doce pruebas de contrato/bandeja de entrada multimedia y dos de validación de pantallas.
+- `cargo test --locked --offline --manifest-path src-tauri/Cargo.toml`: **39 aprobadas**, ejecutadas como binario de tests Windows. Compila la integración Tauri completa, no solo módulos aislados. El bloqueo anterior `schemars_derive.dll`/4551 no se reprodujo; no se modificaron protecciones para obtener este resultado.
+- `cargo clippy --locked --offline --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`: aprobado tras corregir la comprobación de longitud par del registro. Rustfmt y `git diff --check` aprobados.
+- `npm run test:ui`: falló al crear la página Chromium 153.0.8010.12, timeout de 15 segundos, con sandbox activo. Cero checks visuales, capturas o métricas aprobadas. Informe local `artifacts/ui-validation.json`. No se presenta como error funcional de la interfaz ni como validación visual.
+- La herramienta Computer Use devuelve una lista vacía de ventanas abiertas en esta sesión. No se han inventado observaciones de escritorio.
+- Implementados y compilados: GSMTC por eventos, interfaz musical con acciones reales, privacidad frente a eventos tardíos, política fullscreen/pausa, broadcasts de pantallas/energía/WTS e inicio automático optativo. Véase [integración Windows](WINDOWS_INTEGRATION.md).
+- Pruebas anteriores de componentes reales: alta/baja del observador WTS y ventana oculta en tres ciclos, con liberación del callback; observador de primer plano sin datos fiables de ventana; GSMTC indisponible con HRESULT `0x80070424`. No se infiere compatibilidad con juegos ni reproducción musical de esos resultados.
+
+**La beta sigue pendiente de aceptación del ejecutable.** No se han medido CPU, memoria, 30 minutos de actividad ni FPS. La región interactiva durante la animación y su sombra son defectos conocidos. La música necesita una sesión real compatible para probar controles y metadatos. Las notificaciones externas, mascota y agentes no están implementados.
+
+## Registro histórico — 2026-10-16
 
 ## Estado más reciente: dependencias disponibles y compilación intentada
 
