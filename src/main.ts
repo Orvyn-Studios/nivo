@@ -16,6 +16,8 @@ import { createAudioView } from './components/audio.ts';
 import { PowerInbox, type PowerSnapshot } from './power-state.ts';
 import { IntegrationInbox } from './integration-state.ts';
 import { renderIntegrations } from './components/integrations.ts';
+import { createDropView } from './components/drop.ts';
+import type { DroppedFile } from './drop-state.ts';
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -45,6 +47,10 @@ let lockSerial = 0;
 let unlistenIntegration: (() => void) | undefined;
 const integrationInbox = new IntegrationInbox();
 let integrationOptOut = false;
+let dropOptOut = false;
+let droppedFiles: DroppedFile[] = [];
+let dropReturn: typeof state.base | undefined;
+let unlistenDrop: (() => void) | undefined;
 let observedTransition: Promise<boolean> | undefined;
 let geometryDirty = false;
 let mediaDirty = false;
@@ -64,6 +70,7 @@ const audioView = createAudioView({ control: bridge.controlAudio, refresh: async
 }, settings: bridge.soundSettings }, report);
 const companion = createCompanion(element('nivo-companion'), toggle);
 const welcomeCompanion = createCompanion(element('companion-welcome'), element('media-empty'));
+const dropView = createDropView(bridge.dropAction, report);
 
 function syncCompanion(): void {
   const value = {
@@ -160,6 +167,7 @@ function render(): void {
   element('activity').hidden = notification || (state.base.kind === 'expanded' && state.base.view !== 'activity');
   element('preferences').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'preferences';
   element('audio').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'audio';
+  element('drop').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'drop';
   for (const name of ['activity', 'audio', 'preferences']) {
     element(`${name}-tab`).setAttribute('aria-pressed', String(state.base.kind === 'expanded' && state.base.view === name));
   }
@@ -233,6 +241,8 @@ function renderPreferences(): void {
   element<HTMLInputElement>('caps-lock-enabled').checked = state.preferences.caps_lock_enabled;
   element<HTMLInputElement>('num-lock-enabled').checked = state.preferences.num_lock_enabled;
   element<HTMLInputElement>('integrations-enabled').checked = state.preferences.integrations_enabled;
+  element<HTMLInputElement>('drop-enabled').checked = state.preferences.drop_enabled;
+  dropView.render(droppedFiles, state.preferences.privacy_mode);
   for (const [index, value] of state.preferences.battery_thresholds.entries()) element<HTMLInputElement>(`battery-threshold-${index}`).value = String(value);
   if (powerInbox.snapshot) receivePower(powerInbox.snapshot);
   element<HTMLInputElement>('mascot-enabled').checked = state.preferences.mascot_enabled;
@@ -258,6 +268,8 @@ function savePreferences(patch: Partial<Preferences>): void {
       catch { /* Keep the last confirmed settings; report the original operation. */ }
       report(error); renderPreferences();
     } finally {
+      if (patch.integrations_enabled !== undefined) integrationOptOut = !state.preferences.integrations_enabled;
+      if (patch.drop_enabled !== undefined) dropOptOut = !state.preferences.drop_enabled;
       if (audioRequest && audioRequest === audioRequestSerial) {
         requestedAudio = undefined;
         try { receiveAudio(await bridge.audio(), true); } catch (error) { report(error); }
@@ -303,6 +315,11 @@ element<HTMLInputElement>('integrations-enabled').addEventListener('change', eve
   if (integrationOptOut) { integrationInbox.clear(); renderIntegrations(integrationInbox, state.preferences.privacy_mode); }
   savePreferences({ integrations_enabled: (event.target as HTMLInputElement).checked });
 });
+element<HTMLInputElement>('drop-enabled').addEventListener('change', event => {
+  dropOptOut = !(event.target as HTMLInputElement).checked;
+  if (dropOptOut) { droppedFiles = []; dropReturn = undefined; dropView.render([], state.preferences.privacy_mode); }
+  savePreferences({ drop_enabled: !dropOptOut });
+});
 element('battery-threshold-save').addEventListener('click', () => {
   const values = [0, 1, 2].map(index => Number(element<HTMLInputElement>(`battery-threshold-${index}`).value));
   const [low, important, critical] = values;
@@ -346,7 +363,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
 window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); });
-window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); audioView.dispose(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
+window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); unlistenDrop?.(); dropView.dispose(); audioView.dispose(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
 Object.defineProperty(window, '__NIVO_METRICS__', { value: transitionMetrics });
@@ -373,6 +390,22 @@ void (async () => {
     });
   } catch (error) { report(error); }
   await windowsPreferences.start();
+  try { unlistenDrop = await bridge.onDrop(files => {
+    if (!state.preferences.drop_enabled || dropOptOut || state.hidden) return;
+    dropReturn = undefined;
+    droppedFiles = files; dropView.render(files, state.preferences.privacy_mode);
+    dispatch({ type: 'expand', view: 'drop' });
+  }, phase => {
+    if (!state.preferences.drop_enabled || dropOptOut || state.hidden) return;
+    if (phase === 'enter') {
+      dropReturn ??= state.base;
+      dropView.render(droppedFiles, state.preferences.privacy_mode);
+      dispatch({ type: 'expand', view: 'drop' });
+    } else if (dropReturn) {
+      const previous = dropReturn; dropReturn = undefined;
+      dispatch(previous.kind === 'compact' ? { type: 'collapse' } : { type: 'expand', view: previous.view });
+    }
+  }, report); } catch (error) { report(error); }
   try { unlistenIntegration = await bridge.onIntegration(event => {
     if (!state.preferences.integrations_enabled || integrationOptOut) return;
     const notifications = integrationInbox.receive(event);

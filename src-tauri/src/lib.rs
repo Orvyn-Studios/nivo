@@ -2,6 +2,7 @@ mod activity_bridge;
 mod audio;
 mod autostart;
 mod display;
+mod drop_files;
 mod events;
 mod fullscreen;
 mod integration;
@@ -154,6 +155,12 @@ fn save_settings(
     }
     match store.save(settings) {
         Ok(settings) => {
+            if !settings.drop_enabled {
+                window
+                    .app_handle()
+                    .state::<Arc<drop_files::DropFiles>>()
+                    .clear();
+            }
             audio.set_enabled(settings.audio_enabled);
             let handle = window.app_handle().clone();
             activity.set_enabled(settings.integrations_enabled, move |event| {
@@ -225,6 +232,41 @@ fn get_power_snapshot(
 ) -> Result<power::PowerSnapshot, String> {
     window::require_island(&window)?;
     power.refresh()
+}
+
+#[tauri::command]
+fn get_drop_snapshot(
+    window: WebviewWindow,
+    files: State<Arc<drop_files::DropFiles>>,
+    settings: State<SettingsStore>,
+) -> Result<Vec<drop_files::DroppedFile>, String> {
+    window::require_island(&window)?;
+    if !settings.snapshot()?.drop_enabled {
+        return Ok(vec![]);
+    }
+    files.snapshot()
+}
+
+#[tauri::command]
+async fn drop_action(
+    window: WebviewWindow,
+    files: State<'_, Arc<drop_files::DropFiles>>,
+    settings: State<'_, SettingsStore>,
+    action: drop_files::DropAction,
+    id: Option<String>,
+) -> Result<String, String> {
+    window::require_island(&window)?;
+    if !settings.snapshot()?.drop_enabled {
+        return Err("Nivo Drop está desactivado.".into());
+    }
+    let files = Arc::clone(files.inner());
+    #[cfg(windows)]
+    let owner = window.hwnd().map_err(|error| error.to_string())?.0 as isize;
+    #[cfg(not(windows))]
+    let owner = 0;
+    tauri::async_runtime::spawn_blocking(move || files.action(action, id, owner))
+        .await
+        .map_err(|_| "La acción de archivo no pudo terminar.".to_string())?
 }
 
 #[tauri::command]
@@ -315,6 +357,8 @@ pub fn run() {
             get_media_snapshot,
             get_audio_snapshot,
             get_power_snapshot,
+            get_drop_snapshot,
+            drop_action,
             audio_control,
             open_sound_settings,
             media_control,
@@ -323,6 +367,7 @@ pub fn run() {
         ])
         .setup(|app| {
             app.manage(power::PowerService::default());
+            app.manage(Arc::new(drop_files::DropFiles::default()));
             let settings = match app.path().app_config_dir() {
                 Ok(directory) => SettingsStore::open(directory.join("settings.json")),
                 Err(error) => SettingsStore::unavailable(format!(
@@ -390,6 +435,38 @@ pub fn run() {
                 Err(error) => eprintln!("Nivo lifecycle observer unavailable: {error}"),
             }
             Ok(())
+        })
+        .on_webview_event(|webview, event| {
+            if webview.label() != "island" {
+                return;
+            }
+            let app = webview.app_handle();
+            if !app
+                .state::<SettingsStore>()
+                .snapshot()
+                .is_ok_and(|settings| settings.drop_enabled)
+            {
+                return;
+            }
+            if let tauri::WebviewEvent::DragDrop(event) = event {
+                let phase = match event {
+                    tauri::DragDropEvent::Enter { .. } => "enter",
+                    tauri::DragDropEvent::Leave => "leave",
+                    tauri::DragDropEvent::Drop { paths, .. } => {
+                        match app.state::<Arc<drop_files::DropFiles>>().accept(paths) {
+                            Ok(files) => {
+                                let _ = app.emit_to("island", "nivo://drop-files", files);
+                            }
+                            Err(error) => {
+                                let _ = app.emit_to("island", "nivo://drop-error", error);
+                            }
+                        }
+                        "drop"
+                    }
+                    _ => return,
+                };
+                let _ = app.emit_to("island", "nivo://drop-phase", phase);
+            }
         })
         .on_window_event(|window, event| {
             if window.label() != "island" {

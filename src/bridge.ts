@@ -5,6 +5,7 @@ import type { SurfaceGeometry } from './native-surface.ts';
 import { emptyAudio, parseAudioSnapshot, type AudioSnapshot, type AudioAction } from './audio-state.ts';
 import { parsePowerSnapshot, type PowerSnapshot } from './power-state.ts';
 import { parseIntegrationEvent, type IntegrationEvent } from './integration-state.ts';
+import { parseDroppedFiles, type DroppedFile, type DropAction } from './drop-state.ts';
 export type { Display } from './display-state.ts';
 
 type Core = { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> };
@@ -14,6 +15,23 @@ const core = window.__TAURI__?.core;
 export const isNative = Boolean(core);
 let surfaceEpoch = 0;
 export const bridge = {
+  dropAction: (action: DropAction, id?: string): Promise<string> => core ? core.invoke('drop_action', { action, id: id ?? null }) : Promise.reject(new Error('Requiere Nivo para Windows.')),
+  onDrop: async (files: (value: DroppedFile[]) => void, phase: (value: 'enter' | 'leave' | 'drop') => void, error: (value: unknown) => void): Promise<() => void> => {
+    if (!core) return () => {};
+    const cleanups: (() => void)[] = [];
+    try {
+      cleanups.push(await window.__TAURI__!.event.listen<unknown>('nivo://drop-files', event => {
+        const value = parseDroppedFiles(event.payload); if (value) files(value);
+      }, { target: 'island' }));
+      cleanups.push(await window.__TAURI__!.event.listen<unknown>('nivo://drop-phase', event => {
+        if (event.payload === 'enter' || event.payload === 'leave' || event.payload === 'drop') phase(event.payload);
+      }, { target: 'island' }));
+      cleanups.push(await window.__TAURI__!.event.listen<unknown>('nivo://drop-error', event => {
+        if (typeof event.payload === 'string') error(event.payload.slice(0, 280));
+      }, { target: 'island' }));
+      return () => cleanups.forEach(cleanup => cleanup());
+    } catch (error) { cleanups.forEach(cleanup => cleanup()); throw error; }
+  },
   onIntegration: (handler: (event: IntegrationEvent) => void): Promise<() => void> => {
     if (!core) return Promise.resolve(() => {});
     return window.__TAURI__!.event.listen<unknown>('nivo://integration', event => {

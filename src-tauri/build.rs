@@ -13,6 +13,8 @@ fn main() {
             "get_media_snapshot",
             "get_audio_snapshot",
             "get_power_snapshot",
+            "get_drop_snapshot",
+            "drop_action",
             "audio_control",
             "open_sound_settings",
             "media_control",

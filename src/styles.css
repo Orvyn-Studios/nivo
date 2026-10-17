@@ -618,6 +618,8 @@ body[data-environment=native] #island {
   }
 
 }
+.drop-actions { display:flex; flex-wrap:wrap; gap:8px 16px; padding-top:8px }
+.drop-file h2 { overflow-wrap:anywhere }
 @media(max-width:380px) {
   .preview-heading {
     padding:24px 16px

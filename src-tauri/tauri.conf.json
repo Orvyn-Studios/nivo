@@ -27,7 +27,7 @@
         "skipTaskbar": true,
         "focus": false,
         "visible": false,
-        "dragDropEnabled": false,
+        "dragDropEnabled": true,
         "theme": "Dark"
       }
     ],

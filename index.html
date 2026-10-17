@@ -178,6 +178,12 @@
             </section>
             <p class="local-note">Solo en tu equipo. Sin cuentas ni telemetría.</p>
           </section>
+          <section id="drop" aria-label="Nivo Drop" hidden>
+            <div class="section-heading"><h1>Nivo Drop</h1><button class="text-action" data-view="activity">Volver</button></div>
+            <p id="drop-status" class="detail-note" role="status">Suelta hasta 16 archivos locales sobre Nivo.</p>
+            <div id="drop-list"></div>
+            <button id="drop-zip" class="text-action" disabled>Guardar ZIP…</button>
+          </section>
           <section id="audio" aria-label="Sonido de Windows" hidden>
             <div id="audio-panel" aria-busy="false">
               <div class="section-heading"><h1>Sonido</h1><button id="sound-settings" class="text-action">Ajustes de Windows ↗</button></div>
@@ -205,6 +211,7 @@
           <section id="preferences" aria-label="Preferencias" hidden>
             <details class="module-preferences"><summary>Codex y descargas</summary>
               <label class="setting"><span><strong>Canal local de actividad</strong><small>Permite conectar el adaptador de Codex o la extensión opcional del navegador.</small></span><input id="integrations-enabled" type="checkbox" /></label>
+              <label class="setting"><span><strong>Nivo Drop</strong><small>Arrastra archivos locales para copiar su ruta, abrir su carpeta, guardar una copia o crear un ZIP.</small></span><input id="drop-enabled" type="checkbox" /></label>
               <p class="detail-note">La instalación de los adaptadores es independiente y voluntaria. No lee conversaciones ni detecta todas las descargas de Windows.</p>
             </details>
             <details class="module-preferences"><summary>Indicadores de teclado</summary>

@@ -11,6 +11,7 @@ export interface Preferences {
   caps_lock_enabled: boolean;
   num_lock_enabled: boolean;
   integrations_enabled: boolean;
+  drop_enabled: boolean;
   battery_thresholds: [number, number, number];
   notifications_enabled: boolean;
   hide_in_fullscreen: boolean;
@@ -32,6 +33,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   caps_lock_enabled: false,
   num_lock_enabled: false,
   integrations_enabled: false,
+  drop_enabled: false,
   battery_thresholds: [20, 10, 5] as [number, number, number],
   notifications_enabled: true,
   hide_in_fullscreen: true,
@@ -50,7 +52,7 @@ export function parsePreferences(value: unknown): Preferences {
   if (!record(value) || value.schema_version !== 1) return result;
   if (value.theme === 'system' || value.theme === 'dark' || value.theme === 'light') result.theme = value.theme;
   if (value.motion === 'system' || value.motion === 'reduced' || value.motion === 'full') result.motion = value.motion;
-  for (const key of ['mascot_enabled', 'privacy_mode', 'media_enabled', 'audio_enabled', 'battery_enabled', 'battery_full_notice', 'caps_lock_enabled', 'num_lock_enabled', 'integrations_enabled', 'notifications_enabled', 'hide_in_fullscreen'] as const) {
+  for (const key of ['mascot_enabled', 'privacy_mode', 'media_enabled', 'audio_enabled', 'battery_enabled', 'battery_full_notice', 'caps_lock_enabled', 'num_lock_enabled', 'integrations_enabled', 'drop_enabled', 'notifications_enabled', 'hide_in_fullscreen'] as const) {
     if (typeof value[key] === 'boolean') result[key] = value[key];
   }
   if (Array.isArray(value.battery_thresholds) && value.battery_thresholds.length === 3) {

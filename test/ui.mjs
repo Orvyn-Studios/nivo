@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { checkAudioControls } from './audio-ui-fixture.mjs';
+import { checkDropControls } from './drop-ui-fixture.mjs';
 
 let chromium, createServer;
 console.log('UI: loading Playwright and Vite');
@@ -218,6 +219,9 @@ try {
   assert.deepEqual(errors, []);
   await checkAudioControls(browser, `http://127.0.0.1:${address.port}`, assert);
   report.checks.push('Audio controls exercised with browser-only fixtures; no Windows levels changed.');
+  await checkDropControls(browser, `http://127.0.0.1:${address.port}`, assert, fileURLToPath(new URL('island-drop-fixture.png', artifacts)));
+  report.screenshots.push('island-drop-fixture.png');
+  report.checks.push('Drop enter/leave restores intent, file actions pass capability ids and privacy hides names (browser fixture).');
   report.status = 'passed';
   console.log('PASS: current Vite frontend, geometry, keyboard/focus, rapid intent, event pause, preferences, reduced-motion interruption and 320px viewport. Native Tauri acceptance remains separate.');
 } catch (error) {
@@ -230,5 +234,7 @@ try {
   report.finishedUtc = new Date().toISOString();
   await writeFile(new URL('ui-validation.json', artifacts), JSON.stringify(report, null, 2));
   try { if (browser) await bounded('closing Chromium', () => browser.close(), 5000); }
+  catch (error) { report.cleanupFailure = String(error); if (report.status === 'passed') { report.status = 'failed'; process.exitCode = 1; } }
   finally { await bounded('closing the development server', () => server.close(), 5000); }
+  await writeFile(new URL('ui-validation.json', artifacts), JSON.stringify(report, null, 2));
 }

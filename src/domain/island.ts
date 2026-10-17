@@ -4,7 +4,7 @@ import { parsePreferences } from './preferences.ts';
 import type { Preferences } from './preferences.ts';
 import { createEventCoordinator, enqueue, nextNotification, type EventCoordinator, type IslandNotification } from './event-coordinator.ts';
 
-export type View = 'activity' | 'audio' | 'preferences';
+export type View = 'activity' | 'audio' | 'preferences' | 'drop';
 export type BaseState = { kind: 'compact' } | { kind: 'expanded'; view: View };
 export interface IslandState extends EventCoordinator {
   base: BaseState;
@@ -39,7 +39,7 @@ export function createIslandState(preferences?: unknown): IslandState {
 export function reduceIsland(state: IslandState, event: IslandEvent): IslandState {
   switch (event.type) {
     case 'expand':
-      return { ...state, base: { kind: 'expanded', view: event.view === 'preferences' ? 'preferences' : event.view === 'audio' ? 'audio' : 'activity' } };
+      return { ...state, base: { kind: 'expanded', view: event.view === 'preferences' ? 'preferences' : event.view === 'audio' ? 'audio' : event.view === 'drop' ? 'drop' : 'activity' } };
     case 'collapse': return { ...state, base: { kind: 'compact' }, hovered: false };
     case 'hover': return { ...state, hovered: event.active };
     case 'visibility': return { ...state, hidden: event.hidden, hovered: false,

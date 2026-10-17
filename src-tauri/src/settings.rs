@@ -55,6 +55,8 @@ pub struct Settings {
     pub num_lock_enabled: bool,
     #[serde(default)]
     pub integrations_enabled: bool,
+    #[serde(default)]
+    pub drop_enabled: bool,
     #[serde(default = "battery_thresholds")]
     pub battery_thresholds: [u8; 3],
     pub notifications_enabled: bool,
@@ -79,6 +81,7 @@ impl Default for Settings {
             caps_lock_enabled: false,
             num_lock_enabled: false,
             integrations_enabled: false,
+            drop_enabled: false,
             battery_thresholds: battery_thresholds(),
             notifications_enabled: true,
             hide_in_fullscreen: true,
