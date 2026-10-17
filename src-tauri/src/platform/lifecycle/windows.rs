@@ -20,15 +20,20 @@ use windows_sys::Win32::{
         CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
         GetWindowLongPtrW, IsWindow, PeekMessageW, PostMessageW, PostQuitMessage,
         PostThreadMessageW, RegisterClassExW, SetWindowLongPtrW, TranslateMessage,
-        UnregisterClassW, CREATESTRUCTW, GWLP_USERDATA, MSG, PBT_APMRESUMEAUTOMATIC,
-        PBT_APMRESUMESUSPEND, PBT_APMSUSPEND, PM_NOREMOVE, WM_APP, WM_CLOSE, WM_DISPLAYCHANGE,
-        WM_NCCREATE, WM_NCDESTROY, WM_NULL, WM_POWERBROADCAST, WM_QUIT, WM_WTSSESSION_CHANGE,
-        WNDCLASSEXW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP, WTS_SESSION_LOCK,
-        WTS_SESSION_UNLOCK,
+        UnregisterClassW, CREATESTRUCTW, GWLP_USERDATA, MSG, PBT_APMPOWERSTATUSCHANGE,
+        PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND, PM_NOREMOVE, WM_APP,
+        WM_CLOSE, WM_DISPLAYCHANGE, WM_NCCREATE, WM_NCDESTROY, WM_NULL, WM_POWERBROADCAST, WM_QUIT,
+        WM_WTSSESSION_CHANGE, WNDCLASSEXW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
+        WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
     },
 };
 
 const FLUSH_DISPLAY: u32 = WM_APP + 41;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CAPITAL, VK_NUMLOCK};
+use windows_sys::Win32::UI::Input::{
+    GetRawInputData, RegisterRawInputDevices, HRAWINPUT, RAWINPUT, RAWINPUTDEVICE, RAWINPUTHEADER,
+    RIDEV_INPUTSINK, RIDEV_REMOVE, RID_INPUT, RIM_TYPEKEYBOARD,
+};
 type Callback = Box<dyn Fn(SystemEvent) + Send + Sync>;
 
 fn last_error(operation: &str) -> String {
@@ -53,9 +58,94 @@ struct Context {
     suspended: Cell<Option<bool>>,
     locked: Cell<Option<bool>>,
     display_pending: Cell<bool>,
+    keyboard_registered: Cell<bool>,
+    lock_states: Cell<[Option<bool>; 2]>,
 }
 
 impl Context {
+    fn keyboard_settings(&self, hwnd: HWND) {
+        let enabled = self.shared.caps_enabled.load(Ordering::Acquire)
+            || self.shared.num_enabled.load(Ordering::Acquire);
+        if enabled == self.keyboard_registered.get() {
+            return;
+        }
+        let device = RAWINPUTDEVICE {
+            usUsagePage: 1,
+            usUsage: 6,
+            dwFlags: if enabled {
+                RIDEV_INPUTSINK
+            } else {
+                RIDEV_REMOVE
+            },
+            hwndTarget: if enabled { hwnd } else { ptr::null_mut() },
+        };
+        // No NOLEGACY/NOHOTKEYS: Nivo never consumes or suppresses keyboard input.
+        if unsafe { RegisterRawInputDevices(&device, 1, size_of::<RAWINPUTDEVICE>() as u32) } == 0 {
+            self.shared
+                .error(last_error("No se pudo actualizar el indicador de teclas"));
+            return;
+        }
+        self.keyboard_registered.set(enabled);
+        self.lock_states.set(if enabled {
+            unsafe {
+                [
+                    Some(GetKeyState(i32::from(VK_CAPITAL)) & 1 != 0),
+                    Some(GetKeyState(i32::from(VK_NUMLOCK)) & 1 != 0),
+                ]
+            }
+        } else {
+            [None, None]
+        });
+    }
+
+    fn lock_key(&self, handle: HRAWINPUT) {
+        if !self.keyboard_registered.get() {
+            return;
+        }
+        let mut raw = RAWINPUT::default();
+        let mut bytes = size_of::<RAWINPUT>() as u32;
+        if unsafe {
+            GetRawInputData(
+                handle,
+                RID_INPUT,
+                (&mut raw as *mut RAWINPUT).cast(),
+                &mut bytes,
+                size_of::<RAWINPUTHEADER>() as u32,
+            )
+        } == u32::MAX
+            || raw.header.dwType != RIM_TYPEKEYBOARD
+        {
+            return;
+        }
+        let key = unsafe { raw.data.keyboard };
+        // Discard every other virtual key immediately. Never convert scan codes to text.
+        let index = if key.VKey == VK_CAPITAL {
+            0
+        } else if key.VKey == VK_NUMLOCK {
+            1
+        } else {
+            return;
+        };
+        if key.Message != 0x0101 && key.Message != 0x0105 {
+            return;
+        } // key-up only; no repeat notices
+        let enabled = unsafe { GetKeyState(i32::from(key.VKey)) & 1 != 0 };
+        let mut states = self.lock_states.get();
+        let previous = states[index];
+        states[index] = Some(enabled);
+        self.lock_states.set(states);
+        let allowed = if index == 0 {
+            &self.shared.caps_enabled
+        } else {
+            &self.shared.num_enabled
+        };
+        if previous.is_some_and(|previous| previous != enabled) && allowed.load(Ordering::Acquire) {
+            self.emit(SystemEvent::LockKey {
+                caps: index == 0,
+                enabled,
+            });
+        }
+    }
     fn emit(&self, event: SystemEvent) {
         if self.shared.stopped.load(Ordering::Acquire) {
             return;
@@ -146,11 +236,17 @@ unsafe extern "system" fn window_proc(
             }
             WM_POWERBROADCAST => {
                 match wparam as u32 {
+                    PBT_APMPOWERSTATUSCHANGE => context.emit(SystemEvent::PowerChanged),
                     PBT_APMSUSPEND => context.power(true),
                     PBT_APMRESUMEAUTOMATIC | PBT_APMRESUMESUSPEND => context.power(false),
                     _ => return DefWindowProcW(hwnd, message, wparam, lparam),
                 }
                 1
+            }
+            0x00ff => {
+                // WM_INPUT: DefWindowProc performs the required foreground cleanup.
+                context.lock_key(lparam as HRAWINPUT);
+                DefWindowProcW(hwnd, message, wparam, lparam)
             }
             WM_WTSSESSION_CHANGE => {
                 match wparam as u32 {
@@ -182,6 +278,15 @@ impl Drop for Resources {
         // SAFETY: all calls run on the creating thread. Context and UTF-16 class
         // storage remain live until the window/class no longer use them.
         unsafe {
+            if self.context.keyboard_registered.get() {
+                let device = RAWINPUTDEVICE {
+                    usUsagePage: 1,
+                    usUsage: 6,
+                    dwFlags: RIDEV_REMOVE,
+                    hwndTarget: ptr::null_mut(),
+                };
+                RegisterRawInputDevices(&device, 1, size_of::<RAWINPUTDEVICE>() as u32);
+            }
             if self.registered_wts && WTSUnRegisterSessionNotification(self.hwnd) == 0 {
                 self.context
                     .shared
@@ -234,6 +339,8 @@ fn create(shared: Arc<ObserverState>, callback: Callback) -> Result<Resources, S
             suspended: Cell::new(None),
             locked: Cell::new(None),
             display_pending: Cell::new(false),
+            keyboard_registered: Cell::new(false),
+            lock_states: Cell::new([None, None]),
         }),
     };
     // A hidden TOP-LEVEL window receives broadcasts; HWND_MESSAGE does not.
@@ -305,6 +412,7 @@ pub(super) fn run(
             break;
         }
         unsafe {
+            resources.context.keyboard_settings(resources.hwnd);
             TranslateMessage(&message);
             DispatchMessageW(&message);
         }
@@ -326,12 +434,16 @@ mod tests {
                 thread_id: 0.into(),
                 stopped: false.into(),
                 finished: false.into(),
+                caps_enabled: false.into(),
+                num_enabled: false.into(),
                 error: Mutex::new(None),
             }),
             callback: Box::new(move |event| output.lock().unwrap().push(event)),
             suspended: Cell::new(None),
             locked: Cell::new(None),
             display_pending: Cell::new(false),
+            keyboard_registered: Cell::new(false),
+            lock_states: Cell::new([None, None]),
         };
         assert!(events.lock().unwrap().is_empty());
         context.power(true);

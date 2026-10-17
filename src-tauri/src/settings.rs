@@ -11,6 +11,9 @@ use std::{
 
 const SCHEMA_VERSION: u8 = 1;
 const MAX_SETTINGS_BYTES: u64 = 16 * 1024;
+fn battery_thresholds() -> [u8; 3] {
+    [20, 10, 5]
+}
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -42,6 +45,16 @@ pub struct Settings {
     pub media_enabled: bool,
     #[serde(default)]
     pub audio_enabled: bool,
+    #[serde(default)]
+    pub battery_enabled: bool,
+    #[serde(default)]
+    pub battery_full_notice: bool,
+    #[serde(default)]
+    pub caps_lock_enabled: bool,
+    #[serde(default)]
+    pub num_lock_enabled: bool,
+    #[serde(default = "battery_thresholds")]
+    pub battery_thresholds: [u8; 3],
     pub notifications_enabled: bool,
     pub hide_in_fullscreen: bool,
     pub monitor_name: Option<String>,
@@ -59,6 +72,11 @@ impl Default for Settings {
             privacy_mode: true,
             media_enabled: true,
             audio_enabled: false,
+            battery_enabled: false,
+            battery_full_notice: false,
+            caps_lock_enabled: false,
+            num_lock_enabled: false,
+            battery_thresholds: battery_thresholds(),
             notifications_enabled: true,
             hide_in_fullscreen: true,
             monitor_name: None,
@@ -70,6 +88,12 @@ impl Default for Settings {
 
 impl Settings {
     pub fn validate(&self) -> Result<(), String> {
+        let [low, important, critical] = self.battery_thresholds;
+        if low > 80 || critical == 0 || !(critical < important && important < low) {
+            return Err(
+                "Umbrales de batería no válidos: usa crítica < importante < baja (1–80 %).".into(),
+            );
+        }
         if self.schema_version != SCHEMA_VERSION {
             return Err(
                 "Versión de preferencias no compatible; se conserva el archivo original.".into(),

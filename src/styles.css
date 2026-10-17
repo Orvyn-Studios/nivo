@@ -179,6 +179,9 @@ footer {
   height:320px;
   border-radius:28px
 }
+#island[data-expanded=true][data-notice=true] { width:236px; height:48px; border-radius:24px }
+#island[data-notice=true] #island-panel,#island[data-notice=true] .expanded-brand { display:none }
+#island[data-companion=true][data-notice=true] .nivo-companion { display:block }
 #island[data-expanded=true] #toggle {
   height:48px;
   padding:0 20px;
@@ -458,6 +461,9 @@ input[type=number],select {
 .audio-session-name { grid-column:1/-1; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
 .audio-session input[type=range] { margin:8px 0 0 }
 .preference-heading { padding:12px 0 0; font-size:11px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase }
+.module-preferences { border-bottom:1px solid var(--line); padding:12px 0; font-size:12px }
+.battery-thresholds { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; font-size:10px; color:var(--muted) }
+.battery-thresholds input { width:100%; margin-top:5px }
 #compact-event-progress { position:absolute; bottom:3px; left:14px; width:calc(100% - 28px); height:2px; margin:0; pointer-events:none }
 #island[data-notice=true] .compact-media { display:none }
 #island[data-notice=true] .nivo-companion { display:block }

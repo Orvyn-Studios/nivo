@@ -13,6 +13,7 @@ import { createCompanion } from './components/companion.ts';
 import { companionPose } from './companion-state.ts';
 import { audioActivity, emptyAudio, type AudioSnapshot } from './audio-state.ts';
 import { createAudioView } from './components/audio.ts';
+import { PowerInbox, type PowerSnapshot } from './power-state.ts';
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -35,7 +36,12 @@ let audioSnapshot: AudioSnapshot | undefined;
 let audioSequence = -1;
 let requestedAudio: boolean | undefined;
 let audioRequestSerial = 0;
+const powerInbox = new PowerInbox();
+let unlistenPower: (() => void) | undefined;
+let unlistenLockKey: (() => void) | undefined;
+let lockSerial = 0;
 let observedTransition: Promise<boolean> | undefined;
+let geometryDirty = false;
 let mediaDirty = false;
 const mediaInbox = new MediaInbox();
 let mediaRequestSerial = 0;
@@ -93,6 +99,16 @@ function receiveAudio(snapshot: AudioSnapshot, reconcile = false): void {
   for (const notification of events) dispatch({ type: 'notify', notification, now: Date.now() });
 }
 
+function receivePower(snapshot: PowerSnapshot): void {
+  const events = powerInbox.receive(snapshot, state.preferences);
+  const visible = state.preferences.battery_enabled && snapshot.present === true;
+  element('battery-status').hidden = !visible;
+  element('battery-settings').hidden = snapshot.present === false;
+  if (visible) element('battery-status').textContent = snapshot.percent === null ? 'Batería · nivel no disponible'
+    : `Batería ${snapshot.percent} %${snapshot.charging === true ? ' · Cargando' : ''}`;
+  for (const notification of events) dispatch({ type: 'notify', notification, now: Date.now() });
+}
+
 function report(error: unknown): void {
   element('bridge-status').textContent = (error instanceof Error ? error.message : String(error)).slice(0, 280);
 }
@@ -124,7 +140,11 @@ function render(): void {
   if (mediaDirty) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
   const now = Date.now();
   const view = presentation(state, now);
-  const notification = view.kind === 'notification';
+  const notification = view.kind === 'notification' && !view.notification.compact;
+  const compactNotice = view.kind === 'notification' && view.notification.compact === true && state.base.kind === 'compact';
+  if (island.dataset.notice !== String(compactNotice)) {
+    motion.captureLayout(); geometryDirty = true; island.dataset.notice = String(compactNotice);
+  }
   island.dataset.hovered = String(state.hovered);
   island.dataset.companion = String(state.preferences.mascot_enabled);
   element('nivo-companion').toggleAttribute('hidden', !state.preferences.mascot_enabled);
@@ -137,14 +157,13 @@ function render(): void {
   for (const name of ['activity', 'audio', 'preferences']) {
     element(`${name}-tab`).setAttribute('aria-pressed', String(state.base.kind === 'expanded' && state.base.view === name));
   }
-  if (notification) {
+  if (view.kind === 'notification' && notification) {
     element('notification-source').textContent = view.notification.source;
     element('notification-title').textContent = view.notification.title;
     element('notification-body').textContent = view.notification.body ?? '';
   }
   const currentMedia = activeMedia(mediaInbox.snapshot);
   const notice = view.kind === 'notification' ? view.notification : undefined;
-  island.dataset.notice = String(Boolean(notice?.compact));
   element('compact-label').textContent = notice?.compact ? notice.title
     : state.base.kind === 'expanded' ? 'Nivo'
     : currentMedia ? (currentMedia.title || (currentMedia.playback === 'playing' ? 'Música' : 'En pausa')) : 'Nivo';
@@ -171,16 +190,17 @@ function dispatch(event: IslandEvent): void {
   catch (error) { report(error); return; }
   if (state.hidden || document.hidden) syncCompanion();
   if (!state.hidden && !document.hidden) render();
-  const desired = (state.notification !== null && !state.notification.notification.compact) || state.base.kind === 'expanded';
+  const desired = state.notification !== null || state.base.kind === 'expanded';
   if (!state.hidden) {
-    const operation = transition.set(desired);
+    const operation = transition.set(desired, geometryDirty);
+    geometryDirty = false;
     // Provider updates share one observer during a slow native resize.
     if (operation !== observedTransition) {
       observedTransition = operation;
       void operation.then(confirmed => {
         if (observedTransition !== operation) return;
         observedTransition = undefined;
-        const currentDesired = (state.notification !== null && !state.notification.notification.compact) || state.base.kind === 'expanded';
+        const currentDesired = state.notification !== null || state.base.kind === 'expanded';
         if (confirmed !== currentDesired && !state.notification && transition.desired === confirmed) {
           state = reduceIsland(state, confirmed ? { type: 'expand' } : { type: 'collapse' });
           if (!state.hidden && !document.hidden) render();
@@ -200,6 +220,12 @@ function renderPreferences(): void {
   element<HTMLInputElement>('privacy-mode').checked = state.preferences.privacy_mode;
   element<HTMLInputElement>('media-enabled').checked = state.preferences.media_enabled;
   element<HTMLInputElement>('audio-enabled').checked = state.preferences.audio_enabled;
+  element<HTMLInputElement>('battery-enabled').checked = state.preferences.battery_enabled;
+  element<HTMLInputElement>('battery-full').checked = state.preferences.battery_full_notice;
+  element<HTMLInputElement>('caps-lock-enabled').checked = state.preferences.caps_lock_enabled;
+  element<HTMLInputElement>('num-lock-enabled').checked = state.preferences.num_lock_enabled;
+  for (const [index, value] of state.preferences.battery_thresholds.entries()) element<HTMLInputElement>(`battery-threshold-${index}`).value = String(value);
+  if (powerInbox.snapshot) receivePower(powerInbox.snapshot);
   element<HTMLInputElement>('mascot-enabled').checked = state.preferences.mascot_enabled;
   element<HTMLSelectElement>('horizontal-position').value = String(state.preferences.horizontal_position);
   element<HTMLInputElement>('top-gap').value = String(state.preferences.top_gap);
@@ -259,6 +285,18 @@ element<HTMLInputElement>('audio-enabled').addEventListener('change', event => {
   if (!enabled) { audioSnapshot = undefined; audioView.render(emptyAudio()); }
   savePreferences({ audio_enabled: enabled });
 });
+element<HTMLInputElement>('battery-enabled').addEventListener('change', event => savePreferences({ battery_enabled: (event.target as HTMLInputElement).checked }));
+element<HTMLInputElement>('battery-full').addEventListener('change', event => savePreferences({ battery_full_notice: (event.target as HTMLInputElement).checked }));
+element<HTMLInputElement>('caps-lock-enabled').addEventListener('change', event => savePreferences({ caps_lock_enabled: (event.target as HTMLInputElement).checked }));
+element<HTMLInputElement>('num-lock-enabled').addEventListener('change', event => savePreferences({ num_lock_enabled: (event.target as HTMLInputElement).checked }));
+element('battery-threshold-save').addEventListener('click', () => {
+  const values = [0, 1, 2].map(index => Number(element<HTMLInputElement>(`battery-threshold-${index}`).value));
+  const [low, important, critical] = values;
+  if (low === undefined || important === undefined || critical === undefined || !values.every(Number.isSafeInteger) || critical < 1 || critical >= important || important >= low || low > 80) {
+    report('Usa crítica < importante < baja, entre 1 y 80 %.'); return;
+  }
+  savePreferences({ battery_thresholds: [low, important, critical] });
+});
 element('pause-events').addEventListener('click', () => dispatch({ type: 'pause-events', paused: !state.eventsPaused }));
 
 element('notification-dismiss').addEventListener('click', () => dispatch({ type: 'dismiss-notification', now: Date.now() }));
@@ -294,7 +332,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
 window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); });
-window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); audioView.dispose(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
+window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); audioView.dispose(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
 Object.defineProperty(window, '__NIVO_METRICS__', { value: transitionMetrics });
@@ -323,6 +361,14 @@ void (async () => {
   await windowsPreferences.start();
   try { unlistenAudio = await bridge.onAudio(receiveAudio); receiveAudio(await bridge.audio()); }
   catch (error) { report(error); }
+  try { unlistenPower = await bridge.onPower(receivePower); const snapshot = await bridge.power(); if (snapshot) receivePower(snapshot); }
+  catch (error) { report(error); }
+  try { unlistenLockKey = await bridge.onLockKey(value => {
+    if (!(value.caps ? state.preferences.caps_lock_enabled : state.preferences.num_lock_enabled)) return;
+    dispatch({ type: 'notify', now: Date.now(), notification: { id: `lock:${++lockSerial}`, kind: 'keyboard', source: 'Windows',
+      title: `${value.caps ? 'Caps Lock' : 'Num Lock'} ${value.enabled ? 'activado' : 'desactivado'}`,
+      groupKey: value.caps ? 'caps' : 'num', compact: true, durationMs: 1800, reaction: 'attention' } });
+  }); } catch (error) { report(error); }
   toggle.disabled = false;
   try { await bridge.ready(); } catch (error) { report(error); }
 })();

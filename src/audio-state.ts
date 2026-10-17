@@ -57,6 +57,11 @@ export function audioActivity(previous: AudioSnapshot | undefined, next: AudioSn
     create('volume', next.output.muted ? 'Silencio' : `${Math.round(next.output.volume * 100)} %`, next.output.name,
       { compact: true, progress: next.output.volume });
   }
+  if (previous.output?.id === next.output?.id) {
+    const added = next.devices.find(device => !previous.devices.some(old => old.id === device.id));
+    const removed = previous.devices.find(device => !next.devices.some(current => current.id === device.id));
+    if (added || removed) create('device', added ? 'Salida de audio disponible' : 'Salida de audio retirada', (added ?? removed)!.name, { reaction: 'device' });
+  }
   if (previous.input?.id === next.input?.id && next.input && previous.input?.muted !== next.input.muted) {
     create('microphone', next.input.muted ? 'Micrófono silenciado' : 'Micrófono sin silencio', next.input.name);
   } else if (previous.input?.id !== next.input?.id) {

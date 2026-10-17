@@ -21,6 +21,25 @@ fn reconcile_display(window: &WebviewWindow) -> Result<(), String> {
 
 fn apply(window: &WebviewWindow, event: SystemEvent) -> Result<(), String> {
     match event {
+        SystemEvent::LockKey { caps, enabled } => {
+            #[derive(Clone, serde::Serialize)]
+            struct LockState {
+                caps: bool,
+                enabled: bool,
+            }
+            window
+                .emit_to("island", "nivo://lock-key", LockState { caps, enabled })
+                .map_err(|error| error.to_string())
+        }
+        SystemEvent::PowerChanged => {
+            let snapshot = window
+                .app_handle()
+                .state::<crate::power::PowerService>()
+                .refresh()?;
+            window
+                .emit_to("island", "nivo://power", snapshot)
+                .map_err(|error| error.to_string())
+        }
         SystemEvent::DisplayChanged => reconcile_display(window),
         SystemEvent::Suspended => window::set_system_blocker(window, Blocker::Suspended, true),
         SystemEvent::SessionLocked => window::set_system_blocker(window, Blocker::Locked, true),

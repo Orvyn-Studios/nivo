@@ -7,6 +7,7 @@ mod integration;
 mod media;
 mod placement;
 mod platform;
+mod power;
 mod settings;
 mod tray;
 mod visibility;
@@ -151,6 +152,12 @@ fn save_settings(
     match store.save(settings) {
         Ok(settings) => {
             audio.set_enabled(settings.audio_enabled);
+            if let Some(lifecycle) = window
+                .app_handle()
+                .try_state::<platform::lifecycle::LifecycleGuard>()
+            {
+                lifecycle.set_keyboard(settings.caps_lock_enabled, settings.num_lock_enabled)?;
+            }
             window::refresh_fullscreen(&window);
             media.set_enabled(settings.media_enabled).map_err(|error| {
                 format!("Preferencias guardadas; no se pudo actualizar multimedia: {error}")
@@ -202,6 +209,15 @@ fn get_audio_snapshot(
 ) -> Result<audio::AudioSnapshot, String> {
     window::require_island(&window)?;
     audio.snapshot()
+}
+
+#[tauri::command]
+fn get_power_snapshot(
+    window: WebviewWindow,
+    power: State<power::PowerService>,
+) -> Result<power::PowerSnapshot, String> {
+    window::require_island(&window)?;
+    power.refresh()
 }
 
 #[tauri::command]
@@ -291,6 +307,7 @@ pub fn run() {
             set_autostart,
             get_media_snapshot,
             get_audio_snapshot,
+            get_power_snapshot,
             audio_control,
             open_sound_settings,
             media_control,
@@ -298,6 +315,7 @@ pub fn run() {
             quit_app
         ])
         .setup(|app| {
+            app.manage(power::PowerService::default());
             let settings = match app.path().app_config_dir() {
                 Ok(directory) => SettingsStore::open(directory.join("settings.json")),
                 Err(error) => SettingsStore::unavailable(format!(
@@ -341,6 +359,10 @@ pub fn run() {
             }
             match integration::install(app) {
                 Ok(service) => {
+                    if let Ok(settings) = app.state::<SettingsStore>().snapshot() {
+                        service
+                            .set_keyboard(settings.caps_lock_enabled, settings.num_lock_enabled)?;
+                    }
                     app.manage(service);
                 }
                 Err(error) => eprintln!("Nivo lifecycle observer unavailable: {error}"),

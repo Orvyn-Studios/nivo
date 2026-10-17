@@ -8,7 +8,7 @@ export interface TransitionDependencies {
 }
 
 export interface TransitionController {
-  set(expanded: boolean): Promise<boolean>;
+  set(expanded: boolean, refresh?: boolean): Promise<boolean>;
   toggle(): Promise<boolean>;
   readonly expanded: boolean;
   readonly desired: boolean;
@@ -118,15 +118,15 @@ export function createTransitionController(
     }
   }
 
-  function set(expanded: boolean): Promise<boolean> {
+  function set(expanded: boolean, refresh = false): Promise<boolean> {
     const next = Boolean(expanded);
-    if (!pending && next === nativeExpanded) return Promise.resolve(nativeExpanded);
+    if (!pending && next === nativeExpanded && !refresh) return Promise.resolve(nativeExpanded);
     const start = !pending;
     if (!pending) pending = new Promise<boolean>(resolve => { resolvePending = resolve; });
     // Every caller shares this operation. Repeated timer renders during slow IPC
     // cannot accumulate a controller-owned array of promise resolvers.
     const promise = pending;
-    if (next !== desired) {
+    if (next !== desired || refresh) {
       desired = next;
       cancelAnimation();
     }

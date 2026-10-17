@@ -17,6 +17,8 @@ pub enum SystemEvent {
     DisplayChanged,
     Suspended,
     Resumed,
+    PowerChanged,
+    LockKey { caps: bool, enabled: bool },
     SessionLocked,
     SessionUnlocked,
 }
@@ -26,6 +28,8 @@ pub(super) struct ObserverState {
     stopped: AtomicBool,
     finished: AtomicBool,
     error: Mutex<Option<String>>,
+    caps_enabled: AtomicBool,
+    num_enabled: AtomicBool,
 }
 
 impl ObserverState {
@@ -49,6 +53,8 @@ impl LifecycleGuard {
             stopped: AtomicBool::new(false),
             finished: AtomicBool::new(false),
             error: Mutex::new(None),
+            caps_enabled: AtomicBool::new(false),
+            num_enabled: AtomicBool::new(false),
         });
         let (ready, response) = mpsc::sync_channel(1);
         let worker = state.clone();
@@ -81,6 +87,12 @@ impl LifecycleGuard {
         #[cfg(windows)]
         windows::wake(self.state.thread_id.load(Ordering::Acquire), false)?;
         Ok(())
+    }
+
+    pub fn set_keyboard(&self, caps: bool, num: bool) -> Result<(), String> {
+        self.state.caps_enabled.store(caps, Ordering::Release);
+        self.state.num_enabled.store(num, Ordering::Release);
+        self.refresh()
     }
 
     pub fn error(&self) -> Option<String> {
@@ -135,6 +147,8 @@ mod tests {
                 stopped: AtomicBool::new(false),
                 finished: AtomicBool::new(true),
                 error: Mutex::new(None),
+                caps_enabled: AtomicBool::new(false),
+                num_enabled: AtomicBool::new(false),
             }),
         };
         assert!(guard.refresh().is_err());

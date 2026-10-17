@@ -3,6 +3,7 @@ import { parseMediaSnapshot, type MediaAction, type MediaSnapshot } from './medi
 import { parseDisplays, type Display } from './display-state.ts';
 import type { SurfaceGeometry } from './native-surface.ts';
 import { emptyAudio, parseAudioSnapshot, type AudioSnapshot, type AudioAction } from './audio-state.ts';
+import { parsePowerSnapshot, type PowerSnapshot } from './power-state.ts';
 export type { Display } from './display-state.ts';
 
 type Core = { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> };
@@ -12,6 +13,19 @@ const core = window.__TAURI__?.core;
 export const isNative = Boolean(core);
 let surfaceEpoch = 0;
 export const bridge = {
+  onLockKey: (handler: (value: { caps: boolean; enabled: boolean }) => void): Promise<() => void> => {
+    if (!core) return Promise.resolve(() => {});
+    return window.__TAURI__!.event.listen<{ caps?: unknown; enabled?: unknown }>('nivo://lock-key', ({ payload }) => {
+      if (payload && typeof payload.caps === 'boolean' && typeof payload.enabled === 'boolean') handler({ caps: payload.caps, enabled: payload.enabled });
+    }, { target: 'island' });
+  },
+  async power(): Promise<PowerSnapshot | null> { return core ? parsePowerSnapshot(await core.invoke('get_power_snapshot')) : null; },
+  onPower: (handler: (snapshot: PowerSnapshot) => void): Promise<() => void> => {
+    if (!core) return Promise.resolve(() => {});
+    return window.__TAURI__!.event.listen<unknown>('nivo://power', event => {
+      const value = parsePowerSnapshot(event.payload); if (value) handler(value);
+    }, { target: 'island' });
+  },
   ready: () => core?.invoke<void>('ready') ?? Promise.resolve(),
   async resize(expanded: boolean): Promise<void> {
     if (core) surfaceEpoch = await core.invoke<number>('set_expanded', { expanded });

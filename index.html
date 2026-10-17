@@ -172,6 +172,7 @@
               <span class="activity-status"><i aria-hidden="true"></i> A tu ritmo</span>
               <button id="pause-events" class="quiet">Pausar avisos</button>
             </div>
+            <p id="battery-status" class="detail-note" hidden></p>
             <p class="local-note">Solo en tu equipo. Sin cuentas ni telemetría.</p>
           </section>
           <section id="audio" aria-label="Sonido de Windows" hidden>
@@ -199,6 +200,22 @@
             </div>
           </section>
           <section id="preferences" aria-label="Preferencias" hidden>
+            <details class="module-preferences"><summary>Indicadores de teclado</summary>
+              <label class="setting"><span><strong>Caps Lock</strong><small>Avisar al cambiar Bloq Mayús.</small></span><input id="caps-lock-enabled" type="checkbox" /></label>
+              <label class="setting"><span><strong>Num Lock</strong><small>Avisar al cambiar Bloq Num.</small></span><input id="num-lock-enabled" type="checkbox" /></label>
+              <p class="detail-note">Solo se comprueban estas dos teclas. No se guarda texto ni un historial de pulsaciones.</p>
+            </details>
+            <details id="battery-settings" class="module-preferences">
+              <summary>Batería y alimentación</summary>
+              <label class="setting"><span><strong>Avisos de batería</strong><small>Solo cuando Windows informe de una batería.</small></span><input id="battery-enabled" type="checkbox" /></label>
+              <label class="setting"><span><strong>Avisar al completar carga</strong></span><input id="battery-full" type="checkbox" /></label>
+              <div class="battery-thresholds">
+                <label>Baja <input id="battery-threshold-0" type="number" min="1" max="80" value="20" /></label>
+                <label>Importante <input id="battery-threshold-1" type="number" min="1" max="80" value="10" /></label>
+                <label>Crítica <input id="battery-threshold-2" type="number" min="1" max="80" value="5" /></label>
+              </div>
+              <button id="battery-threshold-save" class="audio-button">Guardar umbrales</button>
+            </details>
             <h2 class="preference-heading">Audio</h2>
             <label class="setting">
               <span><strong>Audio de Windows</strong><small>Volumen, mezclador y silencio del micrófono. Sin grabación.</small></span>

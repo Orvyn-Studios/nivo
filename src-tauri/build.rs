@@ -12,6 +12,7 @@ fn main() {
             "set_autostart",
             "get_media_snapshot",
             "get_audio_snapshot",
+            "get_power_snapshot",
             "audio_control",
             "open_sound_settings",
             "media_control",

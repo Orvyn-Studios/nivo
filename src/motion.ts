@@ -71,11 +71,18 @@ export class IslandMotion {
     this.syncSettled();
   }
 
+  captureLayout(): void {
+    if (this.active.length) { this.cancel(); return; }
+    const bounds = this.island.getBoundingClientRect();
+    this.frozen = { width: bounds.width, height: bounds.height,
+      radius: Number.parseFloat(getComputedStyle(this.island).borderRadius) || 17 };
+  }
+
   private syncSettled(): void {
     if (!this.surface || document.hidden) return;
     const box = this.island.getBoundingClientRect();
     this.surface.submit({ left: box.left, top: box.top, width: box.width, height: box.height,
-      radius: this.targetExpanded ? 28 : 17 }, this.epoch());
+      radius: Math.min(this.targetExpanded ? 28 : 17, box.width / 2, box.height / 2) }, this.epoch());
   }
 
   private clearFrozen(): void {
@@ -101,7 +108,7 @@ export class IslandMotion {
     // text never scales or reflows on every frame.
     this.island.dataset.expanded = 'true';
     const full = this.island.getBoundingClientRect();
-    const layout = { width: full.width, height: full.height, radius: 28 };
+    const layout = { width: full.width, height: full.height, radius: Math.min(28, full.width / 2, full.height / 2) };
     const after = expanded ? layout : { width: Math.min(112, full.width), height: 34, radius: 17 };
     const duration = expanded ? 280 : 200;
     const tracks = {
