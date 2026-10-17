@@ -13,7 +13,7 @@ export async function checkDropControls(browser, address, assert, screenshotPath
           if (command === 'get_displays') return [];
           if (command === 'get_autostart') return false;
           if (command === 'set_expanded') return 1;
-          if (command === 'drop_action') { window.__dropTest.calls.push(args); return 'Ruta copiada.'; }
+          if (command === 'drop_action') { window.__dropTest.calls.push(args); return {operationId:'action:1',outcome:'success',message:args.action==='zip'?'ZIP comprimido creado.':'Ruta copiada.',file:null}; }
         } },
       };
     });

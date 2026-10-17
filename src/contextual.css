@@ -103,5 +103,25 @@ body #island .media-error { max-height:28px; font-size:10px; overflow:hidden }
 body #island input[type=range] { height:16px; accent-color:var(--text) }
 body #island progress { accent-color:var(--accent) }
 body #island[data-context=drop] .island-surface { border-color:rgb(184 212 255 / 25%) }
+body #island .file-heading { display:flex; align-items:center; gap:12px; min-width:0 }
+body #island .file-mark { display:grid; place-items:center; width:36px; height:40px; flex:none; color:var(--muted) }
+body #island .file-mark svg { width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:1.4 }
+body #island .file-copy { min-width:0; flex:1 }
+body #island .file-copy h2 { font-size:14px; font-weight:550; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 }
+body #island .file-copy p { margin-top:4px }
+body #island .drop-file { padding-top:8px; margin-top:8px; border:0 }
+body #island .drop-actions { display:flex; align-items:center; flex-wrap:wrap; gap:4px 16px; margin-top:6px }
+body #island .drop-more { margin:4px 0 8px; font-size:11px; color:var(--muted) }
+body #island .drop-more summary { cursor:pointer; padding:4px 0; width:fit-content }
+body #island .drop-more button { margin:4px 12px 0 0 }
+body #island .drop-more summary:focus-visible { outline:1px solid var(--accent); outline-offset:3px; border-radius:3px }
+body #island .drop-primary { min-height:30px; padding:5px 14px; margin-top:8px; border:1px solid rgb(255 255 255 / 15%); border-radius:16px; background:rgb(255 255 255 / 7%); color:var(--text); font:inherit; font-size:12px }
+body #island #drop[data-stage=drag]::after { content:'Soltar archivos'; display:grid; place-items:center; border:1px dashed rgb(184 212 255 / 25%); border-radius:14px; height:40px; margin-top:12px; color:var(--muted); font-size:12px }
+body #island #drop-operation { margin-top:24px }
+body #island #drop-progress { width:100%; height:4px; accent-color:var(--accent) }
+body #island #drop-measure { min-height:16px; margin:8px 0 }
+body #island #drop-result { margin-top:18px }
+body #island #drop-result h2 { font-size:16px; font-weight:550; margin:0 0 8px }
+body #island #drop-result-detail { overflow-wrap:anywhere; max-height:48px; overflow:auto }
 body #island[data-context=drop] #drop-list:empty { border:1px dashed rgb(184 212 255 / 20%); border-radius:12px; height:24px; margin-top:10px }
 body #island[data-context=drop] #drop-zip:disabled { display:none }

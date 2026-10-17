@@ -1,3 +1,4 @@
+mod actions;
 mod activity_bridge;
 mod audio;
 mod autostart;
@@ -248,7 +249,7 @@ async fn drop_action(
     settings: State<'_, SettingsStore>,
     action: drop_files::DropAction,
     id: Option<String>,
-) -> Result<String, String> {
+) -> Result<actions::ActionResult, String> {
     window::require_island(&window)?;
     if !settings.snapshot()?.drop_enabled {
         return Err("Nivo Drop está desactivado.".into());
@@ -258,9 +259,27 @@ async fn drop_action(
     let owner = window.hwnd().map_err(|error| error.to_string())?.0 as isize;
     #[cfg(not(windows))]
     let owner = 0;
-    tauri::async_runtime::spawn_blocking(move || files.action(action, id, owner))
-        .await
-        .map_err(|_| "La acción de archivo no pudo terminar.".to_string())?
+    let events = window.app_handle().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        files.action(action, id, owner, move |progress| {
+            let _ = events.emit_to("island", "nivo://action-progress", progress);
+        })
+    })
+    .await
+    .map_err(|_| "La acción de archivo no pudo terminar.".to_string())?
+}
+
+#[tauri::command]
+fn cancel_drop_action(
+    window: WebviewWindow,
+    files: State<Arc<drop_files::DropFiles>>,
+    operation_id: String,
+) -> Result<bool, String> {
+    window::require_island(&window)?;
+    if operation_id.len() > 48 {
+        return Err("Operación no válida.".into());
+    }
+    files.operations.cancel(&operation_id)
 }
 
 #[tauri::command]
@@ -370,6 +389,7 @@ pub fn run() {
             get_power_snapshot,
             get_drop_snapshot,
             drop_action,
+            cancel_drop_action,
             audio_control,
             open_sound_settings,
             media_control,

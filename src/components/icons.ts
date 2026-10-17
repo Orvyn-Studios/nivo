@@ -1,4 +1,7 @@
 const paths: Record<string, string> = {
+  file:'M5 2h9l5 5v15H5z M14 2v6h5 M8 12h8m-8 4h6',
+  archive:'M4 3h16v18H4z M10 3v3h4V3m-4 6h4m-4 3h4m-4 3h4v3h-4z',
+  image:'M3 3h18v18H3z M3 17l5-5 4 4 3-3 6 6 M15 8h.01',
   sound: 'm4 9 4 0 5-4v14l-5-4H4z M17 8q4 4 0 8 M17 4q8 8 0 16',
   microphone: 'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0z M6 11v1a6 6 0 0 0 12 0v-1 M12 18v4 M8 22h8',
   device: 'M4 13V9a8 8 0 0 1 16 0v4 M4 12h3v7H4z M17 12h3v7h-3z',

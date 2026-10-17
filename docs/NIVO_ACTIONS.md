@@ -12,6 +12,14 @@ La línea base de consumo se registra localmente en `artifacts/actions/before-pe
 
 ## Integraciones y alcance
 
-El usuario ha indicado que no dispone de una GitHub App/OAuth App: se preparará una configuración guiada, sin presentar autenticación de cuenta como verificada. No se reutilizan credenciales del conector de Codex en el producto. No se instala ningún hook o extensión sin una elección explícita del usuario. No se implementa Wardrobe ni se rediseña la mascota.
+El usuario ha indicado que no dispone de una GitHub App/OAuth App. La especificación posterior de GitHub 1.0 cambia la primera conexión a PAT fine-grained, validado contra GitHub y guardado en Windows Credential Manager. No se presentará autenticación real como verificada sin un token autorizado. No se reutilizan credenciales del conector de Codex en el producto. No se instala ningún hook o extensión sin una elección explícita del usuario. No se implementa Wardrobe ni se rediseña la mascota.
+
+## Fase 2: Drop avanzado
+
+Implementadas tarjeta con nombre/tipo/tamaño/icono, acciones secundarias desplegables, selector de destino existente, ZIP Deflate nivel 3 y copia por bloques de 256 KiB. Límite de seguridad 512 MiB por operación; una operación activa, comprobación de cancelación entre bloques y limpieza de destinos parciales propios. Los originales no se modifican ni se sobrescribe un destino existente. El resultado obtiene su propia capability local acotada para abrir su carpeta; al desactivar Drop se revoca y cancela la operación. El ZIP se confirma tras finish/sync_all, no al llegar al 100 % de lectura.
+
+Se conservan/restauran intención anterior y sesión musical al cancelar el arrastre o pulsar Listo. No se envían órdenes de reproducción. El estado de una operación no se reinicia por volver a renderizar preferencias. Las expresiones existentes reflejan atención, trabajo, resultado y error; ningún asset de mascota cambia.
+
+Verificación intermedia: 85 Node, 55 Rust y una ignorada, typecheck, Clippy y las suites generales/musicales. Cinco capturas de acciones con fixtures explícitos: arrastre, archivo, progreso medido, resultado y cancelación. Las pruebas de Rust crean un ZIP Deflate real, comprueban tamaño reducido, Unicode, lectura de contenido, rechazo de sobrescritura, revocación y limpieza al cancelar. La prueba UI asegura restauración musical sin comandos multimedia. La aceptación nativa OLE/selector de esta fase está pendiente; no se confunde con un arrastre desde Explorador.
 
 Los flujos de correo básicos solo preparan el cliente: nunca afirman adjuntar con mailto ni enviar. Compartir usa únicamente mecanismos oficiales compatibles y una acción deliberada. Las APIs avanzadas de correo y OAuth requieren sus propios consentimientos; no se transmiten archivos durante pruebas.

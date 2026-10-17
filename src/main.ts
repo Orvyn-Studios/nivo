@@ -56,6 +56,7 @@ let dropOptOut = false;
 let droppedFiles: DroppedFile[] = [];
 let dropReturn: typeof state.base | undefined;
 let unlistenDrop: (() => void) | undefined;
+let unlistenActionProgress:(()=>void)|undefined;
 let unlistenDisplays: (() => void) | undefined;
 let observedTransition: Promise<boolean> | undefined;
 let geometryDirty = false;
@@ -84,7 +85,13 @@ const agentFace = eventFace.cloneNode(true) as SVGElement; agentFace.id = 'agent
 element('integration-activity').prepend(agentFace);
 const agentCompanion = createCompanion(agentFace, element('integration-activity'), companionInput);
 const companions = [companion, welcomeCompanion, eventCompanion, agentCompanion];
-const dropView = createDropView(bridge.dropAction, report);
+const dropView = createDropView({run:bridge.dropAction,cancel:bridge.cancelDropAction,close:restoreDrop,changed:()=>{
+  if(state.base.kind==='expanded'&&state.base.view==='drop'){motion.captureLayout();geometryDirty=true;dispatch({type:'advance',now:Date.now()});}
+}});
+function restoreDrop():void{
+  const previous=dropReturn??{kind:'compact'};dropReturn=undefined;
+  dispatch(previous.kind==='compact'?{type:'collapse'}:{type:'expand',view:previous.view});
+}
 mountIcons();
 
 function applyPreferences(preferences: Preferences): void {
@@ -111,7 +118,7 @@ function syncCompanion(): void {
     visible: !disposed && !state.hidden && !document.hidden,
     reduced: shouldReduceMotion(state.preferences, systemMotion.matches),
     pose: companionPose(activeMedia(mediaInbox.snapshot)?.playback, {
-      reaction: state.notification?.notification.reaction ?? ([...integrationInbox.agents.values()].includes('working') ? 'working' : undefined),
+      reaction: state.notification?.notification.reaction ?? (state.base.kind==='expanded'&&state.base.view==='drop'?dropView.reaction:[...integrationInbox.agents.values()].includes('working') ? 'working' : undefined),
       expanded: state.base.kind === 'expanded' || state.notification !== null,
       hovered: state.hovered,
       // Browser preview and an empty player are normal; only a native failure worries Nivo.
@@ -220,9 +227,10 @@ function render(): void {
     : state.base.kind === 'expanded' && state.base.view === 'audio' ? 'audio'
     : state.base.kind === 'expanded' && state.base.view === 'drop' ? 'drop'
     : currentMedia ? 'music' : downloads.length ? 'downloads' : agent ? 'agent' : 'summary';
-  const geometry = contextGeometry(context, context === 'drop' ? droppedFiles.length
+  const semanticGeometry = contextGeometry(context, context === 'drop' ? droppedFiles.length
     : context === 'audio' ? audioSnapshot?.status === 'ready' ? 2 + audioSnapshot.sessions.length : 0 : downloads.length,
     currentMedia?.positionMs != null && currentMedia.durationMs != null && currentMedia.durationMs > 0);
+  const geometry=context==='drop'?{...semanticGeometry,height:dropView.height()}:semanticGeometry;
   const key = `${context}:${geometry.width}:${geometry.height}`;
   if (!retainOutgoing && island.dataset.geometry !== key) {
     if(!panel.hidden)motion.captureLayout(); geometryDirty = true; island.dataset.geometry = key;
@@ -251,7 +259,7 @@ function render(): void {
   }
   element('media-widget').hidden = !currentMedia && (agent || downloads.length > 0);
   if (!currentMedia) { element('media-empty-title').textContent = 'Todo en calma'; element('media-empty-description').textContent = 'Un momento para ti.'; }
-  element('activity-footer').hidden = notification;
+  element('activity-footer').hidden = notification || context==='drop';
   if (view.kind === 'notification' && notification) {
     element('notification-source').textContent = view.notification.source;
     element('notification-title').textContent = view.notification.title;
@@ -316,6 +324,7 @@ function dispatch(event: IslandEvent): void {
 document.addEventListener('pointerdown', () => { island.dataset.input = 'pointer'; }, { capture: true });
 toggle.addEventListener('click', () => {
   if (state.notification) dispatch({ type: 'dismiss-notification', now: Date.now() });
+  else if(state.base.kind==='expanded'&&state.base.view==='drop')dropView.close();
   else dispatch(state.base.kind === 'expanded' ? { type: 'collapse' } : { type: 'expand' });
 });
 island.addEventListener('pointerenter', () => dispatch({ type: 'hover', active: true }));
@@ -324,6 +333,7 @@ document.addEventListener('keydown', event => {
   island.dataset.input = 'keyboard';
   if (event.key === 'Escape') {
     if (state.notification) dispatch({ type: 'dismiss-notification', now: Date.now() });
+    else if(state.base.kind==='expanded'&&state.base.view==='drop')dropView.close();
     else dispatch({ type: 'collapse' });
   }
 });
@@ -346,6 +356,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
 window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); syncCompanion(); });
+window.addEventListener('beforeunload',()=>unlistenActionProgress?.());
 window.addEventListener('beforeunload', () => { unlistenCursor?.(); unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); unlistenDrop?.(); unlistenDisplays?.(); eventCompanion.dispose(); agentCompanion.dispose(); dropView.dispose(); audioView.dispose(); mediaView.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
@@ -383,7 +394,7 @@ void (async () => {
 
   try { unlistenDrop = await bridge.onDrop(files => {
     if (!state.preferences.drop_enabled || dropOptOut || state.hidden) return;
-    dropReturn = undefined;
+    dropReturn ??= state.base;
     droppedFiles = files; dropView.render(files, state.preferences.privacy_mode);
     dispatch({ type: 'expand', view: 'drop' });
   }, phase => {
@@ -392,11 +403,12 @@ void (async () => {
       dropReturn ??= state.base;
       dropView.render(droppedFiles, state.preferences.privacy_mode);
       dispatch({ type: 'expand', view: 'drop' });
-    } else if (dropReturn) {
+    } else if (phase==='leave' && dropReturn) {
       const previous = dropReturn; dropReturn = undefined;
       dispatch(previous.kind === 'compact' ? { type: 'collapse' } : { type: 'expand', view: previous.view });
     }
-  }, report); } catch (error) { report(error); }
+  }, error=>{restoreDrop();report(error);}); } catch (error) { report(error); }
+  try{unlistenActionProgress=await bridge.onActionProgress(dropView.progress);}catch(error){report(error);}
   try { unlistenIntegration = await bridge.onIntegration(event => {
     if (!state.preferences.integrations_enabled || integrationOptOut) return;
     const notifications = integrationInbox.receive(event);

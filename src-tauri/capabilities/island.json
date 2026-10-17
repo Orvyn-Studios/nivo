@@ -19,6 +19,7 @@
     "allow-get-power-snapshot",
     "allow-get-drop-snapshot",
     "allow-drop-action",
+    "allow-cancel-drop-action",
     "allow-audio-control",
     "allow-open-sound-settings",
     "allow-media-control",

@@ -1,53 +1,119 @@
-import type { DroppedFile, DropAction } from '../drop-state.ts';
+import type {DroppedFile,DropAction} from '../drop-state.ts';
+import {FILE_ACTIONS,actionFraction,fileKind,formatBytes,type ActionProgress,type ActionResult} from '../actions.ts';
+import {icon} from './icons.ts';
 
-export function createDropView(run: (action: DropAction, id?: string) => Promise<string>, report: (error: unknown) => void) {
-  const list = document.getElementById('drop-list')!;
-  const status = document.getElementById('drop-status')!;
-  const zip = document.getElementById('drop-zip') as HTMLButtonElement;
-  const listeners = new AbortController();
-  let busy = false;
-  let epoch = 0;
-  async function action(kind: DropAction, id?: string): Promise<void> {
-    if (busy) return;
-    busy = true;
-    const current = epoch;
-    document.getElementById('drop')!.setAttribute('aria-busy', 'true');
-    for (const button of list.querySelectorAll('button')) button.disabled = true;
-    zip.disabled = true;
-    status.textContent = 'Preparando…';
-    try { const message = await run(kind, id); if (current === epoch) status.textContent = message; }
-    catch (error) { if (current === epoch) { status.textContent = 'No se completó la acción.'; report(error); } }
-    finally {
-      busy = false;
-      document.getElementById('drop')!.setAttribute('aria-busy', 'false');
-      for (const button of list.querySelectorAll('button')) button.disabled = false;
-      zip.disabled = !list.childElementCount;
+export function createDropView(options:{
+  run(action:DropAction,id?:string):Promise<ActionResult>;
+  cancel(operationId:string):Promise<boolean>; changed():void; close():void;
+}){
+  const root=document.getElementById('drop')!;
+  const list=document.getElementById('drop-list')!;
+  const status=document.getElementById('drop-status')!;
+  const zip=document.getElementById('drop-zip') as HTMLButtonElement;
+  const operation=document.getElementById('drop-operation')!;
+  const progress=document.getElementById('drop-progress') as HTMLProgressElement;
+  const measure=document.getElementById('drop-measure')!;
+  const cancel=document.getElementById('drop-cancel') as HTMLButtonElement;
+  const result=document.getElementById('drop-result')!;
+  const resultTitle=document.getElementById('drop-result-title')!;
+  const resultDetail=document.getElementById('drop-result-detail')!;
+  const folder=document.getElementById('drop-result-folder') as HTMLButtonElement;
+  const retry=document.getElementById('drop-retry') as HTMLButtonElement;
+  const listeners=new AbortController();
+  let files:DroppedFile[]=[],privacy=true,signature='',busy=false,operationId:string|undefined;
+  let output:DroppedFile|null=null,stage:'drag'|'files'|'running'|'result'|'error'='drag';
+  let revision=0,closeRequested=false,disposed=false;
+  function update(){
+    root.dataset.stage=stage;root.setAttribute('aria-busy',String(busy));
+    list.hidden=stage!=='files';operation.hidden=stage!=='running';result.hidden=stage!=='result'&&stage!=='error';
+    zip.hidden=stage!=='files';zip.disabled=busy||!files.length;
+    for(const button of list.querySelectorAll('button'))button.disabled=busy;
+    options.changed();
+  }
+  function button(action:DropAction,name:string,id:string){
+    const node=document.createElement('button');node.type='button';node.className='text-action';
+    node.textContent=name;node.dataset.action=action;node.dataset.id=id;return node;
+  }
+  function rows(){
+    list.replaceChildren();
+    for(const [index,file]of files.entries()){
+      const kind=fileKind(file.name),row=document.createElement('section');row.className='drop-file';
+      const heading=document.createElement('div');heading.className='file-heading';
+      const mark=document.createElement('span');mark.className='file-mark';mark.append(icon(kind.icon));
+      const copy=document.createElement('div');copy.className='file-copy';
+      const title=document.createElement('h2');title.textContent=privacy?`Archivo ${index+1}`:file.name;title.title=title.textContent;
+      const detail=document.createElement('p');detail.className='detail-note';detail.textContent=`${kind.label} · ${formatBytes(file.size)}`;
+      copy.append(title,detail);heading.append(mark,copy);row.append(heading);
+      const actions=document.createElement('div');actions.className='drop-actions';
+      actions.append(button('copyPath','Copiar ruta',file.id),button('openFolder','Ver carpeta',file.id));
+      const more=document.createElement('details');more.className='drop-more';
+      const summary=document.createElement('summary');summary.textContent='Más acciones';
+      more.append(summary,button('copy',FILE_ACTIONS.find(a=>a.id==='copy')!.name,file.id));
+      more.addEventListener('toggle',()=>options.changed(),{signal:listeners.signal});
+      row.append(actions,more);list.append(row);
     }
   }
-  list.addEventListener('click', event => {
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-action]');
-    if (button) void action(button.dataset.action as DropAction, button.dataset.id);
-  }, { signal: listeners.signal });
-  zip.addEventListener('click', () => void action('zip'), { signal: listeners.signal });
-  return {
-    render(files: DroppedFile[], privacy: boolean) {
-      epoch++;
-      list.replaceChildren();
-      status.textContent = files.length ? `${files.length} archivo${files.length === 1 ? '' : 's'} · originales intactos` : 'Suelta hasta 16 archivos locales sobre Nivo.';
-      for (const [index, file] of files.entries()) {
-        const row = document.createElement('section'); row.className = 'audio-section drop-file';
-        const title = document.createElement('h2'); title.textContent = privacy ? `Archivo ${index + 1}` : file.name;
-        row.append(title);
-        const actions = document.createElement('div'); actions.className = 'drop-actions';
-        for (const [kind, label] of [['copyPath', 'Copiar ruta'], ['openFolder', 'Ver carpeta'], ['copy', 'Guardar copia…']] as const) {
-          const button = document.createElement('button'); button.className = 'text-action'; button.textContent = label;
-          button.dataset.action = kind; button.dataset.id = file.id; button.disabled = busy; actions.append(button);
-        }
-        row.append(actions);
-        list.append(row);
+  async function run(kind:DropAction,id?:string){
+    if(busy||disposed)return;
+    const own=revision;busy=true;operationId=undefined;closeRequested=false;output=null;
+    stage='running';status.textContent=kind==='zip'?'Preparando ZIP…':kind==='copy'?'Preparando copia…':'Preparando acción…';
+    progress.removeAttribute('value');measure.textContent='';cancel.disabled=true;cancel.textContent='Cancelar';update();
+    try{
+      const value=await options.run(kind,id);
+      if(disposed||own!==revision)return;
+      if(kind==='copyPath'||kind==='openFolder'){stage='files';status.textContent=value.message;}
+      else{
+        stage='result';output=value.file;
+        resultTitle.textContent=value.outcome==='cancelled'?'Operación cancelada':kind==='zip'?'ZIP listo':'Copia guardada';
+        resultDetail.textContent=output?`${privacy?'Archivo guardado':output.name} · ${formatBytes(output.size)}`:value.message;
+        folder.hidden=!output;retry.hidden=true;status.textContent=value.message;
       }
-      zip.disabled = busy || !files.length;
+    }catch(error){
+      if(disposed||own!==revision)return;
+      stage='error';resultTitle.textContent='No se completó la acción';
+      resultDetail.textContent=(error instanceof Error?error.message:String(error)).slice(0,280);
+      folder.hidden=true;retry.hidden=false;status.textContent='Los archivos originales se conservan.';
+    }finally{
+      if(!disposed&&own===revision){busy=false;operationId=undefined;update();if(closeRequested){closeRequested=false;options.close();}}
+    }
+  }
+  async function requestCancel(close=false){
+    if(!busy){options.close();return;}
+    closeRequested ||=close;
+    if(!operationId)return;
+    cancel.disabled=true;cancel.textContent='Cancelando…';
+    try{await options.cancel(operationId);}catch{cancel.disabled=false;cancel.textContent='Reintentar cancelación';}
+  }
+  root.addEventListener('click',event=>{
+    const target=(event.target as Element).closest<HTMLButtonElement>('button[data-action]');
+    if(target)void run(target.dataset.action as DropAction,target.dataset.id);
+  },{signal:listeners.signal});
+  zip.addEventListener('click',()=>void run('zip'),{signal:listeners.signal});
+  cancel.addEventListener('click',()=>void requestCancel(),{signal:listeners.signal});
+  document.getElementById('drop-back')!.addEventListener('click',()=>void requestCancel(true),{signal:listeners.signal});
+  document.getElementById('drop-done')!.addEventListener('click',()=>options.close(),{signal:listeners.signal});
+  retry.addEventListener('click',()=>{stage='files';status.textContent='Elige otra acción o destino.';update();},{signal:listeners.signal});
+  folder.addEventListener('click',()=>{if(output)void options.run('openFolder',output.id).then(v=>{status.textContent=v.message;}).catch(error=>{status.textContent=String(error).slice(0,280);});},{signal:listeners.signal});
+  return{
+    get busy(){return busy;},get stage(){return stage;},
+    get reaction():'working'|'complete'|'error'|'attention'{return stage==='running'?'working':stage==='result'?'complete':stage==='error'?'error':'attention';},
+    height(){return stage==='drag'?152:stage==='running'?178:stage==='result'||stage==='error'?200:Math.min(300,files.length>1?300:list.querySelector('details[open]')?300:264);},
+    render(value:DroppedFile[],privateMode:boolean){
+      const key=JSON.stringify(value),changed=key!==signature;
+      if(changed){if(operationId)void options.cancel(operationId).catch(()=>{});revision++;busy=false;operationId=undefined;closeRequested=false;signature=key;files=value;stage=value.length?'files':'drag';output=null;}
+      if(changed||privacy!==privateMode){privacy=privateMode;rows();}
+      if(changed)status.textContent=value.length?`${value.length} archivo${value.length===1?'':'s'} · originales intactos`:'Suelta archivos sobre la isla.';
+      update();
     },
-    dispose() { epoch++; listeners.abort(); },
+    progress(value:ActionProgress){
+      if(!busy||operationId&&operationId!==value.operationId)return;
+      operationId=value.operationId;cancel.disabled=!value.cancellable;
+      status.textContent=value.phase==='destination'?'Elige dónde guardar…':value.phase==='finalizing'?'Confirmando en disco…':'Trabajando con tus archivos…';
+      const fraction=actionFraction(value);if(fraction===undefined)progress.removeAttribute('value');else progress.value=fraction;
+      measure.textContent=value.phase==='running'?`${formatBytes(value.completed)}${value.total===null?'':` de ${formatBytes(value.total)}`}`:'';
+      if(closeRequested&&value.cancellable)void requestCancel(true);
+    },
+    close(){void requestCancel(true);},
+    dispose(){disposed=true;revision++;if(operationId)void options.cancel(operationId).catch(()=>{});listeners.abort();},
   };
 }

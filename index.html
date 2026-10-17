@@ -176,10 +176,20 @@
             </div>
           </section>
           <section id="drop" aria-label="Nivo Drop" hidden>
-            <div class="section-heading"><h1>Nivo Drop</h1><button class="text-action" data-view="activity">Volver</button></div>
+            <div class="section-heading"><h1>Nivo Drop</h1><button id="drop-back" class="text-action">Volver</button></div>
             <p id="drop-status" class="detail-note" role="status">Suelta hasta 16 archivos locales sobre Nivo.</p>
             <div id="drop-list"></div>
-            <button id="drop-zip" class="text-action" disabled>Guardar ZIP…</button>
+            <button id="drop-zip" class="drop-primary" disabled>Crear ZIP…</button>
+            <section id="drop-operation" hidden aria-label="Operación de archivos">
+              <progress id="drop-progress" max="1" aria-label="Bytes procesados"></progress>
+              <p id="drop-measure" class="detail-note"></p>
+              <button id="drop-cancel" class="text-action" disabled>Cancelar</button>
+            </section>
+            <section id="drop-result" hidden>
+              <h2 id="drop-result-title"></h2><p id="drop-result-detail" class="detail-note"></p>
+              <div class="drop-actions"><button id="drop-result-folder" class="text-action" hidden>Abrir carpeta</button>
+              <button id="drop-retry" class="text-action" hidden>Volver a los archivos</button><button id="drop-done" class="text-action">Listo</button></div>
+            </section>
           </section>
           <section id="audio" aria-label="Sonido de Windows" hidden>
             <div id="audio-panel" aria-busy="false">

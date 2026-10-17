@@ -2,6 +2,7 @@ import { parsePreferences, type Preferences } from './domain/index.ts';
 import { parseMediaSnapshot, type MediaAction, type MediaSnapshot } from './media-state.ts';
 import { parseDisplays, type Display } from './display-state.ts';
 import type { SurfaceGeometry, SurfaceVelocity, SurfaceSnapshot } from './native-surface.ts';
+import {parseActionResult,parseActionProgress,type ActionResult,type ActionProgress} from './actions.ts';
 import { emptyAudio, parseAudioSnapshot, type AudioSnapshot, type AudioAction } from './audio-state.ts';
 import { parsePowerSnapshot, type PowerSnapshot } from './power-state.ts';
 import { parseIntegrationEvent, type IntegrationEvent } from './integration-state.ts';
@@ -25,7 +26,13 @@ export const bridge = {
   openPreferences: () => core ? core.invoke<void>('open_preferences') : Promise.resolve(window.open('/preferences.html', 'nivo-preferences', 'width=820,height=620')).then(() => {}),
   onSettings: (handler: (settings: Preferences) => void): Promise<() => void> => core
     ? window.__TAURI__!.event.listen<unknown>('nivo://settings', event => handler(parsePreferences(event.payload)), { target: 'island' }) : Promise.resolve(() => {}),
-  dropAction: (action: DropAction, id?: string): Promise<string> => core ? core.invoke('drop_action', { action, id: id ?? null }) : Promise.reject(new Error('Requiere Nivo para Windows.')),
+  dropAction: async(action:DropAction,id?:string):Promise<ActionResult>=>{
+    if(!core)throw new Error('Requiere Nivo para Windows.');
+    return parseActionResult(await core.invoke('drop_action',{action,id:id??null}));
+  },
+  cancelDropAction:(operationId:string)=>core?.invoke<boolean>('cancel_drop_action',{operationId})??Promise.resolve(false),
+  onActionProgress:(handler:(progress:ActionProgress)=>void):Promise<()=>void>=>core
+    ?window.__TAURI__!.event.listen<unknown>('nivo://action-progress',event=>{const value=parseActionProgress(event.payload);if(value)handler(value)},{target:'island'}):Promise.resolve(()=>{}),
   onDrop: async (files: (value: DroppedFile[]) => void, phase: (value: 'enter' | 'leave' | 'drop') => void, error: (value: unknown) => void): Promise<() => void> => {
     if (!core) return () => {};
     const cleanups: (() => void)[] = [];
