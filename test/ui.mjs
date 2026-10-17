@@ -199,15 +199,15 @@ try {
   report.checks.push('Timer and completion expressions follow real countdown; reduced motion keeps completion static.');
 
   // Labelled visual fixtures use the shipped controller, SVG and CSS, never demo product data.
-  await page.evaluate(async () => {
+  const expressions = await page.evaluate(async () => {
     const { createCompanion } = await import('/src/components/companion.ts');
     const gallery = document.createElement('div');
     gallery.id = 'companion-review';
     gallery.style.cssText = 'position:fixed;inset:0;background:#0c0e12;color:#a4abb7;padding:30px;display:flex;gap:24px;align-items:center;justify-content:center;font:12px Segoe UI;z-index:10';
-    for (const pose of ['quiet', 'hover', 'focus', 'music', 'timer', 'complete', 'unavailable']) {
+    for (const [pose, name] of [['quiet', 'Reposo'], ['hover', 'Curiosidad'], ['focus', 'Atención'], ['music', 'Música'], ['timer', 'Concentración'], ['complete', 'Listo'], ['unavailable', 'Duda']]) {
       const cell = document.createElement('div');
       cell.style.cssText = 'display:grid;justify-items:center;gap:22px';
-      const label = document.createElement('span'); label.textContent = pose;
+      const label = document.createElement('span'); label.textContent = name;
       cell.append(label);
       for (const large of [false, true]) {
         const face = document.getElementById('nivo-companion').cloneNode(true);
@@ -219,7 +219,14 @@ try {
       gallery.append(cell);
     }
     document.body.append(gallery);
+    return [...gallery.querySelectorAll('.nivo-companion')].map(face => ({
+      pose: face.dataset.pose,
+      active: [...face.querySelectorAll('[data-expression]')]
+        .filter(expression => getComputedStyle(expression).display !== 'none')
+        .map(expression => expression.dataset.expression),
+    }));
   });
+  for (const { pose, active } of expressions) assert.deepEqual(active, [pose], 'exactly one expression at each size');
   await page.setViewportSize({ width: 1000, height: 300 });
   await capture('companion-expression-review.png');
   await page.locator('#companion-review').evaluate(el => el.remove());

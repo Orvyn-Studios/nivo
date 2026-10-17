@@ -1,5 +1,11 @@
 # Validación de Nivo
 
+## Revisión minimalista — 2026-10-17
+
+Tras la petición del usuario se simplifica el cuerpo a blanco mate y se eliminan cresta, gradiente, brillos y sombra decorativa. Las siete expresiones tienen geometría propia y se distinguen por ojos redondos, asimétricos, verticales, curvos u oblicuos. Solo completado y duda muestran boca. Este diseño sustituye el acabado perlado descrito en el registro anterior.
+
+`npm run verify:web`: 64 pruebas aprobadas, cero omitidas, tipos y build aprobados. `npm run test:ui`: aprobado en Chromium con sandbox; se verifica además una sola expresión visible por pose en los dos tamaños de la galería. Se inspeccionaron las capturas de compacto, expandido y expresiones. No se añaden bucles, dependencias ni listeners. La limitación nativa de esta torre permanece: faltan Rust/Cargo y MSVC; no se acredita una nueva ejecución Tauri ni consumo nativo.
+
 ## Redise?o blanco del compa?ero ? 2026-10-17, torre
 
 Continuaci?n desde GitHub `feature/nivo-mvp`, commit `c0eb2cb`, en un clon limpio con la misma ascendencia remota. Sin cambios en Rust, arquitectura, `main`, releases ni Actions.

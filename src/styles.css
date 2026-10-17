@@ -125,38 +125,27 @@ footer {
   color:var(--accent)
 }
 .toggle-identity { display:flex; align-items:center; gap:7px; min-width:0; transform-origin:50% 50% }
-/* Pearl companion: still at rest; pose, gaze and blink own separate layers. */
+/* Matte companion: each expression has its own readable geometry. */
 .nivo-companion { width:24px; height:23px; flex:none; overflow:visible; color:#232831 }
 .companion-welcome { width:52px; height:46px }
-.companion-body { stroke:#fff; stroke-opacity:.4; stroke-width:.6 }
-.companion-shadow { fill:#000; opacity:.24; stroke:none }
-.companion-rim { stroke:#fff; stroke-opacity:.65; stroke-width:.9 }
+.companion-body { fill:#f0f1ed; stroke:rgb(255 255 255 / 35%); stroke-width:.5 }
 .companion-shell { transform-origin:16px 23px }
-.companion-eyes { transform-origin:16px 15px }
-.companion-eye { fill:currentColor; stroke:none; transform-box:fill-box; transform-origin:center }
-.nivo-companion[data-motion=full] :is(.companion-shell,.companion-eye) { transition:transform 160ms cubic-bezier(.22,1,.36,1) }
-.companion-glint { fill:#fff; opacity:.8 }
-.companion-mouth { stroke-width:1.1 }
-.companion-smile,.companion-worry,.companion-happy-eyes { display:none }
-.companion-happy-eyes { stroke-width:1.8 }
-.nivo-companion[data-pose=quiet] .companion-eye { transform:scaleY(.82) }
-.nivo-companion[data-pose=hover] .companion-eye-right { transform:scaleY(1.13) }
-.nivo-companion[data-pose=hover] .companion-shell { transform:rotate(-3deg) }
-.nivo-companion[data-pose=focus] .companion-eye { transform:scaleY(1.08) }
-.nivo-companion[data-pose=timer] .companion-eye { transform:translateY(.6px) scaleY(.72) }
-.nivo-companion[data-pose=timer] .companion-rest { transform:translateY(.3px) scaleX(.8); transform-origin:16px 19px }
-.nivo-companion[data-pose=music] .companion-shell { transform:rotate(3deg) }
-.nivo-companion[data-pose=music] .companion-eye { transform:scaleY(.7) }
-.nivo-companion[data-pose=music] .companion-rest,
-.nivo-companion[data-pose=complete] .companion-rest,
-.nivo-companion[data-pose=unavailable] .companion-rest { display:none }
-.nivo-companion[data-pose=music] .companion-smile,
-.nivo-companion[data-pose=complete] .companion-smile { display:block }
-.nivo-companion[data-pose=complete] .companion-eyes { visibility:hidden }
-.nivo-companion[data-pose=complete] .companion-happy-eyes { display:block }
-.nivo-companion[data-pose=unavailable] .companion-eye-left { transform:translateY(-.6px) scaleY(.7) }
-.nivo-companion[data-pose=unavailable] .companion-eye-right { transform:translateY(.5px) scaleY(.9) }
-.nivo-companion[data-pose=unavailable] .companion-worry { display:block }
+.companion-eyes { transform-origin:16px 15px; stroke-width:1.8 }
+.companion-pupil { fill:currentColor; stroke:none }
+.companion-expression,.companion-mouth { display:none }
+.nivo-companion[data-pose=quiet] [data-expression=quiet],
+.nivo-companion[data-pose=hover] [data-expression=hover],
+.nivo-companion[data-pose=focus] [data-expression=focus],
+.nivo-companion[data-pose=music] [data-expression=music],
+.nivo-companion[data-pose=timer] [data-expression=timer],
+.nivo-companion[data-pose=complete] [data-expression=complete],
+.nivo-companion[data-pose=unavailable] [data-expression=unavailable] { display:inline }
+.companion-mouth { stroke-width:1.15 }
+.nivo-companion[data-pose=complete] .companion-smile,
+.nivo-companion[data-pose=unavailable] .companion-worry { display:inline }
+.nivo-companion[data-pose=hover] .companion-shell { transform:rotate(-5deg) }
+.nivo-companion[data-pose=music] .companion-shell { transform:rotate(4deg) }
+.nivo-companion[data-motion=full] .companion-shell { transition:transform 160ms cubic-bezier(.22,1,.36,1) }
 #island[data-companion=true] .nivo-mark { display:none }
 /* Artwork identifies playback in compact mode; the companion returns in the header. */
 #island[data-companion=true][data-media=true] .nivo-companion { display:none }

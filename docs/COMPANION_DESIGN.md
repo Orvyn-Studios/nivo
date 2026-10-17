@@ -1,29 +1,31 @@
-# Compa?ero blanco de Nivo
+# Compañero minimalista de Nivo
 
-Silueta vectorial original: peque?a piedra suave con una cresta desplazada, base estable y volumen blanco roto mediante un gradiente de tres tonos. Sin orejas, extremidades, filtros, texturas o im?genes externas. Los ojos oscuros tienen brillo peque?o y proporciones distintas seg?n atenci?n; la boca sigue siendo secundaria.
+Revisión del 17 de octubre de 2026 tras la petición de simplificar el diseño y diferenciar las expresiones. Sustituye el acabado perlado anterior.
 
-## Estados y prioridad
+Una sola silueta blanca mate, suavemente asimétrica y con base estable. Sin cresta, gradientes, brillos, reflejos ni sombra decorativa. La cara usa dos ojos; la boca solo aparece para completado o duda.
 
-1. `complete`: temporizador finalizado, ojos curvos y sonrisa; elevaci?n ?nica de 240 ms.
-2. `timer`: temporizador activo o pausado; mirada concentrada. La pausa sigue expres?ndose en el texto de la UI.
-3. `unavailable`: proveedor nativo multimedia indisponible con integraci?n activada; asimetr?a leve y gesto de duda. La vista web y un reproductor vac?o no implican error.
-4. `music`: reproducci?n real; sonrisa y balanceo ?nico de 320 ms al entrar.
-5. `focus`: panel o aviso abierto; mirada atenta.
-6. `hover`: isla bajo el cursor; inclinaci?n leve y curiosidad.
-7. `quiet`: reposo sereno, sin respiraci?n ni parpadeo peri?dico.
+## Expresiones y prioridad
 
-El movimiento reducido conserva estas expresiones sin seguimiento, transiciones ni reacciones WAAPI. No hay un estado adicional de sue?o con temporizador de inactividad: el reposo calmado cumple esa funci?n sin a?adir trabajo programado.
+1. `complete`: temporizador finalizado; ojos en arco hacia arriba y sonrisa pequeña. Elevación única de 240 ms.
+2. `timer`: temporizador activo o pausado; trazos inclinados hacia el centro que expresan concentración. La UI distingue la pausa mediante texto.
+3. `unavailable`: proveedor multimedia nativo indisponible; un ojo redondo, otro oblicuo y boca ladeada. Una vista web o reproductor vacío no implican error.
+4. `music`: reproducción real; ojos cerrados en curva relajada, sin boca. Inclinación y balanceo único de 320 ms al entrar.
+5. `focus`: panel abierto; ojos altos, más juntos y centrados, sin boca.
+6. `hover`: curiosidad; un ojo pequeño y otro más abierto y elevado, con inclinación leve.
+7. `quiet`: reposo; dos puntos pequeños y separados, sin boca ni movimiento periódico.
 
-## Integraci?n y mantenimiento
+Cada estado tiene geometría propia dentro de `companion-eyes`; no depende de pequeñas variaciones de escala de la misma cara. El parpadeo incluye ahora también las expresiones de música y completado. El movimiento reducido conserva las formas estáticas, sin seguimiento ni reacciones.
 
-`companion-state.ts` resuelve la prioridad; `components/companion.ts` controla recursos de interacci?n y reacciones finitas; `styles.css` aplica poses mediante atributos. Mirada, parpadeo y forma corporal tienen capas separadas para evitar que sus transformaciones se sobrescriban. El markup conserva ambas instancias con gradientes de ID ?nico.
+## Integración y rendimiento
 
-Sin m?sica, aparece en compacto y cabecera expandida. Con sesi?n multimedia, el compacto prioriza portada o logo del reproductor; el compa?ero vuelve al expandir. Bienvenida solo sin sesi?n y en Actividad, sin animar cuando est? oculta. Desactivarlo restaura el logo; se respeta la preferencia guardada. Ninguna API, permiso ni integraci?n nativa cambia.
+Se conserva la separación entre resolución de estado (`companion-state.ts`), interacción (`components/companion.ts`) y presentación (SVG/CSS). Mirada, parpadeo y cuerpo siguen en capas distintas.
 
-Transiciones de pose de 160 ms, sin bucles. RAF solo cuando llega movimiento del cursor; se agrupan eventos y se cachea geometr?a. Cambiar estado, ocultar, reducir movimiento o desactivar cancela trabajo pendiente. Los renders repetidos no reinician reacciones.
+Sin música, aparece en compacto y cabecera expandida. Con sesión musical, el compacto prioriza portada o logo; la mascota vuelve al expandir. Bienvenida solo sin sesión y en Actividad. Desactivarla restaura el logo y respeta la preferencia guardada.
 
-## Validaci?n y l?mites
+No se añaden dependencias, listeners ni temporizadores. RAF solo ante movimiento local, con eventos agrupados y geometría cacheada; se cancela al ocultar, desactivar o reducir movimiento. La inclinación cambia mediante una transición de 160 ms; la cara cambia directamente para evitar superponer expresiones. No hay bucles en reposo.
 
-64 pruebas Node, tipos, build y pruebas Chromium aprobados; capturas en `artifacts/` regenerables con `npm run test:ui`. La galer?a est? etiquetada como fixture de pruebas y nunca se a?ade a la aplicaci?n distribuida.
+## Validación
 
-El resultado se distingue de la base azul por silueta, volumen, ojos y expresiones, y se ha inspeccionado a tama?o real. La valoraci?n est?tica final corresponde al usuario. Falta aceptaci?n de esta revisi?n en WebView2/Windows, con m?sica real, escalas DPI y medidas de consumo. En esta torre faltan Rust/Cargo y MSVC; no se presenta la vista de navegador como ejecutable validado.
+`npm run verify:web`: 64 pruebas, tipos y build aprobados. `npm run test:ui`: aprobado en Chromium con sandbox, incluidos temporizador, preferencias, movimiento reducido y viewport de 320 px. La galería verifica una única expresión visible por estado a ambos tamaños y permite revisar las diferencias con el SVG y CSS reales.
+
+Capturas inspeccionadas: compacto 112×34, expandido 388×320 y siete expresiones a 24 px y 52 px. Los fixtures solo viven en las pruebas. La aceptación del ejecutable WebView2, DPI, música real y consumo nativo sigue pendiente: esta torre carece de Rust/Cargo y MSVC.

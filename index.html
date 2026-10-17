@@ -32,24 +32,38 @@
           </svg>
         </span>
         <svg id="nivo-companion" class="nivo-companion" viewBox="0 0 32 28" aria-hidden="true" hidden>
-          <defs>
-            <linearGradient id="nivo-companion-pearl" x1=".25" y1="0" x2=".7" y2="1" gradientUnits="objectBoundingBox">
-              <stop stop-color="#fcfbf7"/><stop offset=".58" stop-color="#eeefec"/><stop offset="1" stop-color="#c9ced1"/>
-            </linearGradient>
-          </defs>
-          <ellipse class="companion-shadow" cx="16" cy="25" rx="10" ry="1.2"/>
           <g class="companion-shell">
-            <path class="companion-body" fill="url(#nivo-companion-pearl)" d="M4 17C4 11 7 7 12 6C14 5.6 16 6.5 18 5.7C20 5 21 3.8 22 4.3C23 4.9 21.8 6.7 23 7.8C26.5 10.2 28 13.6 28 17.5C28 22.6 23.6 24 16 24C8.4 24 4 22.3 4 17Z"/>
-            <path class="companion-rim" d="M7 13C8 9.8 10.7 8.1 13.5 8.4"/>
+            <path class="companion-body" d="M4 17C4 9.8 9.2 5 16.5 5C23.7 5 28 10.3 28 17.5C28 22.2 23.8 24 16 24C8.2 24 4 22 4 17Z"/>
             <g class="companion-gaze">
               <g class="companion-eyes">
-                <g class="companion-eye companion-eye-left"><ellipse cx="11.8" cy="15.3" rx="1.65" ry="2.35"/><circle class="companion-glint" cx="12.2" cy="14.5" r=".45"/></g>
-                <g class="companion-eye companion-eye-right"><ellipse cx="20.2" cy="15.3" rx="1.65" ry="2.35"/><circle class="companion-glint" cx="20.6" cy="14.5" r=".45"/></g>
+                <g class="companion-expression" data-expression="quiet">
+                  <circle class="companion-pupil" cx="11.5" cy="15.8" r="1.25"/>
+                  <circle class="companion-pupil" cx="20.5" cy="15.8" r="1.25"/>
+                </g>
+                <g class="companion-expression" data-expression="hover">
+                  <circle class="companion-pupil" cx="11.5" cy="16" r="1.3"/>
+                  <ellipse class="companion-pupil" cx="20.5" cy="14.7" rx="1.8" ry="2.6"/>
+                </g>
+                <g class="companion-expression" data-expression="focus">
+                  <ellipse class="companion-pupil" cx="13" cy="14.6" rx="1.35" ry="2.8"/>
+                  <ellipse class="companion-pupil" cx="19" cy="14.6" rx="1.35" ry="2.8"/>
+                </g>
+                <g class="companion-expression" data-expression="music">
+                  <path d="M9.8 14.4q1.8 3.6 3.6 0M18.6 14.4q1.8 3.6 3.6 0"/>
+                </g>
+                <g class="companion-expression" data-expression="timer">
+                  <path d="m10 14.1 3.6 1.3m4.8 0 3.6-1.3"/>
+                </g>
+                <g class="companion-expression" data-expression="complete">
+                  <path d="M9.8 15.6q1.8-4.2 3.6 0M18.6 15.6q1.8-4.2 3.6 0"/>
+                </g>
+                <g class="companion-expression" data-expression="unavailable">
+                  <circle class="companion-pupil" cx="11.5" cy="15.6" r="1.4"/>
+                  <path d="m18.6 14.6 3.6-1.2"/>
+                </g>
               </g>
-              <g class="companion-happy-eyes"><path d="M10.1 15.7q1.7-2.8 3.4 0M18.5 15.7q1.7-2.8 3.4 0"/></g>
-              <path class="companion-mouth companion-rest" d="M14.6 19.2q1.4.8 2.8 0"/>
-              <path class="companion-mouth companion-smile" d="M13.8 18.7q2.2 2.8 4.4 0"/>
-              <path class="companion-mouth companion-worry" d="M14.8 20q1.2-1 2.4-.4"/>
+              <path class="companion-mouth companion-smile" d="M14.2 19q1.8 1.8 3.6 0"/>
+              <path class="companion-mouth companion-worry" d="m14.8 19.7 2.4-.7"/>
             </g>
           </g>
         </svg>
@@ -70,24 +84,38 @@
             <section id="media-widget" class="media-widget" aria-label="Reproductor de Windows" aria-busy="false">
               <div id="media-empty" class="media-empty">
                 <svg id="companion-welcome" class="nivo-companion companion-welcome" viewBox="0 0 32 28" aria-hidden="true" hidden>
-          <defs>
-            <linearGradient id="companion-welcome-pearl" x1=".25" y1="0" x2=".7" y2="1" gradientUnits="objectBoundingBox">
-              <stop stop-color="#fcfbf7"/><stop offset=".58" stop-color="#eeefec"/><stop offset="1" stop-color="#c9ced1"/>
-            </linearGradient>
-          </defs>
-          <ellipse class="companion-shadow" cx="16" cy="25" rx="10" ry="1.2"/>
           <g class="companion-shell">
-            <path class="companion-body" fill="url(#companion-welcome-pearl)" d="M4 17C4 11 7 7 12 6C14 5.6 16 6.5 18 5.7C20 5 21 3.8 22 4.3C23 4.9 21.8 6.7 23 7.8C26.5 10.2 28 13.6 28 17.5C28 22.6 23.6 24 16 24C8.4 24 4 22.3 4 17Z"/>
-            <path class="companion-rim" d="M7 13C8 9.8 10.7 8.1 13.5 8.4"/>
+            <path class="companion-body" d="M4 17C4 9.8 9.2 5 16.5 5C23.7 5 28 10.3 28 17.5C28 22.2 23.8 24 16 24C8.2 24 4 22 4 17Z"/>
             <g class="companion-gaze">
               <g class="companion-eyes">
-                <g class="companion-eye companion-eye-left"><ellipse cx="11.8" cy="15.3" rx="1.65" ry="2.35"/><circle class="companion-glint" cx="12.2" cy="14.5" r=".45"/></g>
-                <g class="companion-eye companion-eye-right"><ellipse cx="20.2" cy="15.3" rx="1.65" ry="2.35"/><circle class="companion-glint" cx="20.6" cy="14.5" r=".45"/></g>
+                <g class="companion-expression" data-expression="quiet">
+                  <circle class="companion-pupil" cx="11.5" cy="15.8" r="1.25"/>
+                  <circle class="companion-pupil" cx="20.5" cy="15.8" r="1.25"/>
+                </g>
+                <g class="companion-expression" data-expression="hover">
+                  <circle class="companion-pupil" cx="11.5" cy="16" r="1.3"/>
+                  <ellipse class="companion-pupil" cx="20.5" cy="14.7" rx="1.8" ry="2.6"/>
+                </g>
+                <g class="companion-expression" data-expression="focus">
+                  <ellipse class="companion-pupil" cx="13" cy="14.6" rx="1.35" ry="2.8"/>
+                  <ellipse class="companion-pupil" cx="19" cy="14.6" rx="1.35" ry="2.8"/>
+                </g>
+                <g class="companion-expression" data-expression="music">
+                  <path d="M9.8 14.4q1.8 3.6 3.6 0M18.6 14.4q1.8 3.6 3.6 0"/>
+                </g>
+                <g class="companion-expression" data-expression="timer">
+                  <path d="m10 14.1 3.6 1.3m4.8 0 3.6-1.3"/>
+                </g>
+                <g class="companion-expression" data-expression="complete">
+                  <path d="M9.8 15.6q1.8-4.2 3.6 0M18.6 15.6q1.8-4.2 3.6 0"/>
+                </g>
+                <g class="companion-expression" data-expression="unavailable">
+                  <circle class="companion-pupil" cx="11.5" cy="15.6" r="1.4"/>
+                  <path d="m18.6 14.6 3.6-1.2"/>
+                </g>
               </g>
-              <g class="companion-happy-eyes"><path d="M10.1 15.7q1.7-2.8 3.4 0M18.5 15.7q1.7-2.8 3.4 0"/></g>
-              <path class="companion-mouth companion-rest" d="M14.6 19.2q1.4.8 2.8 0"/>
-              <path class="companion-mouth companion-smile" d="M13.8 18.7q2.2 2.8 4.4 0"/>
-              <path class="companion-mouth companion-worry" d="M14.8 20q1.2-1 2.4-.4"/>
+              <path class="companion-mouth companion-smile" d="M14.2 19q1.8 1.8 3.6 0"/>
+              <path class="companion-mouth companion-worry" d="m14.8 19.7 2.4-.7"/>
             </g>
           </g>
         </svg>
