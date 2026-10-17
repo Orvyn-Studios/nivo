@@ -122,29 +122,17 @@ try {
   await toggle.click();
   await stable(true);
   await page.getByRole('button', { name: 'Actividad', exact: true }).click();
-  await page.locator('[data-minutes="1"]').click();
-  await page.waitForFunction(() => document.getElementById('timer-phase').textContent === 'En marcha');
-  assert.match(await page.locator('#timer-count').textContent(), /^(01:00|00:5\d)$/);
-  assert.equal(await page.locator('#nivo-companion').getAttribute('data-pose'), 'timer');
-  await capture('island-timer-running.png');
-  await page.locator('#timer-pause').click();
-  await page.waitForFunction(() => document.getElementById('timer-phase').textContent === 'En pausa');
-  const paused = await page.locator('#timer-count').textContent();
-  await page.waitForTimeout(1100);
-  assert.equal(await page.locator('#timer-count').textContent(), paused);
+  assert.equal(await page.locator('[id^="timer-"]').count(), 0);
+  await page.locator('#pause-events').click();
+  assert.equal(await page.locator('#pause-events').textContent(), 'Reanudar avisos');
+  await page.locator('#pause-events').click();
+  await page.evaluate(() => localStorage.setItem('nivo:timer:v1', '{"phase":"running","legacy":true}'));
   await page.reload();
-  await page.waitForFunction(() => !document.getElementById('toggle').disabled && document.getElementById('timer-phase').textContent === 'En pausa');
+  await page.waitForFunction(() => !document.getElementById('toggle').disabled);
+  assert.equal(await page.evaluate(() => localStorage.getItem('nivo:timer:v1')), '{"phase":"running","legacy":true}');
   await toggle.click();
   await stable(true);
-  assert.equal(await page.locator('#timer-count').textContent(), paused);
-  assert.equal(await page.locator('#timer-pause').textContent(), 'Reanudar');
-  await capture('island-timer-restored.png');
-  await page.locator('#timer-pause').click();
-  await page.waitForFunction(() => document.getElementById('timer-phase').textContent === 'En marcha');
-  await page.locator('#timer-cancel').click();
-  assert.equal(await page.locator('#timer-idle').isVisible(), true);
-  assert.equal(await page.evaluate(() => localStorage.getItem('nivo:timer:v1')), null);
-  report.checks.push('Countdown starts, stays paused, survives reload, resumes and cancels.');
+  report.checks.push('Timer removed; legacy storage preserved and ignored; event pause responds.');
 
   await page.getByRole('button', { name: 'Preferencias', exact: true }).click();
   await page.locator('#reduce-motion').check();
@@ -189,22 +177,13 @@ try {
   assert.equal(await page.locator('#island-panel').evaluate(el => el.getBoundingClientRect().bottom <= document.querySelector('#island').getBoundingClientRect().bottom), true);
   await capture('island-small-viewport.png');
   report.checks.push('320px viewport keeps island and panel inside their bounds.');
-  await page.getByRole('button', { name: 'Actividad', exact: true }).click();
-  await page.clock.install();
-  await page.locator('[data-minutes="1"]').click();
-  await page.clock.fastForward(60_100);
-  await page.waitForFunction(() => document.getElementById('nivo-companion').dataset.pose === 'complete');
-  assert.equal(await page.locator('#nivo-companion').evaluate(el => el.getAnimations({ subtree: true }).length), 0);
-  await capture('island-companion-complete-reduced.png');
-  report.checks.push('Timer and completion expressions follow real countdown; reduced motion keeps completion static.');
-
   // Labelled visual fixtures use the shipped controller, SVG and CSS, never demo product data.
   const expressions = await page.evaluate(async () => {
     const { createCompanion } = await import('/src/components/companion.ts');
     const gallery = document.createElement('div');
     gallery.id = 'companion-review';
     gallery.style.cssText = 'position:fixed;inset:0;background:#0c0e12;color:#a4abb7;padding:30px;display:flex;gap:24px;align-items:center;justify-content:center;font:12px Segoe UI;z-index:10';
-    for (const [pose, name] of [['quiet', 'Reposo'], ['hover', 'Curiosidad'], ['focus', 'Atención'], ['music', 'Música'], ['timer', 'Concentración'], ['complete', 'Listo'], ['unavailable', 'Duda']]) {
+    for (const [pose, name] of [['quiet', 'Reposo'], ['hover', 'Curiosidad'], ['focus', 'Atención'], ['music', 'Música'], ['working', 'Concentración'], ['complete', 'Listo'], ['unavailable', 'Duda']]) {
       const cell = document.createElement('div');
       cell.style.cssText = 'display:grid;justify-items:center;gap:22px';
       const label = document.createElement('span'); label.textContent = name;
@@ -232,7 +211,7 @@ try {
   await page.locator('#companion-review').evaluate(el => el.remove());
   assert.deepEqual(errors, []);
   report.status = 'passed';
-  console.log('PASS: current Vite frontend, geometry, keyboard/focus, rapid intent, timer/persistence, preferences, reduced-motion interruption and 320px viewport. Native Tauri acceptance remains separate.');
+  console.log('PASS: current Vite frontend, geometry, keyboard/focus, rapid intent, event pause, preferences, reduced-motion interruption and 320px viewport. Native Tauri acceptance remains separate.');
 } catch (error) {
   report.status = 'failed';
   report.failure = error instanceof Error ? error.message : String(error);

@@ -77,7 +77,7 @@ test('pose changes cancel stale gaze and reactions; reduced motion retains stati
     const value = { enabled: true, visible: true, reduced: false, pose: 'music' };
     f.companion.update(value);
     f.send('pointerenter'); f.send('pointermove');
-    f.companion.update({ ...value, pose: 'timer' });
+    f.companion.update({ ...value, pose: 'working' });
     assert.equal(f.frames.size, 0);
     assert.ok(f.animations.every(animation => animation.cancelled));
     f.companion.update({ ...value, reduced: true, pose: 'complete' });

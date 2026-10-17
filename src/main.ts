@@ -1,6 +1,6 @@
 import {
-  createIslandState, reduceIsland, presentation, remainingMs, shouldReduceMotion,
-  exportTimer, restoreTimer, type IslandEvent, type Preferences,
+  createIslandState, reduceIsland, presentation, shouldReduceMotion,
+  type IslandEvent, type Preferences,
 } from './domain/index.ts';
 import { bridge, isNative } from './bridge.ts';
 import { IslandMotion } from './motion.ts';
@@ -46,7 +46,8 @@ function syncCompanion(): void {
     enabled: state.preferences.mascot_enabled,
     visible: !state.hidden && !document.hidden,
     reduced: shouldReduceMotion(state.preferences, systemMotion.matches),
-    pose: companionPose(state.timer.phase, activeMedia(mediaInbox.snapshot)?.playback, {
+    pose: companionPose(activeMedia(mediaInbox.snapshot)?.playback, {
+      reaction: state.notification?.notification.reaction,
       expanded: state.base.kind === 'expanded' || state.notification !== null,
       hovered: state.hovered,
       // Browser preview and an empty player are normal; only a native failure worries Nivo.
@@ -95,13 +96,6 @@ const transition = createTransitionController({
   },
 });
 
-function formatTime(milliseconds: number): string {
-  const seconds = Math.ceil(milliseconds / 1000);
-  const hours = Math.floor(seconds / 3600);
-  return hours ? `${hours}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
-    : `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-}
-
 function render(): void {
   syncCompanion();
   if (mediaDirty) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
@@ -124,19 +118,18 @@ function render(): void {
     element('notification-title').textContent = view.notification.title;
     element('notification-body').textContent = view.notification.body ?? '';
   }
-  const active = state.timer.phase !== 'idle';
-  const remaining = remainingMs(state.timer, now);
-  element('timer-idle').hidden = active;
-  element('timer-active').hidden = !active;
-  element('timer-count').textContent = formatTime(remaining);
-  element('timer-phase').textContent = ({ idle: 'A tu ritmo', running: 'En marcha', paused: 'En pausa', finished: 'Terminado' })[state.timer.phase];
-  element('timer-pause').hidden = state.timer.phase === 'finished';
-  element('timer-pause').textContent = state.timer.phase === 'paused' ? 'Reanudar' : 'Pausar';
-  element<HTMLProgressElement>('timer-progress').value = active && state.timer.phase !== 'idle' ? 1 - remaining / state.timer.durationMs : 0;
   const currentMedia = activeMedia(mediaInbox.snapshot);
-  element('compact-label').textContent = active ? (state.timer.phase === 'finished' ? 'Listo' : formatTime(remaining))
-    : currentMedia ? (currentMedia.playback === 'playing' ? 'Música' : 'En pausa') : 'Nivo';
-  toggle.setAttribute('aria-label', `${transition.expanded ? 'Cerrar' : 'Abrir'} Nivo${active ? `, temporizador ${formatTime(remaining)}` : currentMedia ? `, ${currentMedia.title || 'reproductor multimedia'}` : ''}`);
+  const notice = view.kind === 'notification' ? view.notification : undefined;
+  island.dataset.notice = String(Boolean(notice?.compact));
+  element('compact-label').textContent = notice?.compact ? notice.title
+    : currentMedia ? (currentMedia.title || (currentMedia.playback === 'playing' ? 'Música' : 'En pausa')) : 'Nivo';
+  toggle.title = notice?.compact ? `${notice.title}${notice.body ? ` · ${notice.body}` : ''}` : currentMedia?.title ?? '';
+  toggle.setAttribute('aria-label', `${transition.expanded ? 'Cerrar' : 'Abrir'} Nivo${notice ? `, ${notice.title}` : currentMedia ? `, ${currentMedia.title || 'reproductor multimedia'}` : ''}`);
+  const progress = element<HTMLProgressElement>('compact-event-progress');
+  progress.hidden = notice?.progress === undefined;
+  progress.value = notice?.progress ?? 0;
+  element('pause-events').textContent = state.eventsPaused ? 'Reanudar avisos' : 'Pausar avisos';
+
 }
 
 function scheduleClock(): void {
@@ -144,35 +137,25 @@ function scheduleClock(): void {
   if (disposed) return;
   const now = Date.now();
   const delays: number[] = [];
-  if (state.timer.phase === 'running') delays.push(document.hidden || state.hidden ? Math.max(1, state.timer.deadlineMs - now) : 1000 - now % 1000);
   if (state.notification) delays.push(Math.max(1, state.notification.expiresAtMs - now));
   if (delays.length) clockTimeout = setTimeout(() => dispatch({ type: 'advance', now: Date.now() }), Math.min(...delays, 2_147_483_647));
 }
 
-function persistTimer(): void {
-  try {
-    const snapshot = exportTimer(state.timer);
-    if (snapshot) localStorage.setItem('nivo:timer:v1', JSON.stringify(snapshot));
-    else localStorage.removeItem('nivo:timer:v1');
-  } catch { report('No se ha podido guardar el temporizador para la próxima apertura.'); }
-}
-
 function dispatch(event: IslandEvent): void {
-  const previous = state;
   try { state = reduceIsland(state, event); }
   catch (error) { report(error); return; }
   if (state.hidden || document.hidden) syncCompanion();
   if (!state.hidden && !document.hidden) render();
-  const desired = state.notification !== null || state.base.kind === 'expanded';
+  const desired = (state.notification !== null && !state.notification.notification.compact) || state.base.kind === 'expanded';
   if (!state.hidden) {
     const operation = transition.set(desired);
-    // Repeated timer/media updates share one observer during a slow native resize.
+    // Provider updates share one observer during a slow native resize.
     if (operation !== observedTransition) {
       observedTransition = operation;
       void operation.then(confirmed => {
         if (observedTransition !== operation) return;
         observedTransition = undefined;
-        const currentDesired = state.notification !== null || state.base.kind === 'expanded';
+        const currentDesired = (state.notification !== null && !state.notification.notification.compact) || state.base.kind === 'expanded';
         if (confirmed !== currentDesired && !state.notification && transition.desired === confirmed) {
           state = reduceIsland(state, confirmed ? { type: 'expand' } : { type: 'collapse' });
           if (!state.hidden && !document.hidden) render();
@@ -180,8 +163,6 @@ function dispatch(event: IslandEvent): void {
       });
     }
   }
-  if (previous.timer !== state.timer && event.type !== 'advance') persistTimer();
-  if (previous.timer.phase !== state.timer.phase && event.type === 'advance') persistTimer();
   scheduleClock();
 }
 
@@ -237,13 +218,8 @@ document.addEventListener('keydown', event => {
   }
 });
 document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(button => button.addEventListener('click', () => dispatch({ type: 'expand', view: button.dataset.view === 'preferences' ? 'preferences' : 'activity' })));
-document.querySelectorAll<HTMLButtonElement>('[data-minutes]').forEach(button => button.addEventListener('click', () => dispatch({ type: 'timer-start', durationMs: Number(button.dataset.minutes) * 60_000, now: Date.now() })));
-element<HTMLFormElement>('timer-form').addEventListener('submit', event => {
-  event.preventDefault();
-  if (element<HTMLInputElement>('minutes').reportValidity()) dispatch({ type: 'timer-start', durationMs: Number(element<HTMLInputElement>('minutes').value) * 60_000, now: Date.now() });
-});
-element('timer-pause').addEventListener('click', () => dispatch({ type: state.timer.phase === 'paused' ? 'timer-resume' : 'timer-pause', now: Date.now() }));
-element('timer-cancel').addEventListener('click', () => dispatch({ type: 'timer-cancel', now: Date.now() }));
+element('pause-events').addEventListener('click', () => dispatch({ type: 'pause-events', paused: !state.eventsPaused }));
+
 element('notification-dismiss').addEventListener('click', () => dispatch({ type: 'dismiss-notification', now: Date.now() }));
 element<HTMLInputElement>('reduce-motion').addEventListener('change', event => {
   const reduced = (event.target as HTMLInputElement).checked;
@@ -276,7 +252,7 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
-window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); persistTimer(); });
+window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); });
 window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
@@ -285,8 +261,7 @@ render();
 void (async () => {
   try {
     state = createIslandState(await bridge.settings());
-    try { state = { ...state, timer: restoreTimer(JSON.parse(localStorage.getItem('nivo:timer:v1') ?? 'null'), Date.now()) }; }
-    catch { report('No se ha podido restaurar el temporizador guardado.'); }
+    // Legacy timer storage is intentionally left untouched and is no longer read.
     renderPreferences(); render(); scheduleClock();
   } catch (error) { report(error); }
   try {

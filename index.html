@@ -51,7 +51,7 @@
                 <g class="companion-expression" data-expression="music">
                   <path d="M9.8 14.4q1.8 3.6 3.6 0M18.6 14.4q1.8 3.6 3.6 0"/>
                 </g>
-                <g class="companion-expression" data-expression="timer">
+                <g class="companion-expression" data-expression="working">
                   <path d="m10 14.1 3.6 1.3m4.8 0 3.6-1.3"/>
                 </g>
                 <g class="companion-expression" data-expression="complete">
@@ -74,6 +74,7 @@
           <path d="m6 8 4 4 4-4"/>
         </svg>
       </button>
+      <progress id="compact-event-progress" max="1" value="0" hidden aria-label="Nivel del evento"></progress>
       <section id="island-panel" hidden inert aria-label="Panel de Nivo">
         <nav aria-label="Vistas">
           <button id="activity-tab" data-view="activity" aria-pressed="true">Actividad</button>
@@ -103,7 +104,7 @@
                 <g class="companion-expression" data-expression="music">
                   <path d="M9.8 14.4q1.8 3.6 3.6 0M18.6 14.4q1.8 3.6 3.6 0"/>
                 </g>
-                <g class="companion-expression" data-expression="timer">
+                <g class="companion-expression" data-expression="working">
                   <path d="m10 14.1 3.6 1.3m4.8 0 3.6-1.3"/>
                 </g>
                 <g class="companion-expression" data-expression="complete">
@@ -166,35 +167,10 @@
               </div>
               <p id="media-error" class="media-error" role="status" hidden></p>
             </section>
-            <section class="timer-widget" aria-labelledby="timer-title">
-              <div class="section-heading">
-                <h2 id="timer-title">Temporizador</h2>
-                <span id="timer-phase">A tu ritmo</span>
-              </div>
-              <div id="timer-idle">
-                <div class="presets" aria-label="Duraciones">
-                  <button data-minutes="1">1 min</button>
-                  <button data-minutes="5">5 min</button>
-                  <button data-minutes="15">15 min</button>
-                </div>
-                <form id="timer-form">
-                  <label for="minutes">Minutos</label>
-                  <input id="minutes" type="number" value="5" min="1" max="1440" required />
-                  <button type="submit">Iniciar</button>
-                </form>
-              </div>
-              <div id="timer-active" hidden>
-                <div class="timer-row">
-                  <output id="timer-count" role="timer" aria-live="off">00:00</output>
-                  <div class="timer-actions">
-                    <button id="timer-pause">Pausar</button>
-                    <button id="timer-cancel" class="quiet">Cancelar</button>
-                  </div>
-                </div>
-                <progress id="timer-progress" max="1" value="0" aria-label="Tiempo transcurrido">
-                </progress>
-              </div>
-            </section>
+            <div class="activity-footer">
+              <span class="activity-status"><i aria-hidden="true"></i> A tu ritmo</span>
+              <button id="pause-events" class="quiet">Pausar avisos</button>
+            </div>
             <p class="local-note">Solo en tu equipo. Sin cuentas ni telemetría.</p>
           </section>
           <section id="preferences" aria-label="Preferencias" hidden>
@@ -227,7 +203,7 @@
             <label class="setting">
               <span>
                 <strong>Avisos de Nivo</strong>
-                <small>Incluye el final de tus temporizadores.</small>
+                <small>Actividad relevante, sin interrumpir tu trabajo.</small>
               </span>
               <input id="notifications-enabled" type="checkbox" checked />
             </label>

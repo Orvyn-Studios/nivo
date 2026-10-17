@@ -85,13 +85,13 @@ export function createMediaView(actions: MediaActions): { render(snapshot: Media
     element('media-session-switch').hidden = (current.sessions.length < 2 && hasSession) || current.sessions.length === 0;
     const preview = document.body.dataset.environment === 'preview';
     const message = preview
-      ? ['Tu música, en Windows.', 'El reproductor se conecta al abrir la aplicación Nivo. El temporizador está disponible aquí.']
+      ? ['Tu música, en Windows.', 'El reproductor se conecta al abrir la aplicación Nivo.']
       : current.status === 'connecting'
         ? ['Tu música, aquí.', 'Conectando con las sesiones multimedia de Windows.']
       : current.status === 'disabled'
       ? ['La m\u00fasica, a tu manera.', 'La integraci\u00f3n multimedia est\u00e1 desactivada en Preferencias.']
       : current.status === 'unavailable'
-        ? ['Tu m\u00fasica, aqu\u00ed.', 'Windows no ha podido conectar el reproductor. El temporizador sigue disponible.']
+        ? ['Tu m\u00fasica, aqu\u00ed.', 'Windows no ha podido conectar el reproductor.']
         : current.sessions.length
           ? ['Elige qu\u00e9 escuchar.', 'Selecciona un reproductor para mostrar sus controles.']
           : ['Un espacio para tu m\u00fasica.', 'Reproduce contenido en una aplicaci\u00f3n compatible con Windows.'];

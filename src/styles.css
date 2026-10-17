@@ -99,7 +99,7 @@ footer {
   border-radius:inherit;
   background:var(--bg);
   z-index:-1;
-  box-shadow:0 8px 26px rgb(0 0 0 / 16%)
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / 3%),inset 0 -12px 20px rgb(0 0 0 / 10%)
 }
 #toggle {
   display:flex;
@@ -137,7 +137,7 @@ footer {
 .nivo-companion[data-pose=hover] [data-expression=hover],
 .nivo-companion[data-pose=focus] [data-expression=focus],
 .nivo-companion[data-pose=music] [data-expression=music],
-.nivo-companion[data-pose=timer] [data-expression=timer],
+.nivo-companion[data-pose=working] [data-expression=working],
 .nivo-companion[data-pose=complete] [data-expression=complete],
 .nivo-companion[data-pose=unavailable] [data-expression=unavailable] { display:inline }
 .companion-mouth { stroke-width:1.15 }
@@ -422,10 +422,6 @@ p {
 #island[data-expanded=true] .compact-media {
   display:none
 }
-.timer-widget {
-  padding-top:13px;
-  border-top:1px solid var(--line)
-}
 .section-heading {
   display:flex;
   align-items:center;
@@ -437,25 +433,6 @@ p {
   color:var(--muted);
   font-size:12px
 }
-.presets {
-  display:flex;
-  gap:6px
-}
-.presets button {
-  flex:1;
-  min-height:32px;
-  background:var(--surface);
-  border-radius:8px;
-  font-size:12px
-}
-#timer-form {
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin-top:10px;
-  font-size:12px;
-  color:var(--muted)
-}
 input[type=number],select {
   color:var(--text);
   background:var(--surface);
@@ -464,41 +441,15 @@ input[type=number],select {
   min-height:32px;
   padding:4px 8px
 }
-#minutes {
-  width:64px
+#save-position,#notification-dismiss,#pause-events {
+  min-height:32px; border-radius:8px; background:var(--surface); padding:4px 12px; font-size:12px
 }
-#timer-form button,.timer-actions button,#save-position,#notification-dismiss {
-  min-height:32px;
-  border-radius:8px;
-  background:var(--surface);
-  padding:4px 12px;
-  font-size:12px
-}
-#timer-form button {
-  margin-left:auto;
-  background:var(--accent);
-  color:#142234;
-  font-weight:600
-}
-#timer-form button:hover {
-  background:#d1e3ff
-}
-.timer-row {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px
-}
-.timer-actions {
-  display:flex;
-  gap:6px
-}
-#timer-count {
-  font-size:30px;
-  font-weight:500;
-  letter-spacing:-1px;
-  font-variant-numeric:tabular-nums
-}
+.activity-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding-top:14px; margin-top:16px }
+.activity-status { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--muted) }
+.activity-status i { width:4px; height:4px; border-radius:50%; background:#b9c1bc }
+#compact-event-progress { position:absolute; bottom:3px; left:14px; width:calc(100% - 28px); height:2px; margin:0; pointer-events:none }
+#island[data-notice=true] .compact-media { display:none }
+#island[data-notice=true] .nivo-companion { display:block }
 progress {
   display:block;
   width:100%;
@@ -660,12 +611,6 @@ body[data-environment=native] #island {
   .panel-scroll {
     padding-left:16px;
     padding-right:16px
-  }
-  .timer-actions {
-    gap:2px
-  }
-  .timer-actions button {
-    padding:4px 8px
   }
 
 }

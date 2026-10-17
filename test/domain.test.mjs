@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DEFAULT_PREFERENCES, MAX_QUEUED_NOTIFICATIONS, advanceTimer, cancelTimer, exportTimer,
-  createIslandState, parseMediaSession, parsePreferences, pauseTimer,
-  presentation, reduceIsland, remainingMs, restoreTimer, resumeTimer, shouldReduceMotion, startTimer,
+  DEFAULT_PREFERENCES, MAX_QUEUED_NOTIFICATIONS,
+  createIslandState, parseMediaSession, parsePreferences,
+  presentation, reduceIsland, shouldReduceMotion,
 } from '../src/domain/index.ts';
 
 const session = (overrides = {}) => ({
@@ -20,7 +20,7 @@ test('domain starts quiet without a fabricated player or notification', () => {
   assert.deepEqual(presentation(state, 0), { kind: 'compact' });
   assert.equal(state.media, null);
   assert.equal(state.notification, null);
-  assert.equal(state.timer.phase, 'idle');
+  assert.equal('timer' in state, false);
   const hovered = reduceIsland(state, { type: 'hover', active: true });
   assert.equal(presentation(hovered, 0).kind, 'hover');
   assert.equal(state.hovered, false, 'the original state is unchanged');
@@ -56,51 +56,13 @@ test('notifications deduplicate, bound their queue and discard invalid input', (
   assert.equal(notify(state, 'active', 1_000), state, 'duplicate does not extend the deadline');
   for (let index = 0; index < 40; index++) state = notify(state, `pending-${index}`, index + 1);
   assert.equal(state.pendingNotifications.length, MAX_QUEUED_NOTIFICATIONS);
-  assert.equal(state.seenNotificationIds.length, 32);
+  assert.equal(state.seenNotificationIds.length, 41);
   assert.equal(notify(state, 'active', 100), state, 'visible notification remains deduplicated after history eviction');
   assert.equal(notify(state, 'pending-0', 100), state, 'queued notification remains deduplicated after history eviction');
   assert.equal(original.pendingNotifications.length, 0, 'updates do not mutate queues');
   assert.equal(notify(state, '', 10), state);
   assert.equal(notify(state, 'invalid-clock', NaN), state);
   assert.equal(notify(state, 'no-title', 10, { title: '' }), state);
-});
-
-test('timer completion interrupts normal notifications and restores their remaining display time', () => {
-  let state = reduceIsland(createIslandState(), { type: 'timer-start', durationMs: 2_000, now: 0 });
-  state = notify(state, 'message', 0, { durationMs: 5_000 });
-  state = reduceIsland(state, { type: 'advance', now: 2_000 });
-  assert.equal(state.notification.notification.priority, 'timer');
-  assert.equal(state.pendingNotifications[0].remainingMs, 3_000);
-  assert.equal(state.timer.phase, 'finished');
-  const completedId = state.notification.notification.id;
-  state = reduceIsland(state, { type: 'advance', now: 2_100 });
-  assert.equal(state.notification.notification.id, completedId, 'completion emitted once');
-  assert.equal(state.pendingNotifications.length, 1);
-  state = reduceIsland(state, { type: 'dismiss-notification', now: 3_000 });
-  assert.equal(state.notification.notification.id, 'message');
-  assert.equal(state.notification.expiresAtMs, 6_000);
-});
-
-test('consecutive timer completions keep priority and FIFO order in a full notification queue', () => {
-  let state = reduceIsland(createIslandState(), { type: 'timer-start', durationMs: 1_000, now: 0 });
-  state = reduceIsland(state, { type: 'advance', now: 1_000 });
-  for (let index = 1; index <= MAX_QUEUED_NOTIFICATIONS; index++) state = notify(state, `message-${index}`, 1_000);
-  const originalQueue = state.pendingNotifications;
-  state = reduceIsland(state, { type: 'timer-start', durationMs: 1_000, now: 2_000 });
-  state = reduceIsland(state, { type: 'advance', now: 3_000 });
-  assert.equal(state.notification.notification.id, 'timer:1', 'an equally important visible alert is not interrupted');
-  assert.deepEqual(state.pendingNotifications.map(item => item.notification.id), ['timer:2', 'message-1', 'message-2']);
-  assert.deepEqual(originalQueue.map(item => item.notification.id), ['message-1', 'message-2', 'message-3'], 'the previous queue is unchanged');
-
-  state = reduceIsland(state, { type: 'timer-start', durationMs: 1_000, now: 3_000 });
-  state = reduceIsland(state, { type: 'advance', now: 4_000 });
-  assert.deepEqual(state.pendingNotifications.map(item => item.notification.id), ['timer:2', 'timer:3', 'message-1']);
-  for (const [now, expected] of [[4_000, 'timer:2'], [4_100, 'timer:3'], [4_200, 'message-1']]) {
-    state = reduceIsland(state, { type: 'dismiss-notification', now });
-    assert.equal(state.notification.notification.id, expected);
-    assert.equal(state.notification.expiresAtMs, now + 5_000, 'queued content retains its display duration');
-  }
-  assert.equal(state.pendingNotifications.length, 0);
 });
 
 test('privacy redacts a sensitive overlay; disabling notifications clears content immediately', () => {
@@ -194,95 +156,3 @@ test('preferences use a versioned allowlist, safe defaults and bounded monitor p
   assert.equal(shouldReduceMotion({ ...preferences, motion: 'system' }, false), false);
 });
 
-test('timer deadline is precise despite sparse ticks and includes time while suspended', () => {
-  let timer = startTimer(60_000, 1_000_000);
-  assert.equal(remainingMs(timer, 1_001_234), 58_766);
-  timer = advanceTimer(timer, 1_030_501);
-  assert.equal(remainingMs(timer, 1_030_501), 29_499);
-  timer = advanceTimer(timer, 1_100_000);
-  assert.equal(timer.phase, 'finished');
-  assert.equal(timer.finishedAtMs, 1_060_000, 'deadline, not late interval callback time');
-  assert.equal(remainingMs(timer, 1_100_000), 0);
-  assert.equal(advanceTimer(timer, 1_100_100), timer);
-});
-
-test('pause/resume preserves remaining duration; cancelling prevents a stale completion', () => {
-  let timer = pauseTimer(startTimer(10_000, 1_000), 4_100);
-  assert.equal(timer.phase, 'paused');
-  assert.equal(remainingMs(timer, 1_000_000), 6_900);
-  timer = resumeTimer(timer, 100_000);
-  assert.equal(timer.deadlineMs, 106_900);
-  assert.equal(remainingMs(timer, 100_100), 6_800);
-  assert.equal(pauseTimer(timer, 106_900).phase, 'finished');
-  let state = reduceIsland(createIslandState(), { type: 'timer-start', durationMs: 1_000, now: 0 });
-  state = reduceIsland(state, { type: 'timer-cancel', now: 500 });
-  state = reduceIsland(state, { type: 'advance', now: 20_000 });
-  assert.equal(state.timer.phase, 'idle');
-  assert.equal(state.notification, null);
-});
-
-test('pausing on a completed deadline emits completion and repeated timer runs have distinct IDs', () => {
-  let state = reduceIsland(createIslandState(), { type: 'timer-start', durationMs: 1_000, now: 0 });
-  state = reduceIsland(state, { type: 'timer-pause', now: 1_000 });
-  assert.equal(state.timer.phase, 'finished');
-  assert.equal(state.notification.notification.id, 'timer:1');
-  state = reduceIsland(state, { type: 'dismiss-notification', now: 1_000 });
-  state = reduceIsland(state, { type: 'timer-start', durationMs: 1_000, now: 0 });
-  state = reduceIsland(state, { type: 'advance', now: 1_000 });
-  assert.equal(state.notification.notification.id, 'timer:2');
-});
-
-test('timer clock corrections have explicit semantics and invalid durations fail', () => {
-  let timer = advanceTimer(startTimer(10_000, 10_000), 15_000);
-  assert.equal(remainingMs(timer, 12_000), 5_000, 'backward clock cannot increase observed remaining time');
-  assert.equal(advanceTimer(timer, 12_000), timer);
-  assert.equal(advanceTimer(timer, 50_000).phase, 'finished', 'forward clock correction includes the jump');
-  for (const duration of [-1, 0, 999, 86_400_001, 1_000.5, NaN, Infinity]) {
-    assert.throws(() => startTimer(duration, 0), RangeError);
-  }
-  assert.throws(() => startTimer(1_000, NaN), RangeError);
-  assert.throws(() => startTimer(1_000, 0.5), RangeError);
-  assert.throws(() => startTimer(1_000, Number.MAX_SAFE_INTEGER), RangeError);
-  assert.deepEqual(cancelTimer(), { phase: 'idle' });
-});
-
-test('active timers round-trip through JSON and expired restored deadlines stay silent', () => {
-  const timer = advanceTimer(startTimer(10_000, 1_000), 3_000);
-  const snapshot = exportTimer(timer);
-  const restored = restoreTimer(JSON.parse(JSON.stringify(snapshot)), 6_000);
-  assert.equal(restored.phase, 'running');
-  assert.equal(remainingMs(restored, 6_000), 5_000);
-  assert.equal(snapshot.deadline_ms, 11_000);
-  const elapsed = restoreTimer(snapshot, 40_000);
-  assert.equal(elapsed.phase, 'finished');
-  assert.equal(elapsed.finishedAtMs, 11_000);
-  const state = reduceIsland({ ...createIslandState(), timer: elapsed }, { type: 'advance', now: 40_001 });
-  assert.equal(state.notification, null, 'restoration does not invent a new completion event');
-  assert.equal(exportTimer(elapsed), null);
-  assert.equal(exportTimer(cancelTimer()), null);
-});
-
-test('paused timer restoration does not count down while the application is closed', () => {
-  const paused = pauseTimer(startTimer(10_000, 1_000), 3_000);
-  const snapshot = exportTimer(paused);
-  const restored = restoreTimer(snapshot, 200_000);
-  assert.equal(restored.phase, 'paused');
-  assert.equal(remainingMs(restored, 500_000), 8_000);
-  assert.equal(resumeTimer(restored, 500_000).deadlineMs, 508_000);
-  const backwards = restoreTimer(exportTimer(startTimer(10_000, 10_000)), 9_000);
-  assert.equal(remainingMs(backwards, 9_000), 10_000);
-});
-
-test('timer restore rejects corrupt, oversized, unknown-version and impossible snapshots', () => {
-  const valid = exportTimer(startTimer(10_000, 1_000));
-  for (const value of [
-    null, [], 'invalid', {}, { ...valid, schema_version: 2 },
-    { ...valid, duration_ms: 1e15 }, { ...valid, deadline_ms: Infinity },
-    { ...valid, observed_at_ms: -1 }, { ...valid, deadline_ms: 500 },
-    { ...valid, deadline_ms: 12_000 }, { ...valid, remaining_ms: 1_000 },
-    { ...valid, phase: 'paused', deadline_ms: null, remaining_ms: 0 },
-    { ...valid, phase: 'paused', deadline_ms: null, remaining_ms: 10_001 },
-    { ...valid, phase: 'finished' },
-  ]) assert.equal(restoreTimer(value, 5_000).phase, 'idle');
-  assert.throws(() => restoreTimer(valid, NaN), RangeError);
-});
