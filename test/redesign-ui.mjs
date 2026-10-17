@@ -80,6 +80,9 @@ try {
   await emit(page,'nivo://drop-phase','leave');assert.equal(await page.locator('#toggle').getAttribute('aria-expanded'),'false');
   await emit(page,'nivo://drop-files',[{id:'drop:1:0',name:'Propuesta de diseño.pdf',size:2048}]);await shot(page,'17-drop-archivo');
   await page.locator('#drop-list button').first().click();assert.equal(await page.evaluate(()=>window.__test.calls.at(-1).action),'copyPath');
+  await emit(page,'nivo://settings',{schema_version:1,drop_enabled:true,media_enabled:true,audio_enabled:true,integrations_enabled:true,privacy_mode:true,motion:'reduced'});
+  assert.equal(await page.locator('#drop-list h2').textContent(),'Archivo 1');
+  assert.ok(!(await page.locator('#drop-list').textContent()).includes('Propuesta'));
   await page.keyboard.press('Escape');await stable(page);await page.locator('#toggle').click();await stable(page);
   await page.locator('#open-audio').click();await stable(page);await shot(page,'18-mezclador');
   await page.locator('#output-volume').fill('35');assert.equal(await page.evaluate(()=>window.__test.calls.at(-1).action.value),.35);

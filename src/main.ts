@@ -88,6 +88,8 @@ function applyPreferences(preferences: Preferences): void {
   requestedMedia = preferences.media_enabled ? undefined : false;
   if (integrationOptOut) integrationInbox.clear();
   if (dropOptOut) { droppedFiles = []; dropReturn = undefined; dropView.render([], preferences.privacy_mode); }
+  else dropView.render(droppedFiles, preferences.privacy_mode);
+  renderIntegrations(integrationInbox, preferences.privacy_mode);
   if (!preferences.audio_enabled) { audioSnapshot = undefined; audioView.render(emptyAudio()); }
   if (!preferences.media_enabled) mediaView.render(mediaInbox.setEnabled(false));
   dispatch({ type: 'preferences', value: preferences });
