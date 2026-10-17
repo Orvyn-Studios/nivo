@@ -62,6 +62,8 @@ Comprobado con el release Windows en un escritorio físico de 1920 × 1080 al 10
 
 ## Resultados finales de esta entrega
 
+Seguimiento de diseño: eliminado el selector de reproductor de la isla, sus estilos, su evento y su permiso de selección manual. El reproductor sigue la sesión activa que informa el proveedor Windows; varias sesiones con el mismo título no generan opciones duplicadas ni añaden 32 DIP de altura. La prueba visual usa dos sesiones de igual título y comprueba que reproducir/pausar apunta al identificador activo, sin modificar la reproducción real del usuario.
+
 - `npm run verify`: aprobado, 76 pruebas Node, tipos, Vite, Rustfmt, 50 pruebas Rust y Clippy con advertencias como errores. Una prueba de audio físico permanece omitida por defecto; el proveedor se contrasta por separado en el release real.
 - `npm run test:ui`: aprobado. 19 capturas, privacidad inmediata de archivos, restauración, comandos, teclado, interrupciones y movimiento reducido. Escalas de navegador simuladas; no hardware físico ficticio.
 - `NIVO_NATIVE_TEST_PROFILE=release node test/native-ui.mjs`: aprobado sobre el ejecutable incrustado. Preferencias independiente, guardado, cierre con Escape, denegación de sesiones de audio desde su capability, audio real, transporte autenticado y región HWND estabilizada comprobados. DPI físico observado: 100 %.

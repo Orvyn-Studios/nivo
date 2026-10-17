@@ -120,9 +120,6 @@ export const bridge = {
   controlMedia: (sessionId: string, action: MediaAction) => core
     ? core.invoke<void>('media_control', { sessionId, action })
     : Promise.reject(new Error('El control multimedia requiere la aplicación Windows.')),
-  selectMedia: (sessionId: string) => core
-    ? core.invoke<void>('select_media_session', { sessionId })
-    : Promise.reject(new Error('La selección multimedia requiere la aplicación Windows.')),
   async settings(): Promise<Preferences> {
     if (core) return parsePreferences(await core.invoke('get_settings'));
     try { return parsePreferences(JSON.parse(localStorage.getItem('nivo:preferences:v1') ?? 'null')); }

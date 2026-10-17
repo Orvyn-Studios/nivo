@@ -42,7 +42,6 @@ body #island[data-context=music] .activity-footer { position:absolute; right:17p
 body #island[data-context=music] #pause-events { display:none }
 body #island[data-context=music] .activity-footer .icon-button { width:25px; min-width:25px; height:25px; padding:5px }
 body #island[data-context=music] .media-times { padding-right:70px }
-body #island .media-session-switch { margin-top:5px; font-size:10px }
 body #island #notification { display:flex; align-items:center; gap:14px; min-height:100% }
 body #island .notice-icon { display:grid; place-items:center; flex:none; width:36px; height:36px; color:var(--accent) }
 body #island .notice-icon svg { width:26px; height:26px; stroke-width:1.55 }

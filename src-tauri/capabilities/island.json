@@ -22,7 +22,6 @@
     "allow-audio-control",
     "allow-open-sound-settings",
     "allow-media-control",
-    "allow-select-media-session",
     "allow-quit-app",
     "core:event:allow-listen",
     "core:event:allow-unlisten",

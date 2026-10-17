@@ -68,7 +68,7 @@ const motion = new IslandMotion(island, panel, element('toggle-identity'), isNat
 toggle.disabled = true;
 document.body.dataset.environment = isNative ? 'native' : 'preview';
 document.title = isNative ? 'Nivo by Orvyn' : 'Nivo by Orvyn · desarrollo';
-const mediaView = createMediaView({ control: bridge.controlMedia, select: bridge.selectMedia });
+const mediaView = createMediaView({ control: bridge.controlMedia });
 const audioView = createAudioView({ control: bridge.controlAudio, refresh: async () => {
   const snapshot = await bridge.audio();
   return state.preferences.audio_enabled && requestedAudio !== false ? snapshot : emptyAudio();
@@ -208,7 +208,7 @@ function render(): void {
     : state.base.kind === 'expanded' && state.base.view === 'audio' ? 'audio'
     : state.base.kind === 'expanded' && state.base.view === 'drop' ? 'drop'
     : currentMedia ? 'music' : downloads.length ? 'downloads' : agent ? 'agent' : 'summary';
-  const geometry = contextGeometry(context, context === 'drop' ? droppedFiles.length : context === 'music' ? mediaInbox.snapshot.sessions.length
+  const geometry = contextGeometry(context, context === 'drop' ? droppedFiles.length
     : context === 'audio' ? audioSnapshot?.status === 'ready' ? 2 + audioSnapshot.sessions.length : 0 : downloads.length,
     currentMedia?.positionMs != null && currentMedia.durationMs != null && currentMedia.durationMs > 0);
   const key = `${context}:${geometry.width}:${geometry.height}`;

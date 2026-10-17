@@ -363,23 +363,6 @@ p {
   font-size:11px;
   font-variant-numeric:tabular-nums
 }
-.media-session-switch {
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-top:10px
-}
-.media-session-switch label {
-  flex:none;
-  color:var(--muted);
-  font-size:12px
-}
-.media-session-switch select {
-  width:100%;
-  min-width:0;
-  font-size:12px;
-  text-overflow:ellipsis
-}
 .media-error {
   margin-top:10px;
   overflow-wrap:anywhere

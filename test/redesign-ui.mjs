@@ -66,6 +66,16 @@ try {
   assert.equal(await page.locator('#media-play-icon').isVisible(),false);
   size=await page.locator('#island').boundingBox();assert.equal(size.height,202);
   await page.locator('#media-play-pause').click();assert.equal(await page.evaluate(()=>window.__test.calls[0].action),'playPause');
+  const automatic={...media,sequence:2,activeSessionId:'windows-current',sessions:[media.sessions[0],{...media.sessions[0],id:'windows-current',playback:'paused'}]};
+  await emit(page,'nivo://media',automatic);
+  assert.equal(await page.locator('#media-widget select').count(),0);
+  assert.equal((await page.locator('#island').boundingBox()).height,202);
+  assert.equal(await page.locator('#media-play-icon').isVisible(),true);
+  await page.locator('#media-play-pause').click();
+  assert.equal(await page.evaluate(()=>window.__test.calls.at(-1).sessionId),'windows-current');
+  await shot(page,'05b-musica-automatica');
+  await emit(page,'nivo://media',{...media,sequence:3});
+  report.checks.push('Duplicate-titled media sessions show no player selector or extra height; controls follow the current session reported by Windows.');
   await page.keyboard.press('Escape');await stable(page);
   await emit(page,'nivo://audio',{...await page.evaluate(()=>window.__test.audio),sequence:2,output:{id:'out',name:'Auriculares de escritorio',volume:.65,muted:false}});
   await shot(page,'06-volumen');assert.equal(await page.locator('#notification-progress').getAttribute('value'),'0.65');await notice(page);
@@ -76,7 +86,7 @@ try {
   await emit(page,'nivo://lock-key',{caps:true,enabled:true});await shot(page,'09-caps-lock');await notice(page);
   await emit(page,'nivo://power',{sequence:1,present:true,percent:60,acOnline:false,charging:false,saving:false,remainingSeconds:null});
   await emit(page,'nivo://power',{sequence:2,present:true,percent:10,acOnline:false,charging:false,saving:false,remainingSeconds:null});await shot(page,'10-bateria');await notice(page);
-  await emit(page,'nivo://media',{...media,sequence:2,sessions:[],activeSessionId:null});
+  await emit(page,'nivo://media',{...media,sequence:4,sessions:[],activeSessionId:null});
   const download={kind:'download',id:'visual-download',source:'browser',name:'Proyecto Orvyn.zip',state:'active',received:42,total:100,bytesPerSecond:524288};
   await emit(page,'nivo://integration',download);await page.locator('#toggle').click();await stable(page);await shot(page,'11-descarga');
   await page.keyboard.press('Escape');await stable(page);

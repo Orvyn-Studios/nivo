@@ -2,7 +2,6 @@ import { activeMedia, type MediaAction, type MediaSnapshot } from '../media-stat
 
 export interface MediaActions {
   control(sessionId: string, action: MediaAction): Promise<unknown>;
-  select(sessionId: string): Promise<unknown>;
 }
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -30,7 +29,6 @@ export function createMediaView(actions: MediaActions): { render(snapshot: Media
   const compactArtwork = element<HTMLImageElement>('compact-artwork');
   const fallback = element('media-artwork-fallback');
   const compactFallback = element('compact-media-fallback');
-  const selector = element<HTMLSelectElement>('media-session-select');
   const previous = element<HTMLButtonElement>('media-previous');
   const playPause = element<HTMLButtonElement>('media-play-pause');
   const next = element<HTMLButtonElement>('media-next');
@@ -39,7 +37,6 @@ export function createMediaView(actions: MediaActions): { render(snapshot: Media
   let pending = false;
   let disposed = false;
   let commandError = '';
-  let lastOptions = '';
   const failedArtwork = new WeakMap<HTMLImageElement, string>();
 
   function setArtwork(image: HTMLImageElement, alternate: HTMLElement, source: string | undefined): void {
@@ -64,25 +61,6 @@ export function createMediaView(actions: MediaActions): { render(snapshot: Media
     island.dataset.playback = session?.playback ?? 'none';
     setArtwork(artwork, fallback, session?.artwork);
     setArtwork(compactArtwork, compactFallback, session?.artwork);
-    const optionsKey = JSON.stringify([Boolean(current.activeSessionId), current.sessions.map(item => [item.id, item.title])]);
-    if (optionsKey !== lastOptions) {
-      selector.replaceChildren();
-      if (!current.activeSessionId && current.sessions.length) {
-        const option = document.createElement('option');
-        option.value = ''; option.textContent = 'Elegir reproductor'; option.disabled = true;
-        selector.append(option);
-      }
-      for (const item of current.sessions) {
-        const option = document.createElement('option');
-        option.value = item.id;
-        option.textContent = item.title || item.id;
-        selector.append(option);
-      }
-      lastOptions = optionsKey;
-    }
-    selector.value = current.activeSessionId ?? '';
-    selector.disabled = pending || current.status !== 'ready';
-    element('media-session-switch').hidden = (current.sessions.length < 2 && hasSession) || current.sessions.length === 0;
     const preview = document.body.dataset.environment === 'preview';
     const message = preview
       ? ['Tu música, en Windows.', 'El reproductor se conecta al abrir la aplicación Nivo.']
@@ -93,7 +71,7 @@ export function createMediaView(actions: MediaActions): { render(snapshot: Media
       : current.status === 'unavailable'
         ? ['Tu m\u00fasica, aqu\u00ed.', 'Windows no ha podido conectar el reproductor.']
         : current.sessions.length
-          ? ['Elige qu\u00e9 escuchar.', 'Selecciona un reproductor para mostrar sus controles.']
+          ? ['Tu m\u00fasica, aqu\u00ed.', 'Esperando la sesi\u00f3n activa de Windows.']
           : ['Un espacio para tu m\u00fasica.', 'Reproduce contenido en una aplicaci\u00f3n compatible con Windows.'];
     element('media-empty-title').textContent = message[0] ?? '';
     element('media-empty-description').textContent = message[1] ?? '';
@@ -145,10 +123,6 @@ export function createMediaView(actions: MediaActions): { render(snapshot: Media
       if (session && !button.disabled) void run(() => actions.control(session.id, action), session.id);
     }, { signal: listeners.signal });
   }
-  selector.addEventListener('change', () => {
-    const id = selector.value;
-    if (current.sessions.some(session => session.id === id)) void run(() => actions.select(id), id);
-  }, { signal: listeners.signal });
   for (const [image, alternate] of [[artwork, fallback], [compactArtwork, compactFallback]] as const) {
     image.addEventListener('error', () => {
       const source = image.getAttribute('src');
