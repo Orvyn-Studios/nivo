@@ -23,6 +23,7 @@ struct NativeVisibility {
 pub struct IslandState {
     expanded: AtomicBool,
     surface_epoch: AtomicU64,
+    last_surface: Mutex<Option<placement::SurfaceGeometry>>,
     tray_available: AtomicBool,
     visibility: Mutex<NativeVisibility>,
 }
@@ -72,7 +73,16 @@ pub fn place(window: &WebviewWindow, expanded: bool, settings: &Settings) -> Res
         settings.top_gap,
     )
     .map_err(str::to_owned)?;
-    let region = placement::surface_region(&p, expanded).map_err(str::to_owned)?;
+    let cached = if window.state::<IslandState>().expanded() {
+        *window
+            .state::<IslandState>()
+            .last_surface
+            .lock()
+            .map_err(|_| "La superficie no está disponible.")?
+    } else {
+        None
+    };
+    let region = placement::retained_region(&p, cached, expanded).map_err(str::to_owned)?;
     window
         .state::<IslandState>()
         .surface_epoch
@@ -106,6 +116,10 @@ pub fn set_surface_geometry(
     let region = placement::animated_region((size.width, size.height), scale, shape)
         .map_err(str::to_owned)?;
     platform::set_surface_region(window, &region)?;
+    *state
+        .last_surface
+        .lock()
+        .map_err(|_| "La superficie no está disponible.")? = Some(shape);
     Ok(true)
 }
 

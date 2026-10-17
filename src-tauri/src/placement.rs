@@ -138,9 +138,60 @@ pub fn surface_region(
     })
 }
 
+/// Preserve the last visible silhouette while settings/DPI reposition its envelope.
+/// Never temporarily widen hit-testing to the entire expanded backing window.
+pub fn retained_region(
+    p: &Placement,
+    previous: Option<SurfaceGeometry>,
+    expanded: bool,
+) -> Result<SurfaceRegion, &'static str> {
+    if !expanded {
+        return surface_region(p, false);
+    }
+    let mut shape = previous.unwrap_or(SurfaceGeometry {
+        left: 0.0,
+        top: PADDING,
+        width: COMPACT_SURFACE.0,
+        height: COMPACT_SURFACE.1,
+        radius: 17.0,
+    });
+    let client_width = f64::from(p.width) / p.scale;
+    let client_height = f64::from(p.height) / p.scale;
+    let pad = PADDING.min((client_width - 1.0).min(client_height - 1.0).max(0.0) / 2.0);
+    shape.width = shape.width.min((client_width - pad * 2.0).max(1.0));
+    shape.height = shape.height.min((client_height - pad * 2.0).max(1.0));
+    shape.left = (client_width - shape.width) / 2.0;
+    shape.top = pad;
+    shape.radius = shape.radius.min(shape.width.min(shape.height) / 2.0);
+    animated_region((p.width, p.height), p.scale, shape)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn envelope_resize_retains_the_visible_hud_instead_of_capturing_the_whole_panel() {
+        for scale in [1.0, 1.25, 1.5, 2.0] {
+            let p = fit((0, 0), (3840, 2160), scale, true, 0.5, 8).unwrap();
+            let compact = retained_region(&p, None, true).unwrap();
+            assert_eq!(compact.right - compact.left, (112.0 * scale).round() as i32);
+            let hud = retained_region(
+                &p,
+                Some(SurfaceGeometry {
+                    left: 0.0,
+                    top: 16.0,
+                    width: 300.0,
+                    height: 96.0,
+                    radius: 28.0,
+                }),
+                true,
+            )
+            .unwrap();
+            assert_eq!(hud.right - hud.left, (300.0 * scale).round() as i32);
+            assert_eq!(hud.bottom - hud.top, (96.0 * scale).round() as i32);
+        }
+    }
 
     #[test]
     fn animation_geometry_is_finite_bounded_and_scaled_once() {
