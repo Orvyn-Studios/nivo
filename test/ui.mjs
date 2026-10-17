@@ -103,6 +103,8 @@ try {
   assert.equal(await page.locator('#activity').isVisible(), true);
   assert.match(await page.locator('#media-empty-description').textContent(), /El reproductor se conecta al abrir la aplicación Nivo/);
   assert.equal(await page.locator('#media-player').isVisible(), false, 'preview has no live Windows session');
+  assert.equal(await page.locator('#nivo-companion').getAttribute('data-pose'), 'focus');
+  assert.equal(await page.locator('#companion-welcome').evaluate(el => getComputedStyle(el).color), 'rgb(35, 40, 49)');
   await capture('island-expanded.png');
   await page.getByRole('button', { name: 'Preferencias', exact: true }).click();
   await page.keyboard.press('Escape');
@@ -123,6 +125,7 @@ try {
   await page.locator('[data-minutes="1"]').click();
   await page.waitForFunction(() => document.getElementById('timer-phase').textContent === 'En marcha');
   assert.match(await page.locator('#timer-count').textContent(), /^(01:00|00:5\d)$/);
+  assert.equal(await page.locator('#nivo-companion').getAttribute('data-pose'), 'timer');
   await capture('island-timer-running.png');
   await page.locator('#timer-pause').click();
   await page.waitForFunction(() => document.getElementById('timer-phase').textContent === 'En pausa');
@@ -186,6 +189,40 @@ try {
   assert.equal(await page.locator('#island-panel').evaluate(el => el.getBoundingClientRect().bottom <= document.querySelector('#island').getBoundingClientRect().bottom), true);
   await capture('island-small-viewport.png');
   report.checks.push('320px viewport keeps island and panel inside their bounds.');
+  await page.getByRole('button', { name: 'Actividad', exact: true }).click();
+  await page.clock.install();
+  await page.locator('[data-minutes="1"]').click();
+  await page.clock.fastForward(60_100);
+  await page.waitForFunction(() => document.getElementById('nivo-companion').dataset.pose === 'complete');
+  assert.equal(await page.locator('#nivo-companion').evaluate(el => el.getAnimations({ subtree: true }).length), 0);
+  await capture('island-companion-complete-reduced.png');
+  report.checks.push('Timer and completion expressions follow real countdown; reduced motion keeps completion static.');
+
+  // Labelled visual fixtures use the shipped controller, SVG and CSS, never demo product data.
+  await page.evaluate(async () => {
+    const { createCompanion } = await import('/src/components/companion.ts');
+    const gallery = document.createElement('div');
+    gallery.id = 'companion-review';
+    gallery.style.cssText = 'position:fixed;inset:0;background:#0c0e12;color:#a4abb7;padding:30px;display:flex;gap:24px;align-items:center;justify-content:center;font:12px Segoe UI;z-index:10';
+    for (const pose of ['quiet', 'hover', 'focus', 'music', 'timer', 'complete', 'unavailable']) {
+      const cell = document.createElement('div');
+      cell.style.cssText = 'display:grid;justify-items:center;gap:22px';
+      const label = document.createElement('span'); label.textContent = pose;
+      cell.append(label);
+      for (const large of [false, true]) {
+        const face = document.getElementById('nivo-companion').cloneNode(true);
+        face.removeAttribute('id'); face.removeAttribute('hidden');
+        if (large) face.classList.add('companion-welcome');
+        cell.append(face);
+        createCompanion(face, cell).update({ enabled: true, visible: true, reduced: true, pose });
+      }
+      gallery.append(cell);
+    }
+    document.body.append(gallery);
+  });
+  await page.setViewportSize({ width: 1000, height: 300 });
+  await capture('companion-expression-review.png');
+  await page.locator('#companion-review').evaluate(el => el.remove());
   assert.deepEqual(errors, []);
   report.status = 'passed';
   console.log('PASS: current Vite frontend, geometry, keyboard/focus, rapid intent, timer/persistence, preferences, reduced-motion interruption and 320px viewport. Native Tauri acceptance remains separate.');

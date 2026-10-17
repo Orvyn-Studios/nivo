@@ -46,9 +46,18 @@ function syncCompanion(): void {
     enabled: state.preferences.mascot_enabled,
     visible: !state.hidden && !document.hidden,
     reduced: shouldReduceMotion(state.preferences, systemMotion.matches),
-    pose: companionPose(state.timer.phase, activeMedia(mediaInbox.snapshot)?.playback),
+    pose: companionPose(state.timer.phase, activeMedia(mediaInbox.snapshot)?.playback, {
+      expanded: state.base.kind === 'expanded' || state.notification !== null,
+      hovered: state.hovered,
+      // Browser preview and an empty player are normal; only a native failure worries Nivo.
+      unavailable: isNative && state.preferences.media_enabled && mediaInbox.snapshot.status === 'unavailable',
+    }),
   };
-  companion.update(value); welcomeCompanion.update(value);
+  const expanded = state.base.kind === 'expanded' || state.notification !== null;
+  const hasMedia = activeMedia(mediaInbox.snapshot) !== null;
+  companion.update({ ...value, visible: value.visible && (!hasMedia || expanded) });
+  welcomeCompanion.update({ ...value, visible: value.visible && expanded && !hasMedia
+    && !state.notification && state.base.kind === 'expanded' && state.base.view === 'activity' });
 }
 
 function receiveMedia(snapshot: MediaSnapshot, reconcile = false): void {
@@ -101,10 +110,8 @@ function render(): void {
   const notification = view.kind === 'notification';
   island.dataset.hovered = String(state.hovered);
   island.dataset.companion = String(state.preferences.mascot_enabled);
-  island.dataset.companionState = state.timer.phase === 'finished' ? 'complete'
-    : state.timer.phase === 'running' ? 'focus' : 'quiet';
-  element('nivo-companion').hidden = !state.preferences.mascot_enabled;
-  element('companion-welcome').hidden = !state.preferences.mascot_enabled;
+  element('nivo-companion').toggleAttribute('hidden', !state.preferences.mascot_enabled);
+  element('companion-welcome').toggleAttribute('hidden', !state.preferences.mascot_enabled);
   document.querySelector('.media-empty-mark')?.toggleAttribute('hidden', state.preferences.mascot_enabled);
   element('notification').hidden = !notification;
   element('activity').hidden = notification || (state.base.kind === 'expanded' && state.base.view !== 'activity');

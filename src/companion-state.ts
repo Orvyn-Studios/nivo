@@ -1,10 +1,19 @@
-export type CompanionPose = 'quiet' | 'music' | 'focus' | 'complete';
+export type CompanionPose = 'quiet' | 'hover' | 'focus' | 'music' | 'timer' | 'complete' | 'unavailable';
+
+export interface CompanionContext {
+  expanded?: boolean;
+  hovered?: boolean;
+  unavailable?: boolean;
+}
 
 /** Every pose derives from a real Nivo state, with timer completion first. */
-export function companionPose(timer: string, playback: string | undefined): CompanionPose {
+export function companionPose(timer: string, playback: string | undefined, context: CompanionContext = {}): CompanionPose {
   if (timer === 'finished') return 'complete';
-  if (timer === 'running') return 'focus';
-  return playback === 'playing' ? 'music' : 'quiet';
+  if (timer === 'running' || timer === 'paused') return 'timer';
+  if (context.unavailable) return 'unavailable';
+  if (playback === 'playing') return 'music';
+  if (context.expanded) return 'focus';
+  return context.hovered ? 'hover' : 'quiet';
 }
 
 /** Local pointer coordinates only; no global cursor tracking. */
