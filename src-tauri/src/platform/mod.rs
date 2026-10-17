@@ -1,6 +1,14 @@
 #[cfg(windows)]
 mod windows;
 
+pub mod lifecycle;
+
+#[cfg(windows)]
+mod foreground;
+
+#[cfg(windows)]
+pub use foreground::FullscreenObserver;
+
 #[cfg(windows)]
 pub use windows::{initialize, set_bounds, set_surface_region, show_without_activation};
 

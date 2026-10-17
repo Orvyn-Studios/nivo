@@ -1,7 +1,7 @@
 use serde::Serialize;
 use tauri::{Monitor, WebviewWindow};
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct DisplayInfo {
     pub name: Option<String>,
     pub x: i32,

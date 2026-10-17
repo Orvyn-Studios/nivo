@@ -7,6 +7,11 @@ fn main() {
             "get_settings",
             "save_settings",
             "get_displays",
+            "get_autostart",
+            "set_autostart",
+            "get_media_snapshot",
+            "media_control",
+            "select_media_session",
             "quit_app",
         ]),
     ))

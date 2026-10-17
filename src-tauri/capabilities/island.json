@@ -1,6 +1,23 @@
 {
   "identifier": "island",
-  "description": "Finite local island/settings/display/exit commands; no general filesystem, shell or remote content.",
-  "windows": ["island"],
-  "permissions": ["allow-ready", "allow-set-expanded", "allow-hide-island", "allow-get-settings", "allow-save-settings", "allow-get-displays", "allow-quit-app", "core:event:allow-listen", "core:event:allow-unlisten"]
+  "description": "Finite island, preferences, displays, GSMTC and opt-in own startup entry commands; no general filesystem, shell or remote content.",
+  "windows": [
+    "island"
+  ],
+  "permissions": [
+    "allow-ready",
+    "allow-set-expanded",
+    "allow-hide-island",
+    "allow-get-settings",
+    "allow-save-settings",
+    "allow-get-displays",
+    "allow-get-media-snapshot",
+    "allow-media-control",
+    "allow-select-media-session",
+    "allow-quit-app",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-get-autostart",
+    "allow-set-autostart"
+  ]
 }
