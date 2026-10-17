@@ -1,0 +1,7 @@
+:root {
+  --bg:#0c0d10; --surface:#15171c; --raised:#202329;
+  --text:#f5f6f8; --muted:#a1a5af; --accent:#b8d4ff; --pet:#f7f8fa;
+  --line:rgb(255 255 255 / 7%); --focus:#b8d4ff;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px;
+  --type-title:16px; --type-body:13px; --type-detail:11px;
+}
