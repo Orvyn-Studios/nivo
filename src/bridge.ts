@@ -4,6 +4,7 @@ import { parseDisplays, type Display } from './display-state.ts';
 import type { SurfaceGeometry } from './native-surface.ts';
 import { emptyAudio, parseAudioSnapshot, type AudioSnapshot, type AudioAction } from './audio-state.ts';
 import { parsePowerSnapshot, type PowerSnapshot } from './power-state.ts';
+import { parseIntegrationEvent, type IntegrationEvent } from './integration-state.ts';
 export type { Display } from './display-state.ts';
 
 type Core = { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> };
@@ -13,6 +14,12 @@ const core = window.__TAURI__?.core;
 export const isNative = Boolean(core);
 let surfaceEpoch = 0;
 export const bridge = {
+  onIntegration: (handler: (event: IntegrationEvent) => void): Promise<() => void> => {
+    if (!core) return Promise.resolve(() => {});
+    return window.__TAURI__!.event.listen<unknown>('nivo://integration', event => {
+      const value = parseIntegrationEvent(event.payload); if (value) handler(value);
+    }, { target: 'island' });
+  },
   onLockKey: (handler: (value: { caps: boolean; enabled: boolean }) => void): Promise<() => void> => {
     if (!core) return Promise.resolve(() => {});
     return window.__TAURI__!.event.listen<{ caps?: unknown; enabled?: unknown }>('nivo://lock-key', ({ payload }) => {

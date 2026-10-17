@@ -1,3 +1,4 @@
+mod activity_bridge;
 mod audio;
 mod autostart;
 mod display;
@@ -12,6 +13,7 @@ mod settings;
 mod tray;
 mod visibility;
 mod window;
+pub use activity_bridge::native_messaging_host;
 
 use settings::{Settings, SettingsStore};
 use std::sync::Arc;
@@ -136,6 +138,7 @@ fn save_settings(
     store: State<SettingsStore>,
     media: State<Arc<media::MediaService>>,
     audio: State<Arc<audio::AudioService>>,
+    activity: State<activity_bridge::ActivityBridge>,
     settings: Settings,
 ) -> Result<Settings, String> {
     window::require_island(&window)?;
@@ -152,6 +155,10 @@ fn save_settings(
     match store.save(settings) {
         Ok(settings) => {
             audio.set_enabled(settings.audio_enabled);
+            let handle = window.app_handle().clone();
+            activity.set_enabled(settings.integrations_enabled, move |event| {
+                let _ = handle.emit_to("island", "nivo://integration", event);
+            })?;
             if let Some(lifecycle) = window
                 .app_handle()
                 .try_state::<platform::lifecycle::LifecycleGuard>()
@@ -331,6 +338,21 @@ pub fn run() {
                 .map(|value| value.audio_enabled)
                 .unwrap_or(false);
             app.manage(settings);
+            let activity = activity_bridge::ActivityBridge::new(
+                app.path().app_config_dir()?.join("integrations"),
+            );
+            let activity_enabled = app
+                .state::<SettingsStore>()
+                .snapshot()
+                .map(|value| value.integrations_enabled)
+                .unwrap_or(false);
+            let activity_handle = app.handle().clone();
+            if let Err(error) = activity.set_enabled(activity_enabled, move |event| {
+                let _ = activity_handle.emit_to("island", "nivo://integration", event);
+            }) {
+                eprintln!("Nivo integration: {error}");
+            }
+            app.manage(activity);
             let audio_handle = app.handle().clone();
             app.manage(Arc::new(audio::AudioService::start(
                 audio_enabled,
@@ -399,6 +421,9 @@ pub fn run() {
     match result {
         Ok(app) => app.run(|handle, event| {
             if matches!(event, tauri::RunEvent::Exit) {
+                if let Some(activity) = handle.try_state::<activity_bridge::ActivityBridge>() {
+                    activity.shutdown();
+                }
                 if let Some(audio) = handle.try_state::<Arc<audio::AudioService>>() {
                     audio.shutdown();
                 }

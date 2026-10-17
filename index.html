@@ -173,6 +173,9 @@
               <button id="pause-events" class="quiet">Pausar avisos</button>
             </div>
             <p id="battery-status" class="detail-note" hidden></p>
+            <section id="integration-activity" class="audio-section" hidden aria-label="Actividad conectada">
+              <p id="agent-status" hidden></p><div id="download-activity"></div>
+            </section>
             <p class="local-note">Solo en tu equipo. Sin cuentas ni telemetría.</p>
           </section>
           <section id="audio" aria-label="Sonido de Windows" hidden>
@@ -200,6 +203,10 @@
             </div>
           </section>
           <section id="preferences" aria-label="Preferencias" hidden>
+            <details class="module-preferences"><summary>Codex y descargas</summary>
+              <label class="setting"><span><strong>Canal local de actividad</strong><small>Permite conectar el adaptador de Codex o la extensión opcional del navegador.</small></span><input id="integrations-enabled" type="checkbox" /></label>
+              <p class="detail-note">La instalación de los adaptadores es independiente y voluntaria. No lee conversaciones ni detecta todas las descargas de Windows.</p>
+            </details>
             <details class="module-preferences"><summary>Indicadores de teclado</summary>
               <label class="setting"><span><strong>Caps Lock</strong><small>Avisar al cambiar Bloq Mayús.</small></span><input id="caps-lock-enabled" type="checkbox" /></label>
               <label class="setting"><span><strong>Num Lock</strong><small>Avisar al cambiar Bloq Num.</small></span><input id="num-lock-enabled" type="checkbox" /></label>

@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Nivo · Descargas locales",
+  "version": "0.1.0",
+  "description": "Comparte el estado de descargas con Nivo en este equipo. Sin historial de navegación, URLs, cookies ni subidas.",
+  "permissions": ["downloads", "nativeMessaging"],
+  "background": { "service_worker": "worker.js" },
+  "incognito": "not_allowed"
+}

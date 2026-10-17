@@ -14,6 +14,8 @@ import { companionPose } from './companion-state.ts';
 import { audioActivity, emptyAudio, type AudioSnapshot } from './audio-state.ts';
 import { createAudioView } from './components/audio.ts';
 import { PowerInbox, type PowerSnapshot } from './power-state.ts';
+import { IntegrationInbox } from './integration-state.ts';
+import { renderIntegrations } from './components/integrations.ts';
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -40,6 +42,9 @@ const powerInbox = new PowerInbox();
 let unlistenPower: (() => void) | undefined;
 let unlistenLockKey: (() => void) | undefined;
 let lockSerial = 0;
+let unlistenIntegration: (() => void) | undefined;
+const integrationInbox = new IntegrationInbox();
+let integrationOptOut = false;
 let observedTransition: Promise<boolean> | undefined;
 let geometryDirty = false;
 let mediaDirty = false;
@@ -66,7 +71,7 @@ function syncCompanion(): void {
     visible: !state.hidden && !document.hidden,
     reduced: shouldReduceMotion(state.preferences, systemMotion.matches),
     pose: companionPose(activeMedia(mediaInbox.snapshot)?.playback, {
-      reaction: state.notification?.notification.reaction,
+      reaction: state.notification?.notification.reaction ?? ([...integrationInbox.agents.values()].includes('working') ? 'working' : undefined),
       expanded: state.base.kind === 'expanded' || state.notification !== null,
       hovered: state.hovered,
       // Browser preview and an empty player are normal; only a native failure worries Nivo.
@@ -138,6 +143,7 @@ const transition = createTransitionController({
 function render(): void {
   syncCompanion();
   if (mediaDirty) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
+  if (state.base.kind === 'expanded' && state.base.view === 'activity') renderIntegrations(integrationInbox, state.preferences.privacy_mode);
   const now = Date.now();
   const view = presentation(state, now);
   const notification = view.kind === 'notification' && !view.notification.compact;
@@ -166,7 +172,9 @@ function render(): void {
   const notice = view.kind === 'notification' ? view.notification : undefined;
   element('compact-label').textContent = notice?.compact ? notice.title
     : state.base.kind === 'expanded' ? 'Nivo'
-    : currentMedia ? (currentMedia.title || (currentMedia.playback === 'playing' ? 'Música' : 'En pausa')) : 'Nivo';
+    : currentMedia ? (currentMedia.title || (currentMedia.playback === 'playing' ? 'Música' : 'En pausa'))
+    : [...integrationInbox.agents.values()].includes('working') ? 'Codex'
+    : [...integrationInbox.downloads.values()].some(value => value.state === 'active') ? 'Descarga' : 'Nivo';
   toggle.title = notice?.compact ? `${notice.title}${notice.body ? ` · ${notice.body}` : ''}` : currentMedia?.title ?? '';
   toggle.setAttribute('aria-label', `${transition.expanded ? 'Cerrar' : 'Abrir'} Nivo${notice ? `, ${notice.title}` : currentMedia ? `, ${currentMedia.title || 'reproductor multimedia'}` : ''}`);
   const progress = element<HTMLProgressElement>('compact-event-progress');
@@ -224,6 +232,7 @@ function renderPreferences(): void {
   element<HTMLInputElement>('battery-full').checked = state.preferences.battery_full_notice;
   element<HTMLInputElement>('caps-lock-enabled').checked = state.preferences.caps_lock_enabled;
   element<HTMLInputElement>('num-lock-enabled').checked = state.preferences.num_lock_enabled;
+  element<HTMLInputElement>('integrations-enabled').checked = state.preferences.integrations_enabled;
   for (const [index, value] of state.preferences.battery_thresholds.entries()) element<HTMLInputElement>(`battery-threshold-${index}`).value = String(value);
   if (powerInbox.snapshot) receivePower(powerInbox.snapshot);
   element<HTMLInputElement>('mascot-enabled').checked = state.preferences.mascot_enabled;
@@ -289,6 +298,11 @@ element<HTMLInputElement>('battery-enabled').addEventListener('change', event =>
 element<HTMLInputElement>('battery-full').addEventListener('change', event => savePreferences({ battery_full_notice: (event.target as HTMLInputElement).checked }));
 element<HTMLInputElement>('caps-lock-enabled').addEventListener('change', event => savePreferences({ caps_lock_enabled: (event.target as HTMLInputElement).checked }));
 element<HTMLInputElement>('num-lock-enabled').addEventListener('change', event => savePreferences({ num_lock_enabled: (event.target as HTMLInputElement).checked }));
+element<HTMLInputElement>('integrations-enabled').addEventListener('change', event => {
+  integrationOptOut = !(event.target as HTMLInputElement).checked;
+  if (integrationOptOut) { integrationInbox.clear(); renderIntegrations(integrationInbox, state.preferences.privacy_mode); }
+  savePreferences({ integrations_enabled: (event.target as HTMLInputElement).checked });
+});
 element('battery-threshold-save').addEventListener('click', () => {
   const values = [0, 1, 2].map(index => Number(element<HTMLInputElement>(`battery-threshold-${index}`).value));
   const [low, important, critical] = values;
@@ -332,7 +346,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
 window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); });
-window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); audioView.dispose(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
+window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); audioView.dispose(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
 Object.defineProperty(window, '__NIVO_METRICS__', { value: transitionMetrics });
@@ -359,6 +373,12 @@ void (async () => {
     });
   } catch (error) { report(error); }
   await windowsPreferences.start();
+  try { unlistenIntegration = await bridge.onIntegration(event => {
+    if (!state.preferences.integrations_enabled || integrationOptOut) return;
+    const notifications = integrationInbox.receive(event);
+    if (!notifications.length && !state.hidden && !document.hidden) render();
+    for (const notification of notifications) dispatch({ type: 'notify', notification, now: Date.now() });
+  }); } catch (error) { report(error); }
   try { unlistenAudio = await bridge.onAudio(receiveAudio); receiveAudio(await bridge.audio()); }
   catch (error) { report(error); }
   try { unlistenPower = await bridge.onPower(receivePower); const snapshot = await bridge.power(); if (snapshot) receivePower(snapshot); }
