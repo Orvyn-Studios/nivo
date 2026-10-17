@@ -27,6 +27,7 @@ export function createTransitionController(
   let nativeExpanded = initiallyExpanded;
   let committedExpanded = initiallyExpanded;
   let desired = initiallyExpanded;
+  let refreshNative = false;
   let interrupt: (() => void) | undefined;
   let pending: Promise<boolean> | undefined;
   let resolvePending: ((expanded: boolean) => void) | undefined;
@@ -64,8 +65,9 @@ export function createTransitionController(
     for (;;) {
       dependencies.setInteractive(false);
       if (desired) {
-        if (!nativeExpanded) {
+        if (!nativeExpanded || refreshNative) {
           try {
+            refreshNative = false;
             await dependencies.resize(true);
             nativeExpanded = true;
           } catch (error) {
@@ -90,8 +92,9 @@ export function createTransitionController(
             commit(nativeExpanded);
           }
         }
-        if (!desired && nativeExpanded) {
+        if (!desired && (nativeExpanded || refreshNative)) {
           try {
+            refreshNative = false;
             await dependencies.resize(false);
             nativeExpanded = false;
           } catch (error) {
@@ -106,7 +109,7 @@ export function createTransitionController(
         }
         if (!nativeExpanded) commit(false);
       }
-      if (desired !== nativeExpanded) continue;
+      if (desired !== nativeExpanded || refreshNative) continue;
       dependencies.setInteractive(nativeExpanded);
       // Clear the operation before resolving callers, never in a .finally()
       // microtask that could swallow a newly queued intent.
@@ -119,6 +122,7 @@ export function createTransitionController(
   }
 
   function set(expanded: boolean, refresh = false): Promise<boolean> {
+    if (refresh) refreshNative = true;
     const next = Boolean(expanded);
     if (!pending && next === nativeExpanded && !refresh) return Promise.resolve(nativeExpanded);
     const start = !pending;

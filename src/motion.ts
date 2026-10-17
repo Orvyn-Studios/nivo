@@ -82,12 +82,14 @@ export class IslandMotion {
     if (!this.surface || document.hidden) return;
     const box = this.island.getBoundingClientRect();
     this.surface.submit({ left: box.left, top: box.top, width: box.width, height: box.height,
-      radius: Math.min(this.targetExpanded ? 28 : 17, box.width / 2, box.height / 2) }, this.epoch());
+      radius: Math.min(Number.parseFloat(getComputedStyle(this.island).borderRadius) || 17, box.width / 2, box.height / 2) }, this.epoch());
   }
 
   private clearFrozen(): void {
     this.frozen = undefined;
     this.island.style.removeProperty('clip-path');
+    this.island.style.removeProperty('width');
+    this.island.style.removeProperty('height');
     this.identity?.style.removeProperty('transform');
   }
 
@@ -107,10 +109,15 @@ export class IslandMotion {
     // Layout once at full size. Only the mask, transform and opacity animate:
     // text never scales or reflows on every frame.
     this.island.dataset.expanded = 'true';
+    const target = this.island.getBoundingClientRect();
+    const after = expanded ? { width: target.width, height: target.height,
+      radius: Number.parseFloat(getComputedStyle(this.island).borderRadius) || 28 }
+      : { width: Math.min(112, target.width), height: 34, radius: 17 };
+    const layout = { width: Math.max(before.width, after.width), height: Math.max(before.height, after.height), radius: after.radius };
+    // A bounded envelope fits both ends; only the mask moves between them.
+    this.island.style.width = `${layout.width}px`; this.island.style.height = `${layout.height}px`;
     const full = this.island.getBoundingClientRect();
-    const layout = { width: full.width, height: full.height, radius: Math.min(28, full.width / 2, full.height / 2) };
-    const after = expanded ? layout : { width: Math.min(112, full.width), height: 34, radius: 17 };
-    const duration = expanded ? 280 : 200;
+    const duration = expanded ? Number(getComputedStyle(this.island).getPropertyValue('--context-duration')) || 280 : 190;
     const tracks = {
       width: springTrack(before.width, after.width, duration, this.velocity.width),
       height: springTrack(before.height, after.height, duration, this.velocity.height),

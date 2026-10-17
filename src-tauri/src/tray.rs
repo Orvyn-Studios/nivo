@@ -6,7 +6,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    App, Emitter, Manager,
+    App, Manager,
 };
 
 fn icon() -> Image<'static> {
@@ -39,27 +39,24 @@ pub fn install(app: &App) -> tauri::Result<()> {
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "quit" => app.exit(0),
-            "show" | "hide" | "pause" | "preferences" => {
+            "preferences" => {
+                let handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = crate::preferences_window::open(&handle).await {
+                        eprintln!("Nivo preferences: {error}");
+                    }
+                });
+            }
+            "show" | "hide" | "pause" => {
                 if let Some(island) = app.get_webview_window("island") {
                     let result = match event.id.as_ref() {
                         "hide" => window::hide(&island),
                         "pause" => window::toggle_pause(&island),
-                        action => app
+                        _ => app
                             .state::<SettingsStore>()
                             .snapshot()
                             .and_then(|settings| {
                                 window::show(&island, &app.state::<IslandState>(), &settings)?;
-                                if action == "preferences" {
-                                    // App-owned, fixed payload delivered only to this
-                                    // webview. No arbitrary URI/action crosses IPC.
-                                    island
-                                        .emit_to(
-                                            "island",
-                                            "nivo://view",
-                                            serde_json::json!({"view": "preferences"}),
-                                        )
-                                        .map_err(|error| error.to_string())?;
-                                }
                                 Ok(())
                             }),
                     };

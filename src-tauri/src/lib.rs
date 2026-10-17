@@ -10,6 +10,7 @@ mod media;
 mod placement;
 mod platform;
 mod power;
+mod preferences_window;
 mod settings;
 mod tray;
 mod visibility;
@@ -128,7 +129,7 @@ fn hide_island(window: WebviewWindow, state: State<IslandState>) -> Result<(), S
 
 #[tauri::command]
 fn get_settings(window: WebviewWindow, settings: State<SettingsStore>) -> Result<Settings, String> {
-    window::require_island(&window)?;
+    preferences_window::require_known(&window)?;
     settings.snapshot()
 }
 
@@ -142,7 +143,11 @@ fn save_settings(
     activity: State<activity_bridge::ActivityBridge>,
     settings: Settings,
 ) -> Result<Settings, String> {
-    window::require_island(&window)?;
+    preferences_window::require_known(&window)?;
+    let window = window
+        .app_handle()
+        .get_webview_window("island")
+        .ok_or("Nivo no está disponible.")?;
     settings.validate()?;
     let previous = store.snapshot()?;
     if let Err(error) = window::place(&window, state.expanded(), &settings) {
@@ -155,6 +160,9 @@ fn save_settings(
     }
     match store.save(settings) {
         Ok(settings) => {
+            window
+                .emit_to("island", "nivo://settings", &settings)
+                .map_err(|error| error.to_string())?;
             if !settings.drop_enabled {
                 window
                     .app_handle()
@@ -191,19 +199,19 @@ fn save_settings(
 
 #[tauri::command]
 fn get_displays(window: WebviewWindow) -> Result<Vec<display::DisplayInfo>, String> {
-    window::require_island(&window)?;
+    preferences_window::require_known(&window)?;
     display::list(&window)
 }
 
 #[tauri::command]
 fn get_autostart(window: WebviewWindow) -> Result<bool, String> {
-    window::require_island(&window)?;
+    preferences_window::require_known(&window)?;
     autostart::status()
 }
 
 #[tauri::command]
 fn set_autostart(window: WebviewWindow, enabled: bool) -> Result<bool, String> {
-    window::require_island(&window)?;
+    preferences_window::require_known(&window)?;
     autostart::set_enabled(enabled)
 }
 
@@ -230,7 +238,7 @@ fn get_power_snapshot(
     window: WebviewWindow,
     power: State<power::PowerService>,
 ) -> Result<power::PowerSnapshot, String> {
-    window::require_island(&window)?;
+    preferences_window::require_known(&window)?;
     power.refresh()
 }
 
@@ -341,10 +349,18 @@ fn quit_app(window: WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn open_preferences(window: WebviewWindow) -> Result<(), String> {
+    window::require_island(&window)?;
+    preferences_window::open(window.app_handle()).await
+}
+
 pub fn run() {
     let result = tauri::Builder::default()
         .manage(IslandState::default())
         .invoke_handler(tauri::generate_handler![
+            open_preferences,
+            preferences_window::close_preferences,
             ready,
             set_expanded,
             set_surface_geometry,

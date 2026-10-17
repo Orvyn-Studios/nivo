@@ -8,5 +8,5 @@ export default defineConfig({
     watch: { ignored: ['**/src-tauri/**', '**/artifacts/**'] },
     fs: { strict: true, deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/src-tauri/**'] },
   },
-  build: { target: 'es2022', outDir: 'dist', emptyOutDir: true },
+  build: { target: 'es2022', outDir: 'dist', emptyOutDir: true, rollupOptions: { input: { island: 'index.html', preferences: 'preferences.html' } } },
 });

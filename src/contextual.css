@@ -1,0 +1,91 @@
+/* Higher specificity than the shared component primitives. */
+body #island { border-radius:17px; color:var(--text) }
+body #island[data-expanded=true] { width:var(--context-width,260px); height:var(--context-height,138px); border-radius:var(--context-radius,28px) }
+body #island[data-expanded=true] #toggle { position:absolute; z-index:4; top:7px; right:7px; width:28px; height:28px; min-height:28px; padding:6px; border-radius:50%; color:var(--muted) }
+body #island[data-expanded=true] #toggle .toggle-identity { display:none }
+body #island[data-overlay=true] #toggle { display:none }
+body #island[data-expanded=true] #toggle .chevron { width:14px; height:14px; margin:0 }
+body #island[data-expanded=false] #toggle { justify-content:center; padding:0 12px; gap:8px }
+body #island[data-expanded=false][data-media=false] #compact-label { display:none }
+body #island[data-expanded=false] .chevron { display:none }
+body #island[data-expanded=false] .toggle-identity { justify-content:center; width:100% }
+body #island .island-surface { background:var(--bg); border-color:rgb(255 255 255 / 6%); box-shadow:inset 0 1px 0 rgb(255 255 255 / 4%),inset 0 -8px 20px rgb(0 0 0 / 14%) }
+body #island[data-hovered=true][data-expanded=false] .island-surface { background:var(--surface); border-color:rgb(184 212 255 / 15%) }
+body #island-panel { height:100% }
+body #island .panel-scroll { height:100%; padding:20px; overflow:auto; scrollbar-width:thin }
+body #island h1 { font-size:var(--type-title); letter-spacing:-.35px; line-height:1.3 }
+body #island h2 { font-size:var(--type-body); font-weight:550 }
+body #island p { line-height:1.45 }
+body #island .media-empty { min-height:52px; align-items:center; gap:14px }
+body #island .media-empty p { font-size:12px; margin-top:5px }
+body #island .companion-welcome { width:44px; height:42px }
+body #island .companion-body { fill:var(--pet) }
+body #island .activity-footer { margin-top:12px; padding:0; border:0; display:flex; gap:8px; align-items:center }
+body #island .activity-footer #pause-events { margin-left:auto; font-size:11px; padding:6px; min-height:28px }
+body #island .icon-button { display:inline-grid; place-items:center; width:30px; min-width:30px; height:30px; border-radius:50%; background:transparent; padding:7px; color:var(--muted) }
+body #island .icon-button svg { width:17px; height:17px }
+body #island .icon-button:hover { color:var(--text); background:var(--raised) }
+body #island .media-track { grid-template-columns:56px minmax(0,1fr); gap:14px; padding-right:14px }
+body #island .media-artwork { width:56px; height:56px; border-radius:12px }
+body #island .media-copy h1 { font-size:15px }
+body #island .media-copy p { font-size:12px }
+body #island #media-playback { font-size:10px; margin-top:5px }
+body #island .media-controls { gap:14px; margin-top:12px }
+body #island .media-control { width:32px; height:32px; min-height:32px; padding:6px }
+body #island .media-control-primary { width:36px; height:36px; min-height:36px; background:var(--text); color:var(--bg) }
+body #island .media-timeline progress { height:3px; margin-top:10px }
+body #island .media-times { font-size:10px; margin-top:4px }
+body #island[data-context=music] .activity-footer { position:absolute; right:17px; bottom:12px; margin:0 }
+body #island[data-context=music] #pause-events { display:none }
+body #island[data-context=music] .activity-footer .icon-button { width:25px; min-width:25px; height:25px; padding:5px }
+body #island[data-context=music] .media-times { padding-right:70px }
+body #island .media-session-switch { margin-top:5px; font-size:10px }
+body #island #notification { display:flex; align-items:center; gap:14px; min-height:100% }
+body #island .notice-icon { display:grid; place-items:center; flex:none; width:36px; height:36px; color:var(--accent) }
+body #island .notice-icon svg { width:26px; height:26px; stroke-width:1.55 }
+body #island .notice-icon:has(#event-companion) { width:48px; height:48px }
+body #island .notice-icon #event-companion { width:48px; height:44px }
+body #island[data-expanded=true] #compact-event-progress { display:none }
+body #island .notice-copy { flex:1; min-width:0; padding-right:8px }
+body #island #notification-source { font-size:10px; color:var(--muted); letter-spacing:.2px }
+body #island #notification-title { margin-top:4px; font-size:14px; font-weight:550; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+body #island #notification-body { margin-top:3px; font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+body #island #notification-dismiss { position:absolute; top:5px; right:5px; width:26px; min-width:26px; height:26px }
+body #island[data-context=volume] #notification-body { display:none }
+body #island #notification-progress { height:4px; margin-top:10px }
+body #island[data-context=keyboard] .panel-scroll { padding:14px 20px }
+body #island[data-context=keyboard] #notification-source { display:none }
+body #island[data-context=keyboard] #notification-title { margin-top:0; font-size:13px }
+body #island #notification .section-heading { margin:0 }
+body #island .audio-section { padding-top:12px; margin-top:12px; border-top:1px solid var(--line) }
+body #island .audio-section h2 { font-size:12px }
+body #island .device-name { font-size:11px; margin:5px 0 10px }
+body #island .text-action { min-height:28px; padding:4px 0; font-size:11px; color:var(--muted); border-radius:5px }
+body #island .audio-button { border-radius:8px; font-size:11px; padding:8px 10px; min-height:30px }
+body #island .audio-session { display:grid; grid-template-columns:minmax(75px,1fr) minmax(60px,1fr) 56px; gap:10px; align-items:center }
+body #island .audio-session-name { font-size:12px }
+body #island .audio-session button { font-size:10px; padding:5px; border-radius:6px }
+body #island .section-heading { padding-right:14px }
+body #island #audio .section-heading h1 { font-size:14px }
+body #island #sound-settings { font-size:10px }
+body #island .detail-note { font-size:11px; line-height:1.5 }
+body #island .drop-actions { gap:4px 14px; padding-top:4px }
+body #island .drop-file { margin-top:10px; padding-top:10px }
+body #island #drop-status { margin-top:9px }
+body #island .download-row { padding:8px 0 }
+body #island .download-row p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px }
+body #island #integration-activity { border:0; padding:0; margin:6px 0 }
+body #island #battery-status { display:none }
+body #island .download-row progress { height:3px; margin-top:8px }
+body #island #agent-status { font-size:14px; padding:14px 16px 10px 0 }
+body #island #agent-companion { float:left; width:42px; height:42px; margin:8px 12px 10px 0 }
+body #island .nivo-companion[data-pose=working] .companion-shell { transform:scale(1.04,.96) }
+body #island .nivo-companion[data-pose=focus] .companion-shell { transform:translateY(-.8px) }
+body #island .nivo-companion[data-pose=complete] .companion-shell { transform:scale(.98,1.03) }
+body #island #bridge-status { display:none }
+body #island .media-error { max-height:28px; font-size:10px; overflow:hidden }
+body #island input[type=range] { height:16px; accent-color:var(--text) }
+body #island progress { accent-color:var(--accent) }
+body #island[data-context=drop] .island-surface { border-color:rgb(184 212 255 / 25%) }
+body #island[data-context=drop] #drop-list:empty { border:1px dashed rgb(184 212 255 / 20%); border-radius:12px; height:24px; margin-top:10px }
+body #island[data-context=drop] #drop-zip:disabled { display:none }

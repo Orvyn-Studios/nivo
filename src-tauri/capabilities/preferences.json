@@ -1,0 +1,6 @@
+{
+  "identifier": "preferences",
+  "description": "Only local configuration and the explicit Nivo startup toggle. No media controls, Drop, window regions, filesystem or shell.",
+  "windows": ["preferences"],
+  "permissions": ["allow-close-preferences", "allow-get-settings", "allow-save-settings", "allow-get-displays", "allow-get-power-snapshot", "allow-get-autostart", "allow-set-autostart", "core:event:allow-listen", "core:event:allow-unlisten"]
+}

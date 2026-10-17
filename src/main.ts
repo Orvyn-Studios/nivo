@@ -8,7 +8,6 @@ import { createTransitionController } from './transition.ts';
 import { transitionMetrics } from './metrics.ts';
 import { activeMedia, MediaInbox, type MediaSnapshot } from './media-state.ts';
 import { createMediaView } from './components/media.ts';
-import { createWindowsPreferences } from './components/windows-preferences.ts';
 import { createCompanion } from './components/companion.ts';
 import { companionPose } from './companion-state.ts';
 import { audioActivity, emptyAudio, type AudioSnapshot } from './audio-state.ts';
@@ -18,6 +17,8 @@ import { IntegrationInbox } from './integration-state.ts';
 import { renderIntegrations } from './components/integrations.ts';
 import { createDropView } from './components/drop.ts';
 import type { DroppedFile } from './drop-state.ts';
+import { contextGeometry, type Context } from './geometry.ts';
+import { icon, mountIcons } from './components/icons.ts';
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -31,7 +32,7 @@ const systemMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let state = createIslandState();
 let clockTimeout: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
-let preferenceWrite = Promise.resolve();
+let lastReportAt = 0;
 let unlistenVisibility: (() => void) | undefined;
 let unlistenMedia: (() => void) | undefined;
 let unlistenView: (() => void) | undefined;
@@ -39,7 +40,6 @@ let unlistenAudio: (() => void) | undefined;
 let audioSnapshot: AudioSnapshot | undefined;
 let audioSequence = -1;
 let requestedAudio: boolean | undefined;
-let audioRequestSerial = 0;
 const powerInbox = new PowerInbox();
 let unlistenPower: (() => void) | undefined;
 let unlistenLockKey: (() => void) | undefined;
@@ -51,11 +51,11 @@ let dropOptOut = false;
 let droppedFiles: DroppedFile[] = [];
 let dropReturn: typeof state.base | undefined;
 let unlistenDrop: (() => void) | undefined;
+let unlistenDisplays: (() => void) | undefined;
 let observedTransition: Promise<boolean> | undefined;
 let geometryDirty = false;
 let mediaDirty = false;
 const mediaInbox = new MediaInbox();
-let mediaRequestSerial = 0;
 let requestedMedia: boolean | undefined;
 const motion = new IslandMotion(island, panel, element('toggle-identity'), isNative ? {
   send: bridge.surface, epoch: bridge.surfaceEpoch, onError: report,
@@ -70,7 +70,29 @@ const audioView = createAudioView({ control: bridge.controlAudio, refresh: async
 }, settings: bridge.soundSettings }, report);
 const companion = createCompanion(element('nivo-companion'), toggle);
 const welcomeCompanion = createCompanion(element('companion-welcome'), element('media-empty'));
+const eventFace = element('nivo-companion').cloneNode(true) as SVGElement;
+eventFace.id = 'event-companion'; eventFace.classList.add('companion-welcome'); eventFace.removeAttribute('hidden');
+const eventCompanion = createCompanion(eventFace, element('notification'));
+const agentFace = eventFace.cloneNode(true) as SVGElement; agentFace.id = 'agent-companion';
+element('integration-activity').prepend(agentFace);
+const agentCompanion = createCompanion(agentFace, element('integration-activity'));
 const dropView = createDropView(bridge.dropAction, report);
+mountIcons();
+
+function applyPreferences(preferences: Preferences): void {
+  motion.captureLayout(); geometryDirty = true;
+  integrationOptOut = !preferences.integrations_enabled;
+  dropOptOut = !preferences.drop_enabled;
+  requestedAudio = preferences.audio_enabled ? undefined : false;
+  requestedMedia = preferences.media_enabled ? undefined : false;
+  if (integrationOptOut) integrationInbox.clear();
+  if (dropOptOut) { droppedFiles = []; dropReturn = undefined; dropView.render([], preferences.privacy_mode); }
+  if (!preferences.audio_enabled) { audioSnapshot = undefined; audioView.render(emptyAudio()); }
+  if (!preferences.media_enabled) mediaView.render(mediaInbox.setEnabled(false));
+  dispatch({ type: 'preferences', value: preferences });
+  void bridge.audio().then(value => receiveAudio(value, true)).catch(report);
+  void bridge.media().then(value => receiveMedia(value, true)).catch(report);
+}
 
 function syncCompanion(): void {
   const value = {
@@ -90,6 +112,10 @@ function syncCompanion(): void {
   companion.update({ ...value, visible: value.visible && (!hasMedia || expanded) });
   welcomeCompanion.update({ ...value, visible: value.visible && expanded && !hasMedia
     && !state.notification && state.base.kind === 'expanded' && state.base.view === 'activity' });
+  eventCompanion.update({ ...value, visible: value.visible && state.notification?.notification.kind === 'agent' });
+  const working = [...integrationInbox.agents.values()].includes('working');
+  agentFace.toggleAttribute('hidden', !working || hasMedia || !state.preferences.mascot_enabled);
+  agentCompanion.update({ ...value, pose: working ? 'working' : value.pose, visible: value.visible && working && !hasMedia });
 }
 
 function receiveMedia(snapshot: MediaSnapshot, reconcile = false): void {
@@ -115,7 +141,6 @@ function receivePower(snapshot: PowerSnapshot): void {
   const events = powerInbox.receive(snapshot, state.preferences);
   const visible = state.preferences.battery_enabled && snapshot.present === true;
   element('battery-status').hidden = !visible;
-  element('battery-settings').hidden = snapshot.present === false;
   if (visible) element('battery-status').textContent = snapshot.percent === null ? 'Batería · nivel no disponible'
     : `Batería ${snapshot.percent} %${snapshot.charging === true ? ' · Cargando' : ''}`;
   for (const notification of events) dispatch({ type: 'notify', notification, now: Date.now() });
@@ -123,8 +148,12 @@ function receivePower(snapshot: PowerSnapshot): void {
 
 function report(error: unknown): void {
   element('bridge-status').textContent = (error instanceof Error ? error.message : String(error)).slice(0, 280);
+  const now = Date.now();
+  if (now - lastReportAt < 5000) return;
+  lastReportAt = now;
+  dispatch({ type: 'notify', now, notification: { id: `error:${now}`, source: 'Nivo', kind: 'system',
+    title: 'No se pudo completar', body: 'Vuelve a intentarlo en un momento.', reaction: 'error', groupKey: 'error' } });
 }
-const windowsPreferences = createWindowsPreferences({ preferences: () => state.preferences, save: savePreferences, report });
 const transition = createTransitionController({
   resize: bridge.resize,
   cancelAnimation: () => motion.cancel(),
@@ -153,11 +182,27 @@ function render(): void {
   if (state.base.kind === 'expanded' && state.base.view === 'activity') renderIntegrations(integrationInbox, state.preferences.privacy_mode);
   const now = Date.now();
   const view = presentation(state, now);
-  const notification = view.kind === 'notification' && !view.notification.compact;
-  const compactNotice = view.kind === 'notification' && view.notification.compact === true && state.base.kind === 'compact';
-  if (island.dataset.notice !== String(compactNotice)) {
-    motion.captureLayout(); geometryDirty = true; island.dataset.notice = String(compactNotice);
+  const notification = view.kind === 'notification';
+  const currentMedia = activeMedia(mediaInbox.snapshot);
+  const downloads = [...integrationInbox.downloads.values()].filter(value => value.state === 'active' || value.state === 'activity');
+  const agent = [...integrationInbox.agents.values()].some(value => ['working', 'waiting', 'review'].includes(value));
+  const context: Context = notification ? (['volume', 'microphone', 'device', 'keyboard', 'battery', 'agent'].includes(view.notification.kind ?? 'notice') ? view.notification.kind as Context : 'notice')
+    : state.base.kind === 'expanded' && state.base.view === 'audio' ? 'audio'
+    : state.base.kind === 'expanded' && state.base.view === 'drop' ? 'drop'
+    : currentMedia ? 'music' : downloads.length ? 'downloads' : agent ? 'agent' : 'summary';
+  const geometry = contextGeometry(context, context === 'drop' ? droppedFiles.length : context === 'music' ? mediaInbox.snapshot.sessions.length : downloads.length,
+    currentMedia?.positionMs != null && currentMedia.durationMs != null && currentMedia.durationMs > 0);
+  const key = `${context}:${geometry.width}:${geometry.height}`;
+  if (island.dataset.geometry !== key) {
+    motion.captureLayout(); geometryDirty = true; island.dataset.geometry = key;
+    island.style.setProperty('--context-width', `${geometry.width}px`);
+    island.style.setProperty('--context-height', `${geometry.height}px`);
+    island.style.setProperty('--context-radius', `${geometry.radius}px`);
+    island.style.setProperty('--context-duration', String(geometry.duration));
   }
+  island.dataset.context = context;
+  island.dataset.overlay = String(notification);
+  island.dataset.notice = 'false';
   island.dataset.hovered = String(state.hovered);
   island.dataset.companion = String(state.preferences.mascot_enabled);
   element('nivo-companion').toggleAttribute('hidden', !state.preferences.mascot_enabled);
@@ -165,21 +210,22 @@ function render(): void {
   document.querySelector('.media-empty-mark')?.toggleAttribute('hidden', state.preferences.mascot_enabled);
   element('notification').hidden = !notification;
   element('activity').hidden = notification || (state.base.kind === 'expanded' && state.base.view !== 'activity');
-  element('preferences').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'preferences';
   element('audio').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'audio';
   element('drop').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'drop';
-  for (const name of ['activity', 'audio', 'preferences']) {
-    element(`${name}-tab`).setAttribute('aria-pressed', String(state.base.kind === 'expanded' && state.base.view === name));
-  }
+  element('media-widget').hidden = !currentMedia && (agent || downloads.length > 0);
+  if (!currentMedia) { element('media-empty-title').textContent = 'Todo en calma'; element('media-empty-description').textContent = 'Un momento para ti.'; }
+  element('activity-footer').hidden = notification;
   if (view.kind === 'notification' && notification) {
     element('notification-source').textContent = view.notification.source;
     element('notification-title').textContent = view.notification.title;
     element('notification-body').textContent = view.notification.body ?? '';
+    element('notification-icon').replaceChildren(view.notification.kind === 'agent' && state.preferences.mascot_enabled ? eventFace : icon(view.notification.kind ?? 'notice'));
+    const progress = element<HTMLProgressElement>('notification-progress');
+    progress.hidden = view.notification.progress === undefined; progress.value = view.notification.progress ?? 0;
   }
-  const currentMedia = activeMedia(mediaInbox.snapshot);
   const notice = view.kind === 'notification' ? view.notification : undefined;
   element('compact-label').textContent = notice?.compact ? notice.title
-    : state.base.kind === 'expanded' ? 'Nivo'
+    : state.base.kind === 'expanded' ? ''
     : currentMedia ? (currentMedia.title || (currentMedia.playback === 'playing' ? 'Música' : 'En pausa'))
     : [...integrationInbox.agents.values()].includes('working') ? 'Codex'
     : [...integrationInbox.downloads.values()].some(value => value.state === 'active') ? 'Descarga' : 'Nivo';
@@ -227,63 +273,6 @@ function dispatch(event: IslandEvent): void {
   scheduleClock();
 }
 
-function renderPreferences(): void {
-  windowsPreferences.render();
-  element<HTMLInputElement>('reduce-motion').checked = shouldReduceMotion(state.preferences, systemMotion.matches);
-  element<HTMLInputElement>('reduce-motion').disabled = systemMotion.matches;
-  element('motion-hint').textContent = systemMotion.matches ? 'Activado por la accesibilidad de Windows.' : 'Transiciones más discretas.';
-  element<HTMLInputElement>('notifications-enabled').checked = state.preferences.notifications_enabled;
-  element<HTMLInputElement>('privacy-mode').checked = state.preferences.privacy_mode;
-  element<HTMLInputElement>('media-enabled').checked = state.preferences.media_enabled;
-  element<HTMLInputElement>('audio-enabled').checked = state.preferences.audio_enabled;
-  element<HTMLInputElement>('battery-enabled').checked = state.preferences.battery_enabled;
-  element<HTMLInputElement>('battery-full').checked = state.preferences.battery_full_notice;
-  element<HTMLInputElement>('caps-lock-enabled').checked = state.preferences.caps_lock_enabled;
-  element<HTMLInputElement>('num-lock-enabled').checked = state.preferences.num_lock_enabled;
-  element<HTMLInputElement>('integrations-enabled').checked = state.preferences.integrations_enabled;
-  element<HTMLInputElement>('drop-enabled').checked = state.preferences.drop_enabled;
-  dropView.render(droppedFiles, state.preferences.privacy_mode);
-  for (const [index, value] of state.preferences.battery_thresholds.entries()) element<HTMLInputElement>(`battery-threshold-${index}`).value = String(value);
-  if (powerInbox.snapshot) receivePower(powerInbox.snapshot);
-  element<HTMLInputElement>('mascot-enabled').checked = state.preferences.mascot_enabled;
-  element<HTMLSelectElement>('horizontal-position').value = String(state.preferences.horizontal_position);
-  element<HTMLInputElement>('top-gap').value = String(state.preferences.top_gap);
-}
-
-function savePreferences(patch: Partial<Preferences>): void {
-  const audioRequest = patch.audio_enabled === undefined ? 0 : ++audioRequestSerial;
-  if (patch.audio_enabled !== undefined) requestedAudio = patch.audio_enabled;
-  const mediaRequest = patch.media_enabled === undefined ? 0 : ++mediaRequestSerial;
-  if (patch.media_enabled !== undefined) requestedMedia = patch.media_enabled;
-  // Serialize saves and derive each patch from the last confirmed native value.
-  preferenceWrite = preferenceWrite.then(async () => {
-    try {
-      const saved = await bridge.save({ ...state.preferences, ...patch });
-      dispatch({ type: 'preferences', value: saved });
-      renderPreferences();
-    } catch (error) {
-      // A preference can be persisted even if a dependent Windows provider fails.
-      // Re-read the authoritative value instead of inventing a successful rollback.
-      try { dispatch({ type: 'preferences', value: await bridge.settings() }); }
-      catch { /* Keep the last confirmed settings; report the original operation. */ }
-      report(error); renderPreferences();
-    } finally {
-      if (patch.integrations_enabled !== undefined) integrationOptOut = !state.preferences.integrations_enabled;
-      if (patch.drop_enabled !== undefined) dropOptOut = !state.preferences.drop_enabled;
-      if (audioRequest && audioRequest === audioRequestSerial) {
-        requestedAudio = undefined;
-        try { receiveAudio(await bridge.audio(), true); } catch (error) { report(error); }
-      }
-      if (mediaRequest && mediaRequest === mediaRequestSerial) {
-        requestedMedia = undefined;
-        mediaInbox.setEnabled(state.preferences.media_enabled);
-        try { receiveMedia(await bridge.media(), true); }
-        catch (error) { report(error); }
-      }
-    }
-  });
-}
-
 toggle.addEventListener('click', () => {
   if (state.notification) dispatch({ type: 'dismiss-notification', now: Date.now() });
   else dispatch(state.base.kind === 'expanded' ? { type: 'collapse' } : { type: 'expand' });
@@ -300,62 +289,14 @@ document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(button => bu
   if (button.dataset.view === 'audio') audioView.render(audioSnapshot ?? emptyAudio());
   dispatch({ type: 'expand', view: button.dataset.view === 'preferences' ? 'preferences' : button.dataset.view === 'audio' ? 'audio' : 'activity' });
 }));
+element('open-audio').addEventListener('click', () => { audioView.render(audioSnapshot ?? emptyAudio()); dispatch({ type: 'expand', view: 'audio' }); });
+element('open-preferences').addEventListener('click', () => void bridge.openPreferences().catch(report));
+window.addEventListener('storage', event => { if (event.key === 'nivo:preferences:v1') void bridge.settings().then(applyPreferences).catch(report); });
 
-element<HTMLInputElement>('audio-enabled').addEventListener('change', event => {
-  const enabled = (event.target as HTMLInputElement).checked;
-  if (!enabled) { audioSnapshot = undefined; audioView.render(emptyAudio()); }
-  savePreferences({ audio_enabled: enabled });
-});
-element<HTMLInputElement>('battery-enabled').addEventListener('change', event => savePreferences({ battery_enabled: (event.target as HTMLInputElement).checked }));
-element<HTMLInputElement>('battery-full').addEventListener('change', event => savePreferences({ battery_full_notice: (event.target as HTMLInputElement).checked }));
-element<HTMLInputElement>('caps-lock-enabled').addEventListener('change', event => savePreferences({ caps_lock_enabled: (event.target as HTMLInputElement).checked }));
-element<HTMLInputElement>('num-lock-enabled').addEventListener('change', event => savePreferences({ num_lock_enabled: (event.target as HTMLInputElement).checked }));
-element<HTMLInputElement>('integrations-enabled').addEventListener('change', event => {
-  integrationOptOut = !(event.target as HTMLInputElement).checked;
-  if (integrationOptOut) { integrationInbox.clear(); renderIntegrations(integrationInbox, state.preferences.privacy_mode); }
-  savePreferences({ integrations_enabled: (event.target as HTMLInputElement).checked });
-});
-element<HTMLInputElement>('drop-enabled').addEventListener('change', event => {
-  dropOptOut = !(event.target as HTMLInputElement).checked;
-  if (dropOptOut) { droppedFiles = []; dropReturn = undefined; dropView.render([], state.preferences.privacy_mode); }
-  savePreferences({ drop_enabled: !dropOptOut });
-});
-element('battery-threshold-save').addEventListener('click', () => {
-  const values = [0, 1, 2].map(index => Number(element<HTMLInputElement>(`battery-threshold-${index}`).value));
-  const [low, important, critical] = values;
-  if (low === undefined || important === undefined || critical === undefined || !values.every(Number.isSafeInteger) || critical < 1 || critical >= important || important >= low || low > 80) {
-    report('Usa crítica < importante < baja, entre 1 y 80 %.'); return;
-  }
-  savePreferences({ battery_thresholds: [low, important, critical] });
-});
 element('pause-events').addEventListener('click', () => dispatch({ type: 'pause-events', paused: !state.eventsPaused }));
 
 element('notification-dismiss').addEventListener('click', () => dispatch({ type: 'dismiss-notification', now: Date.now() }));
-element<HTMLInputElement>('reduce-motion').addEventListener('change', event => {
-  const reduced = (event.target as HTMLInputElement).checked;
-  if (reduced) motion.settle();
-  savePreferences({ motion: reduced ? 'reduced' : 'system' });
-});
-element<HTMLInputElement>('notifications-enabled').addEventListener('change', event => savePreferences({ notifications_enabled: (event.target as HTMLInputElement).checked }));
-element<HTMLInputElement>('privacy-mode').addEventListener('change', event => savePreferences({ privacy_mode: (event.target as HTMLInputElement).checked }));
-element<HTMLInputElement>('mascot-enabled').addEventListener('change', event => savePreferences({ mascot_enabled: (event.target as HTMLInputElement).checked }));
-element<HTMLInputElement>('media-enabled').addEventListener('change', event => {
-  const enabled = (event.target as HTMLInputElement).checked;
-  if (!enabled) {
-    mediaView.render(mediaInbox.setEnabled(false));
-    dispatch({ type: 'preferences', value: { ...state.preferences, media_enabled: false } });
-  }
-  savePreferences({ media_enabled: enabled });
-});
-element('save-position').addEventListener('click', () => {
-  if (!element<HTMLInputElement>('top-gap').reportValidity()) return;
-  savePreferences({ monitor_name: element<HTMLSelectElement>('monitor').value || null, horizontal_position: Number(element<HTMLSelectElement>('horizontal-position').value), top_gap: Number(element<HTMLInputElement>('top-gap').value) });
-});
-element('hide-island').hidden = !isNative;
-element('quit-app').hidden = !isNative;
-element('hide-island').addEventListener('click', () => void bridge.hide().catch(report));
-element('quit-app').addEventListener('click', () => void bridge.quit().catch(report));
-systemMotion.addEventListener('change', () => { if (systemMotion.matches) motion.settle(); renderPreferences(); syncCompanion(); });
+systemMotion.addEventListener('change', () => { if (systemMotion.matches) motion.settle(); syncCompanion(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) motion.settle();
   dispatch({ type: 'advance', now: Date.now() });
@@ -363,7 +304,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
 window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); });
-window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); unlistenDrop?.(); dropView.dispose(); audioView.dispose(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
+window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); unlistenDrop?.(); unlistenDisplays?.(); eventCompanion.dispose(); agentCompanion.dispose(); dropView.dispose(); audioView.dispose(); mediaView.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
 Object.defineProperty(window, '__NIVO_METRICS__', { value: transitionMetrics });
@@ -372,24 +313,27 @@ void (async () => {
   try {
     state = createIslandState(await bridge.settings());
     // Legacy timer storage is intentionally left untouched and is no longer read.
-    renderPreferences(); render(); scheduleClock();
+    render(); scheduleClock();
   } catch (error) { report(error); }
   try {
     // Subscribe first: the initial snapshot cannot overwrite a newer event.
     unlistenMedia = await bridge.onMedia(receiveMedia);
     receiveMedia(await bridge.media());
   } catch (error) { report(error); }
-  try { unlistenView = await bridge.onView(() => dispatch({ type: 'expand', view: 'preferences' })); }
+  try { unlistenView = await bridge.onSettings(applyPreferences); }
   catch (error) { report(error); }
   try {
     unlistenVisibility = await bridge.onVisibility(visible => {
       if (!visible) motion.settle();
+      if (visible) { motion.captureLayout(); geometryDirty = true; }
       dispatch({ type: 'visibility', hidden: !visible });
       if (visible) dispatch({ type: 'advance', now: Date.now() });
       if (visible && state.base.kind === 'expanded' && state.base.view === 'audio') audioView.render(audioSnapshot ?? emptyAudio());
     });
   } catch (error) { report(error); }
-  await windowsPreferences.start();
+  try { unlistenDisplays = await bridge.onDisplays(() => { motion.captureLayout(); geometryDirty = true; dispatch({ type: 'advance', now: Date.now() }); }); }
+  catch (error) { report(error); }
+
   try { unlistenDrop = await bridge.onDrop(files => {
     if (!state.preferences.drop_enabled || dropOptOut || state.hidden) return;
     dropReturn = undefined;

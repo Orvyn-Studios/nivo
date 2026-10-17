@@ -1,0 +1,26 @@
+.settings-body { display:grid; grid-template-columns:190px minmax(0,1fr); height:100vh; min-height:480px; background:var(--bg); color:var(--text); overflow:hidden }
+.settings-sidebar { display:flex; flex-direction:column; padding:34px 16px 24px; background:var(--surface); border-right:1px solid var(--line) }
+.settings-brand { display:block; padding:0 16px 30px; color:var(--text); text-decoration:none; font-size:25px; font-weight:650; letter-spacing:-1px }
+.settings-brand span { display:block; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:.2px; margin-top:4px }
+#settings-navigation { display:flex; flex-direction:column; gap:4px; padding:0; border:0 }
+#settings-navigation button { text-align:left; min-height:38px; padding:8px 14px; font-size:13px; border-radius:9px; color:var(--muted); background:transparent }
+#settings-navigation button[aria-current=page] { color:var(--text); background:var(--raised) }
+.settings-local { margin-top:auto; padding:16px; font-size:11px; line-height:1.7; color:var(--muted) }
+#settings-content { position:relative; overflow:auto; padding:44px 36px; scrollbar-width:thin }
+.settings-page { max-width:640px; margin:0 auto }
+.settings-page h1 { font-size:25px; letter-spacing:-.7px; line-height:1.25; font-weight:600 }
+.settings-intro { margin:10px 0 30px; color:var(--muted); font-size:13px; line-height:1.6 }
+.settings-page .setting { min-height:78px; padding:18px 0; border-bottom:1px solid var(--line); gap:24px }
+.settings-page .setting strong { font-size:13px; font-weight:550 }
+.settings-page .setting small { max-width:340px; line-height:1.5; margin-top:5px; color:var(--muted); font-size:12px }
+.settings-page input[type=checkbox] { appearance:none; flex:none; width:34px; height:20px; border-radius:12px; background:var(--raised); border:1px solid var(--line); position:relative; cursor:pointer }
+.settings-page input[type=checkbox]::after { content:''; position:absolute; width:14px; height:14px; border-radius:50%; top:2px; left:2px; background:var(--muted); transition:transform 130ms }
+.settings-page input[type=checkbox]:checked { background:var(--accent) }
+.settings-page input[type=checkbox]:checked::after { transform:translateX(14px); background:var(--bg) }
+.settings-page .position-settings { margin-top:28px; display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:center }
+.settings-page select,.settings-page input[type=number] { background:var(--surface); color:var(--text); border:1px solid var(--line); padding:8px 10px; border-radius:8px; min-width:0 }
+.settings-page .setting-note { margin-top:12px; line-height:1.6; color:var(--muted); font-size:12px }
+#settings-status { position:absolute; top:15px; right:28px; color:var(--muted); max-width:80%; font-size:11px }
+.about-version { color:var(--muted); line-height:1.8; white-space:pre-line; font-size:13px }
+.settings-body[data-environment=native] { background:var(--bg); min-height:480px; overflow:hidden }
+@media(max-width:620px) { .settings-body { grid-template-columns:150px 1fr } #settings-content { padding:38px 20px } .settings-sidebar { padding-left:8px; padding-right:8px } }

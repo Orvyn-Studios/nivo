@@ -1,15 +1,10 @@
+@import "./tokens.css";
+@import "./contextual.css";
 :root {
   font-family:'Segoe UI Variable','Segoe UI',sans-serif;
   font-size:14px;
   color:#f5f7fa;
   font-synthesis:none;
-  --bg:#0c0e12;
-  --surface:#171b22;
-  --raised:#20252e;
-  --text:#f5f7fa;
-  --muted:#a4abb7;
-  --accent:#b8d4ff;
-  --line:rgb(255 255 255 / 8%);
   color-scheme:dark
 }
 * {

@@ -14,8 +14,12 @@ fn reconcile_display(window: &WebviewWindow) -> Result<(), String> {
     let settings = window.app_handle().state::<SettingsStore>().snapshot()?;
     let state = window.app_handle().state::<IslandState>();
     window::place(window, state.expanded(), &settings)?;
+    let displays = display::list(window)?;
     window
-        .emit_to("island", "nivo://displays", display::list(window)?)
+        .emit_to("island", "nivo://displays", &displays)
+        .map_err(|error| format!("No se pudo comunicar el cambio de pantallas: {error}"))?;
+    window
+        .emit_to("preferences", "nivo://displays", &displays)
         .map_err(|error| format!("No se pudo comunicar el cambio de pantallas: {error}"))
 }
 

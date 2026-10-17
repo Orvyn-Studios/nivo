@@ -69,19 +69,14 @@
         </svg>
         <span id="compact-label">Nivo</span>
         </span>
-        <span class="expanded-brand">by Orvyn</span>
+
         <svg class="chevron" viewBox="0 0 20 20" aria-hidden="true">
           <path d="m6 8 4 4 4-4"/>
         </svg>
       </button>
       <progress id="compact-event-progress" max="1" value="0" hidden aria-label="Nivel del evento"></progress>
       <section id="island-panel" hidden inert aria-label="Panel de Nivo">
-        <nav aria-label="Vistas">
-          <button id="activity-tab" data-view="activity" aria-pressed="true">Actividad</button>
-          <button id="audio-tab" data-view="audio" aria-pressed="false">Sonido</button>
-          <button id="preferences-tab" data-view="preferences" aria-pressed="false">Preferencias</button>
-        </nav>
-        <div class="panel-scroll">
+<div class="panel-scroll">
           <section id="activity" aria-label="Actividad">
             <section id="media-widget" class="media-widget" aria-label="Reproductor de Windows" aria-busy="false">
               <div id="media-empty" class="media-empty">
@@ -168,15 +163,16 @@
               </div>
               <p id="media-error" class="media-error" role="status" hidden></p>
             </section>
-            <div class="activity-footer">
-              <span class="activity-status"><i aria-hidden="true"></i> A tu ritmo</span>
-              <button id="pause-events" class="quiet">Pausar avisos</button>
-            </div>
+
             <p id="battery-status" class="detail-note" hidden></p>
             <section id="integration-activity" class="audio-section" hidden aria-label="Actividad conectada">
               <p id="agent-status" hidden></p><div id="download-activity"></div>
             </section>
-            <p class="local-note">Solo en tu equipo. Sin cuentas ni telemetría.</p>
+
+            <div id="activity-footer" class="activity-footer">
+              <button id="open-audio" class="icon-button" aria-label="Abrir mezclador" data-icon="sound"></button><button id="open-preferences" class="icon-button" aria-label="Abrir preferencias" data-icon="settings"></button>
+              <button id="pause-events" class="quiet">Pausar avisos</button>
+            </div>
           </section>
           <section id="drop" aria-label="Nivo Drop" hidden>
             <div class="section-heading"><h1>Nivo Drop</h1><button class="text-action" data-view="activity">Volver</button></div>
@@ -208,106 +204,16 @@
               </div>
             </div>
           </section>
-          <section id="preferences" aria-label="Preferencias" hidden>
-            <details class="module-preferences"><summary>Codex y descargas</summary>
-              <label class="setting"><span><strong>Canal local de actividad</strong><small>Permite conectar el adaptador de Codex o la extensión opcional del navegador.</small></span><input id="integrations-enabled" type="checkbox" /></label>
-              <label class="setting"><span><strong>Nivo Drop</strong><small>Arrastra archivos locales para copiar su ruta, abrir su carpeta, guardar una copia o crear un ZIP.</small></span><input id="drop-enabled" type="checkbox" /></label>
-              <p class="detail-note">La instalación de los adaptadores es independiente y voluntaria. No lee conversaciones ni detecta todas las descargas de Windows.</p>
-            </details>
-            <details class="module-preferences"><summary>Indicadores de teclado</summary>
-              <label class="setting"><span><strong>Caps Lock</strong><small>Avisar al cambiar Bloq Mayús.</small></span><input id="caps-lock-enabled" type="checkbox" /></label>
-              <label class="setting"><span><strong>Num Lock</strong><small>Avisar al cambiar Bloq Num.</small></span><input id="num-lock-enabled" type="checkbox" /></label>
-              <p class="detail-note">Solo se comprueban estas dos teclas. No se guarda texto ni un historial de pulsaciones.</p>
-            </details>
-            <details id="battery-settings" class="module-preferences">
-              <summary>Batería y alimentación</summary>
-              <label class="setting"><span><strong>Avisos de batería</strong><small>Solo cuando Windows informe de una batería.</small></span><input id="battery-enabled" type="checkbox" /></label>
-              <label class="setting"><span><strong>Avisar al completar carga</strong></span><input id="battery-full" type="checkbox" /></label>
-              <div class="battery-thresholds">
-                <label>Baja <input id="battery-threshold-0" type="number" min="1" max="80" value="20" /></label>
-                <label>Importante <input id="battery-threshold-1" type="number" min="1" max="80" value="10" /></label>
-                <label>Crítica <input id="battery-threshold-2" type="number" min="1" max="80" value="5" /></label>
-              </div>
-              <button id="battery-threshold-save" class="audio-button">Guardar umbrales</button>
-            </details>
-            <h2 class="preference-heading">Audio</h2>
-            <label class="setting">
-              <span><strong>Audio de Windows</strong><small>Volumen, mezclador y silencio del micrófono. Sin grabación.</small></span>
-              <input id="audio-enabled" type="checkbox" />
-            </label>
-            <label id="startup-setting" class="setting" hidden>
-              <span><strong>Iniciar con Windows</strong><small>Opcional. Windows también permite desactivarlo desde Aplicaciones de inicio.</small></span>
-              <input id="start-with-windows" type="checkbox" disabled />
-            </label>
-            <label class="setting">
-              <span><strong>Ocultar en pantalla completa</strong><small>La isla vuelve al regresar al escritorio.</small></span>
-              <input id="hide-fullscreen" type="checkbox" checked disabled />
-            </label>
-            <label class="setting">
-              <span>
-                <strong>Integraci&oacute;n multimedia</strong>
-                <small>Controles de tus reproductores compatibles con Windows.</small>
-              </span>
-              <input id="media-enabled" type="checkbox" checked />
-            </label>
-            <label class="setting">
-              <span>
-                <strong>Reducir movimiento</strong>
-                <small id="motion-hint">Transiciones más discretas.</small>
-              </span>
-              <input id="reduce-motion" type="checkbox" />
-            </label>
-            <label class="setting">
-              <span><strong>Compañero de Nivo</strong><small>Una presencia discreta, sin movimiento continuo.</small></span>
-              <input id="mascot-enabled" type="checkbox" />
-            </label>
-            <label class="setting">
-              <span>
-                <strong>Avisos de Nivo</strong>
-                <small>Actividad relevante, sin interrumpir tu trabajo.</small>
-              </span>
-              <input id="notifications-enabled" type="checkbox" checked />
-            </label>
-            <label class="setting">
-              <span>
-                <strong>Contenido privado</strong>
-                <small>Oculta el contenido marcado como sensible.</small>
-              </span>
-              <input id="privacy-mode" type="checkbox" checked />
-            </label>
-            <div class="setting-group">
-              <label for="monitor">Pantalla</label>
-              <select id="monitor" disabled>
-                <option value="">Pantalla principal</option>
-              </select>
-              <label for="horizontal-position">Posición</label>
-              <select id="horizontal-position">
-                <option value="0">Izquierda</option>
-                <option value="0.5" selected>Centro</option>
-                <option value="1">Derecha</option>
-              </select>
-              <label for="top-gap">Separación superior</label>
-              <div class="gap-input">
-                <input id="top-gap" type="number" min="0" max="128" value="8" />
-                <span>px lógicos</span>
-              </div>
-              <button id="save-position" disabled>Guardar posición</button>
-            </div>
-            <p id="position-hint" class="setting-note">La posición se aplica en la aplicación de Windows.</p>
-            <button id="hide-island" class="quiet" hidden>Ocultar Nivo</button>
-            <button id="quit-app" class="quiet" hidden>Salir de Nivo</button>
-            <p class="setting-note">Puedes recuperarlo y salir desde la bandeja del sistema.</p>
-            <p class="setting-note">La m&uacute;sica utiliza solo las sesiones que Windows comparte. Los avisos de otras aplicaciones requieren una integraci&oacute;n independiente.</p>
-          </section>
           <section id="notification" hidden aria-live="polite">
-            <div class="section-heading">
+            <span id="notification-icon" class="notice-icon" aria-hidden="true"></span><div class="notice-copy"><div class="section-heading">
               <span id="notification-source">Nivo</span>
-              <button id="notification-dismiss" aria-label="Cerrar aviso">Cerrar</button>
+              <button id="notification-dismiss" class="icon-button" aria-label="Cerrar aviso" data-icon="close"></button>
             </div>
             <h2 id="notification-title">
             </h2>
             <p id="notification-body">
             </p>
+            <progress id="notification-progress" max="1" hidden aria-label="Nivel de volumen"></progress></div>
           </section>
         </div>
         <p id="bridge-status" role="status">

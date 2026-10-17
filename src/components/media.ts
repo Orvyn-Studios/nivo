@@ -48,7 +48,7 @@ export function createMediaView(actions: MediaActions): { render(snapshot: Media
     if (source && image.getAttribute('src') !== source) image.src = source;
     if (!source) image.removeAttribute('src');
     image.hidden = !source;
-    alternate.hidden = Boolean(source);
+    alternate.toggleAttribute('hidden', Boolean(source));
   }
 
   function draw(): void {
@@ -106,8 +106,8 @@ export function createMediaView(actions: MediaActions): { render(snapshot: Media
     next.title = session?.canNext ? 'Pista siguiente' : 'El reproductor no permite avanzar';
     playPause.title = session?.canPlayPause ? (session.playback === 'playing' ? 'Pausar' : 'Reproducir') : 'El reproductor no permite cambiar la reproducci\u00f3n';
     playPause.setAttribute('aria-label', playPause.title);
-    element('media-play-icon').hidden = session?.playback === 'playing';
-    element('media-pause-icon').hidden = session?.playback !== 'playing';
+    element('media-play-icon').toggleAttribute('hidden', session?.playback === 'playing');
+    element('media-pause-icon').toggleAttribute('hidden', session?.playback !== 'playing');
     element('media-title').textContent = session?.title || 'T\u00edtulo no disponible';
     element('media-title').title = session?.title ?? '';
     element('media-artist').textContent = session?.artist || 'Artista no disponible';

@@ -15,6 +15,10 @@ const core = window.__TAURI__?.core;
 export const isNative = Boolean(core);
 let surfaceEpoch = 0;
 export const bridge = {
+  closePreferences: () => core ? core.invoke<void>('close_preferences') : Promise.resolve(window.close()),
+  openPreferences: () => core ? core.invoke<void>('open_preferences') : Promise.resolve(window.open('/preferences.html', 'nivo-preferences', 'width=820,height=620')).then(() => {}),
+  onSettings: (handler: (settings: Preferences) => void): Promise<() => void> => core
+    ? window.__TAURI__!.event.listen<unknown>('nivo://settings', event => handler(parsePreferences(event.payload)), { target: 'island' }) : Promise.resolve(() => {}),
   dropAction: (action: DropAction, id?: string): Promise<string> => core ? core.invoke('drop_action', { action, id: id ?? null }) : Promise.reject(new Error('Requiere Nivo para Windows.')),
   onDrop: async (files: (value: DroppedFile[]) => void, phase: (value: 'enter' | 'leave' | 'drop') => void, error: (value: unknown) => void): Promise<() => void> => {
     if (!core) return () => {};
@@ -81,7 +85,7 @@ export const bridge = {
     return window.__TAURI__!.event.listen<unknown>('nivo://displays', event => {
       const displays = parseDisplays(event.payload);
       if (displays) handler(displays);
-    }, { target: 'island' });
+    }, { target: location.pathname.includes('preferences') ? 'preferences' : 'island' });
   },
   onVisibility: (handler: (visible: boolean) => void): Promise<() => void> => {
     if (!core) return Promise.resolve(() => {});

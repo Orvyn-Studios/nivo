@@ -2,6 +2,8 @@ fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "ready",
+            "open_preferences",
+            "close_preferences",
             "set_expanded",
             "set_surface_geometry",
             "hide_island",

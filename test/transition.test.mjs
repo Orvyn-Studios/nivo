@@ -9,6 +9,16 @@ function deferred() {
 }
 const tick = async () => { for (let index = 0; index < 8; index++) await Promise.resolve(); };
 
+test('geometry refresh reacquires the native epoch even when the expanded intent is unchanged', async () => {
+  const { dependencies, events } = adapter();
+  const controller = createTransitionController(dependencies);
+  await controller.set(true);
+  events.length = 0;
+  await controller.set(true, true);
+  assert.ok(events.findIndex(event => event[0] === 'resize') < events.findIndex(event => event[0] === 'animate'));
+  assert.equal(events.filter(event => event[0] === 'resize').length, 1);
+});
+
 function adapter(overrides = {}) {
   const events = [], errors = [];
   const dependencies = {

@@ -10,7 +10,7 @@ function fixture() {
   globalThis.document = { hidden: false };
   globalThis.requestAnimationFrame = callback => { const id = ++counter; scheduled.set(id, callback); return id; };
   globalThis.cancelAnimationFrame = id => scheduled.delete(id);
-  globalThis.getComputedStyle = () => ({ borderRadius: '23px', clipPath: island.renderedClip ?? style.clipPath ?? 'none' });
+  globalThis.getComputedStyle = () => ({ borderRadius: '23px', clipPath: island.renderedClip ?? style.clipPath ?? 'none', getPropertyValue: () => '280' });
   const animations = [];
   const animate = (keyframes, options) => {
     let resolve, reject;
@@ -52,8 +52,8 @@ test('interrupt preserves current geometry; reduced-motion settling clears the i
     await opening;
     f.island.renderedClip = null;
     const closing = f.motion.to(false, false);
-    assert.equal(f.animations[2].keyframes[0].clipPath, 'inset(0px 89px 220px 89px round 23px)');
-    assert.equal(f.animations[2].keyframes.at(-1).clipPath, 'inset(0px 138px 286px 138px round 17px)');
+    assert.equal(f.animations[2].keyframes[0].clipPath, 'inset(0px 0px 0px 0px round 23px)');
+    assert.equal(f.animations[2].keyframes.at(-1).clipPath, 'inset(0px 49px 66px 49px round 17px)');
     f.motion.settle();
     await closing;
     assert.equal(f.island.style.width, undefined, 'no permanently frozen inline dimensions');
