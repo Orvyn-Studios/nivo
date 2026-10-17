@@ -1,5 +1,21 @@
 # Validación de Nivo
 
+## Redise?o blanco del compa?ero ? 2026-10-17, torre
+
+Continuaci?n desde GitHub `feature/nivo-mvp`, commit `c0eb2cb`, en un clon limpio con la misma ascendencia remota. Sin cambios en Rust, arquitectura, `main`, releases ni Actions.
+
+- `npm ci`: dependencias instaladas desde el lockfile, sin cambiarlo. Node 24.17.0.
+- `npm run verify:web`: **64 pruebas aprobadas**, sin omitidas; tipos y build Vite aprobados.
+- `npm run test:ui`: **aprobado** con Chromium 153.0.8010.12, sandbox activo y GPU normal. En esta torre se pudo instalar y ejecutar el navegador de Playwright. No se hereda el bloqueo visual del equipo anterior.
+- Capturas inspeccionadas: compacto 112?34, expandido 388?320, final del temporizador en 320 px con movimiento reducido y galer?a de siete expresiones a tama?o compacto y bienvenida. Blanco legible sobre grafito y ojos oscuros contrastados; no se observa invasi?n de texto por la mascota.
+- El flujo UI comprueba teclado/Escape/foco, intenci?n r?pida, temporizador/pausa/recuperaci?n, preferencias, activaci?n/desactivaci?n real del SVG, interrupci?n por movimiento reducido y viewport de 320 px. A?ade expresi?n de temporizador y final real con reloj de pruebas, sin animaciones en modo reducido.
+- Se corrigi? un defecto preexistente: asignar `.hidden` a los SVG no retiraba su atributo `hidden`. Ahora se usa `toggleAttribute`, comprobado en navegador. La regla gen?rica del icono de bienvenida tambi?n ocultaba el tama?o y contraste propios del compa?ero; se limita al logo.
+- La mascota no programa trabajo en reposo. Mirada agrupada en un RAF solo ante entrada local; geometr?a cacheada hasta cambio de estado. Parpadeo y reacci?n a m?sica/final son finitos. Pruebas de cancelaci?n, prioridad y renders repetidos aprobadas. No se a?aden dependencias de runtime.
+- `npm run preflight`: **bloqueo nativo** por ausencia de Rust/Cargo y herramientas C++ MSVC en esta torre. WebView2 presente. No se ha compilado ni ejecutado esta revisi?n en Tauri; no se acreditan CPU/RAM/FPS, GSMTC real, DPI, bandeja ni fullscreen.
+
+Dise?o y comportamiento: [compa?ero blanco](COMPANION_DESIGN.md). Los apartados siguientes conservan el registro de builds anteriores y no describen el ejecutable de este redise?o.
+
+
 ## Estado actual — 2026-10-17, validación local
 
 Este apartado sustituye las conclusiones de los registros históricos posteriores.
