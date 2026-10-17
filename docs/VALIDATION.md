@@ -1,5 +1,7 @@
 # Validación de Nivo
 
+El nuevo rediseño contextual, su auditoría y evidencia están en [REDESIGN](REDESIGN.md). Las secciones siguientes conservan la validación de fases anteriores; sus tamaños y flujo de preferencias no describen la nueva UI.
+
 ## Iteración actual en la torre
 
 El estado vigente por módulos y sus límites está en [PHASE_STATUS](PHASE_STATUS.md). El temporizador ha sido retirado, Core Audio y el canal local están implementados, y la región ahora recibe la geometría de la animación. Las secciones siguientes conservan resultados históricos de builds anteriores; no describen automáticamente los bloqueos o capacidades actuales. La evidencia ejecutable de esta iteración se conserva en `artifacts/verify-desktop.json`, `ui-validation.json` y `native-ui/native-ui.json`.

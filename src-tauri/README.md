@@ -4,11 +4,13 @@ Tauri 2 y WebView2, sin administrador, shell general, telemetría, carga remota 
 
 ## Contratos IPC
 
-Todos los comandos comprueban que la ventana invocante sea `island` y están enumerados en `build.rs` y `capabilities/island.json`.
+Los comandos están enumerados en `build.rs`. Las operaciones de isla/música/audio/Drop exigen `island`; los ajustes admiten únicamente `island` o `preferences`. La segunda ventana tiene su propia capability restringida, sin sesiones de audio, regiones o archivos. Las comprobaciones Rust y ACL se aplican conjuntamente.
 
 | Comando | Entrada | Resultado |
 | --- | --- | --- |
 | `ready` | ninguna | Posiciona y muestra sin activar. Devuelve los errores de configuración aunque consiga mostrar una ventana de respaldo. |
+| `open_preferences` | ninguna, desde island | Crea o recupera una ventana fija de configuración; creación asíncrona. |
+| `close_preferences` | ninguna, desde preferences | Cierra exclusivamente la ventana de configuración. |
 | `set_expanded` | `{ expanded: boolean }` | Actualiza geometría y región nativa; restaura el tamaño anterior si falla y solo confirma el estado tras éxito. |
 | `hide_island` | ninguna | Oculta si existe bandeja; rechaza la operación si no habría forma de recuperarla. |
 | `get_settings` | ninguna | Preferencias completas del esquema 1. |

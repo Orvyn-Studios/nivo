@@ -1,5 +1,7 @@
 # Estado por fases · 17 de octubre de 2026
 
+Este registro corresponde a la fase funcional anterior al rediseño. La continuidad, nuevos tamaños y preferencias independientes se documentan en [REDESIGN](REDESIGN.md); los proveedores y límites funcionales de este registro se conservan.
+
 Rama `feature/nivo-mvp`. Desarrollo local en Windows; sin publicación, cambios en main ni ejecución de Actions. Rust MSVC y herramientas C++ instalados con autorización del usuario. La versión sigue siendo alpha y no se presenta como Nivo 1.0 terminado.
 
 | Fase | Implementación y archivos principales | Verificación y límites |

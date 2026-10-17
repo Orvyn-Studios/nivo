@@ -28,9 +28,11 @@ Después de compilar, `node scripts/export-private-test.mjs` prepara una copia l
 
 ## Implementación actual
 
+El [rediseño contextual](docs/REDESIGN.md) sustituye el panel con pestañas por tamaños según contenido y una ventana independiente de preferencias. Se conservan los proveedores y acciones reales de la fase funcional. Los estados visuales de prueba se encuentran en `artifacts/redesign/`, identificados como fixtures.
+
 - Máquina de estados TypeScript: intención compacta/expandida, hover, notificaciones superpuestas con prioridad y restauración, colas acotadas y protección frente a eventos multimedia obsoletos.
 - Temporizador retirado del dominio, controles, eventos y persistencia activa. El almacenamiento antiguo se conserva sin leerlo. Coordinador de actividad con prioridades, interrupción, agrupación, cola acotada y pausa de avisos.
-- Interfaz de 112 × 34 DIP con panel de 388 × 320 DIP y cápsulas contextuales de 236 × 48 DIP. Máscara animada y región Win32 sincronizadas con la misma geometría; IPC serializado y protegido frente a respuestas obsoletas. Fluidez perceptiva pendiente de aceptación.
+- Cápsula de 112 × 34 DIP; calma 260 × 138, música 360 × 174/202 y HUDs compactos. Tamaños centralizados, listas acotadas y configuración independiente desde la bandeja o el icono de ajustes. Máscara y región Win32 comparten geometría, con épocas y envíos serializados. Fluidez perceptiva pendiente de aceptación.
 - Compañero vectorial original y opcional: mirada dentro de la isla, parpadeo al pulsar y reacción a estados reales. Sin seguimiento global ni movimiento continuo. Activo por defecto en configuraciones nuevas; respeta las preferencias existentes.
 - Backend modular con preferencias validadas y guardado local atómico, selección de pantalla y posición, región redondeada Win32, estilo de herramienta y operaciones sin activación.
 - Proveedor GSMTC real por eventos: sesiones, metadatos, portada acotada y controles cuando Windows los permite. El frontend nunca inventa una sesión. Desactivar la integración borra inmediatamente sus datos y descarta respuestas obsoletas.

@@ -44,9 +44,20 @@ try {
   await page.locator('#island').screenshot({ path: fileURLToPath(new URL('native-compact.png', artifacts)) });
   await page.locator('#toggle').click();
   await page.waitForFunction(() => document.getElementById('toggle').getAttribute('aria-expanded') === 'true');
-  await page.getByRole('button', { name: 'Preferencias', exact: true }).click();
-  await page.locator('#audio-enabled').check();
-  await page.getByRole('button', { name: 'Sonido', exact: true }).click();
+  const context = browser.contexts()[0];
+  const [preferencesPage] = await Promise.all([context.waitForEvent('page'), page.locator('#open-preferences').click()]);
+  await preferencesPage.waitForSelector('body[data-ready=true]');
+  await preferencesPage.screenshot({ path: fileURLToPath(new URL('native-preferences.png', artifacts)) });
+  await preferencesPage.getByRole('button', { name: 'Audio', exact: true }).click();
+  await preferencesPage.locator('#audio-enabled').check();
+  await preferencesPage.getByRole('button', { name: 'Integraciones', exact: true }).click();
+  await preferencesPage.locator('#integrations-enabled').check();
+  await preferencesPage.waitForFunction(async () => (await window.__TAURI__.core.invoke('get_settings')).integrations_enabled);
+  let denied = false;
+  try { await preferencesPage.evaluate(() => window.__TAURI__.core.invoke('get_audio_snapshot')); } catch { denied = true; }
+  assert.equal(denied, true, 'preferences capability must not read/control audio sessions');
+  await preferencesPage.keyboard.press('Escape');
+  await page.locator('#open-audio').click();
   await page.waitForFunction(() => !document.getElementById('audio-controls').hidden);
   report.audio = await page.evaluate(async () => {
     const value = await window.__TAURI__.core.invoke('get_audio_snapshot');
@@ -54,13 +65,9 @@ try {
   });
   await page.locator('#island').screenshot({ path: fileURLToPath(new URL('native-audio.png', artifacts)) });
   assert.equal(report.audio.status, 'ready');
-  report.checks.push('Real executable starts, renders native UI, opens settings and enumerates actual Core Audio devices/sessions.');
+  report.checks.push('Actual independent preferences window opens, saves, closes with Escape, rejects audio access by ACL, and updates the island audio controls.');
   await page.locator('#input-mute').scrollIntoViewIfNeeded();
   await page.locator('#island').screenshot({ path: fileURLToPath(new URL('native-microphone.png', artifacts)) });
-  await page.getByRole('button', { name: 'Preferencias', exact: true }).click();
-  const integrationsDetails = page.locator('details').filter({ has: page.locator('#integrations-enabled') });
-  if (!(await integrationsDetails.evaluate(details => details.open))) await integrationsDetails.locator('summary').click();
-  await page.locator('#integrations-enabled').check();
   let credentials;
   for (let attempt = 0; attempt < 40; attempt++) {
     try { credentials = JSON.parse(await readFile(path.join(process.env.APPDATA, 'com.orvyn.nivo', 'integrations', 'connection.json'), 'utf8')); break; }
@@ -77,7 +84,8 @@ try {
     });
   }
   assert.equal(await send({ kind: 'agent', taskId: 'native-acceptance-fixture', status: 'working' }), true);
-  await page.getByRole('button', { name: 'Actividad', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await page.locator('#toggle').click();
   await page.waitForFunction(() => document.getElementById('agent-status').textContent === 'Codex está trabajando');
   const host = spawn(executable, ['chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/'], { cwd: root, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   const payload = Buffer.from(JSON.stringify({ kind: 'download', id: 'native-browser-fixture', source: 'browser', name: 'fixture.txt', state: 'active', received: 25, total: 100, bytesPerSecond: null }));
@@ -101,6 +109,28 @@ try {
   if (status) report.nativeStatus = status;
   assert.ok(!/Geometría visual|región interactiva|fuera de la isla/.test(status), status);
   report.checks.push('Four open/close transitions with real geometry IPC complete without reported native region errors.');
+  async function probeRegion(label) {
+    await page.waitForFunction(() => document.getElementById('island').getAnimations({subtree:true}).every(value => value.playState !== 'running'));
+    const expected = await page.locator('#island').boundingBox();
+    const value = JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-File', path.join(root, 'test/native-region.ps1'), '-NivoId', String(child.pid)], { cwd:root, encoding:'utf8', windowsHide:true }).trim().replace(/^\uFEFF/,''));
+    assert.equal(value.outerCornerHits, false); assert.equal(value.roundedCornerHits, false); assert.equal(value.centerHits, true);
+    assert.ok(Math.abs(value.width - expected.width * value.scale) <= 2, `${label}: native width differs from CSS`);
+    assert.ok(Math.abs(value.height - expected.height * value.scale) <= 2, `${label}: native height differs from CSS`);
+    (report.regions ??= []).push({ label, ...value });
+  }
+  await probeRegion('expanded');
+  await page.keyboard.press('Escape');
+  await probeRegion('compact');
+  report.checks.push('Actual HWND regions match settled CSS dimensions at current DPI; transparent padding and rounded corners excluded, center interactive (read-only Win32 probe).');
+  if (process.env.NIVO_NATIVE_PERF_SMOKE === '1') {
+    await page.evaluate(async () => { const settings=await window.__TAURI__.core.invoke('get_settings'); await window.__TAURI__.core.invoke('save_settings',{settings:{...settings,media_enabled:false,audio_enabled:false,integrations_enabled:false}}); });
+    await new Promise((resolve,reject) => {
+      const measure=spawn('powershell.exe',['-NoProfile','-File',path.join(root,'scripts/measure-process.ps1'),'-NivoProcessId',String(child.pid),'-DurationSeconds','15','-IntervalSeconds','1','-Condition','idle-visible-CDP-connected-15s','-BuildLabel',report.executableSha256,'-OutputDirectory',fileURLToPath(new URL('performance/',artifacts))],{cwd:root,windowsHide:true,stdio:['ignore','pipe','pipe']});
+      let diagnostic=''; measure.stdout.on('data',chunk=>{diagnostic+=chunk});measure.stderr.on('data',chunk=>{diagnostic+=chunk});
+      measure.once('error',reject);measure.once('close',code=>code===0?resolve():reject(new Error(diagnostic)));
+    });
+    report.checks.push('15-second process-tree CPU/memory smoke recorded separately with CDP attached; not a 30-minute performance acceptance.');
+  }
   report.status = 'passed';
 } catch (error) {
   report.status = 'failed'; report.error = error.message; process.exitCode = 1;
@@ -119,7 +149,10 @@ try {
   }
   if (page) await page.evaluate(() => window.__TAURI__.core.invoke('quit_app')).catch(() => {});
   if (browser) await browser.close().catch(() => {});
-  await new Promise(resolve => { if (child.exitCode !== null) return resolve(); child.once('exit', resolve); setTimeout(() => { child.kill(); resolve(); }, 4000).unref(); });
+  let forced = false;
+  await new Promise(resolve => { if (child.exitCode !== null) return resolve(); child.once('exit', resolve); setTimeout(() => { forced = true; child.kill(); resolve(); }, 4000).unref(); });
+  report.termination = { forced, exitCode: child.exitCode };
+  if (forced || child.exitCode !== 0) { report.status = 'failed'; report.exitFailure = 'Nivo did not complete a normal zero-code exit.'; process.exitCode = 1; }
   await writeFile(new URL('native-ui.log', artifacts), log);
   await writeFile(new URL('native-ui.json', artifacts), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));

@@ -20,10 +20,42 @@ Se conservan Core Audio, GSMTC, energía, Raw Input optativo, canal local autent
 
 ## Referencias
 
-[Coucou](https://github.com/Louis-CFM/coucou) se revisa como referencia conceptual de continuidad y carácter. No se importa su código, Mochi, sonidos o recursos. La referencia no implica copiar su identidad. Para la nueva ventana se consulta la [documentación oficial de WebviewWindowBuilder](https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindowBuilder.html), incluida su advertencia sobre creación síncrona en Windows.
+[Coucou](https://github.com/Louis-CFM/coucou) se revisa como referencia conceptual de continuidad y carácter. Este rediseño no incorpora código, Mochi, sonidos o recursos nuevos de ese proyecto; el resorte existente conserva su atribución anterior. La referencia no implica copiar su identidad. Para la nueva ventana se consulta la [documentación oficial de WebviewWindowBuilder](https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindowBuilder.html), incluida su advertencia sobre creación síncrona en Windows.
 
 ## Evidencia visual y alcance
 
 `test/redesign-ui.mjs` captura 19 estados mediante componentes y CSS de producción, con proveedores simulados únicamente en el test. Incluye compacto/hover, calma, música, audio, micrófono, dispositivo, teclado, batería, descargas, agentes, Drop y preferencias. Se prueba restauración, comandos, interrupción, movimiento reducido y persistencia. Las simulaciones de viewport/deviceScaleFactor 100/125/150/200 % no equivalen a monitores físicos con DPI mixto.
 
 Los JSON, capturas y comparación anterior/posterior se guardan en `artifacts/`; el informe final identifica los ensayos nativos ejecutados y los pendientes. No se declaran FPS presentados, fluidez subjetiva, compatibilidad con juegos ni aceptación prolongada de memoria a partir de capturas o compilación.
+
+## Entrega por etapas
+
+| Etapa | Código y resultado | Evidencia y estado |
+| --- | --- | --- |
+| 1 · Auditoría | Historial, permisos, proveedores y preferencias revisados. | Base limpia `60e1101`; 73 pruebas y suite visual anterior aprobadas. |
+| 2 · Diseño | `tokens.css`, `geometry.ts`, `components/icons.ts`. | `d272d74`: lenguaje visual y medidas semánticas. |
+| 3 · Isla contextual | `index.html`, `main.ts`, `contextual.css`; `preferences.html`, `preferences.ts/css`, `preferences_window.rs`. | `b6084c7`: sin pestañas; configuración independiente con ACL propia. |
+| 4 · Movimiento/región | `motion.ts`, `transition.ts`, `window.rs`, `placement.rs`. | `b6e19c7`: se conserva la última silueta al recolocar; nunca se abre temporalmente toda la región de respaldo. Prueba numérica a cuatro escalas. |
+| 5 · Mascota | `components/companion.ts`, composiciones de agente y calma. | `277c70d`: postura y reacción finita cuando el aviso ya tiene espacio; reducción de movimiento respetada. |
+| 6 · Módulos | Música, mezclador, HUDs, descargas, agentes y Drop. | `b6084c7`/`277c70d`: Play/Pausa SVG corregido, porcentajes por sesión y origen de descarga conocido. `2f06273`: privacidad de nombres aplicada inmediatamente. |
+| 7 · Revisión | `redesign-ui.mjs`, `redesign-review.mjs`, capturas y comparación a la misma escala CSS. | 19 estados inspeccionados; eventos simulados explícitamente. Foco/teclado, restauración, privacidad e interrupción comprobados. |
+| 8 · Windows y evaluación | `native-ui.mjs`, `native-region.ps1`, `export-private-test.mjs`. | Release con recursos incrustados, ventana independiente, ACL y región HWND comprobables; copia privada con hash y manifiesto. |
+
+## Límites que siguen abiertos
+
+- Aceptación física con varios monitores/DPI mixto, foco entre aplicaciones y Alt+Tab, pantalla completa/juegos, desconexión de pantalla, Narrador, suspensión y arrastre OLE.
+- El probe Win32 verifica el HWND real en estados estabilizados y tolera dos píxeles físicos de redondeo/GDI. No acredita cada fotograma del compositor ni clics físicos durante toda una transición.
+- El muestreo corto con CDP mide el árbol de procesos observado y suma sus working sets, incluidas páginas compartidas por proceso. No mide RAM física única, GPU o FPS. El objetivo de memoria inferior a 150 MB no se da por cumplido. Es necesario perfilar sin herramientas conectadas y durante sesiones prolongadas; no existe una comparación de rendimiento larga anterior/posterior.
+- WebView2 comunica al salir un aviso de desregistro `Chrome_WidgetWin_0` (1412) en el ensayo; la aplicación y sus procesos de prueba salen. No se oculta ese diagnóstico ni se interpreta como una prueba de estabilidad prolongada.
+
+Siguiente hito: revisar la copia privada en el escritorio, perfilar memoria sin depuración y completar la matriz física antes de una beta o distribución. No se publica una release.
+
+## Resultados finales de esta entrega
+
+- `npm run verify`: aprobado, 76 pruebas Node, tipos, Vite, Rustfmt, 50 pruebas Rust y Clippy con advertencias como errores. Una prueba de audio físico permanece omitida por defecto; el proveedor se contrasta por separado en el release real.
+- `npm run test:ui`: aprobado. 19 capturas, privacidad inmediata de archivos, restauración, comandos, teclado, interrupciones y movimiento reducido. Escalas de navegador simuladas; no hardware físico ficticio.
+- `NIVO_NATIVE_TEST_PROFILE=release node test/native-ui.mjs`: aprobado sobre el ejecutable incrustado. Preferencias independiente, guardado, cierre con Escape, denegación de sesiones de audio desde su capability, audio real, transporte autenticado y región HWND estabilizada comprobados. DPI físico observado: 100 %.
+- Audio real: salida THX Spatial, micrófono HyperX SoloCast y siete salidas. Las sesiones variaron entre cuatro y seis durante los ensayos; el JSON final registra cuatro. No se modificaron niveles ni silencios físicos para probar.
+- Binario probado: SHA-256 `be01db3c4d02e7a504dbb05b9bfbe5409bfa2304deb5c3994f5656ee66754ffc`. Los cambios de autoría posteriores no cambian su árbol de fuentes ni el hash del ejecutable.
+- Muestreo de 15 segundos con CDP conectado, árbol observado completo incluyendo WebView2: CPU normalizada media 0,0289 %, pico 0,1856 %; working sets sumados hasta 422,22 MiB y bytes privados hasta 249,89 MiB. No son RAM física única y no se suman entre sí. **Objetivo de memoria <150 MB no alcanzado en este ensayo.** No acredita 30 minutos ni ausencia de regresión frente a la build anterior.
+- Los commits nuevos utilizan autor y committer `SnoW-099 <ryze0910@gmail.com>`. Se corrigieron únicamente commits locales aún no publicados, conservando árboles idénticos y la base remota. Sin force-push ni reescritura compartida.

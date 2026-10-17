@@ -3,6 +3,7 @@
 - Independent Windows Dynamic Island application. Never import StarOptimizer runtime or rename Nova.
 - Tauri 2 + Rust + TypeScript + Vite, confirmed by the user's Nivo product brief. Keep the frontend framework-free unless a measured need justifies adding one.
 - Work on `feature/nivo-mvp`; keep native integrations, UI state and presentation separate.
+- Commit author and committer identity for this repository: `SnoW-099 <ryze0910@gmail.com>`. Preserve published history; do not force-push identity changes.
 - Canonical repository: `https://github.com/SnoW-099/nivo.git`. Keep every Nivo change in this independent repository and use `origin` for this URL. The user authorized uploading development work here; do not push to StarOptimizer, modify `main`, or publish releases without separate authorization.
 - On 2026-10-17 the user authorized initializing the empty `main` with a README and importing the source into `feature/nivo-mvp` via GitHub's connector. The original local history is intact; the remote import has different ancestry. Read `docs/GITHUB_IMPORT.md` before syncing and never force-push to reconcile these histories.
 - After one failed Windows Actions run with no assigned runner, the user reported a billing issue and requested local validation instead. Keep Actions manual; do not trigger or rerun workflows. Continue local tests without altering Windows protections. Do not modify `main` or publish releases or executable artifacts automatically.

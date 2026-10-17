@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', windowsHide: true }).trim();
-const inputs = ['src', 'public', 'index.html', 'package.json', 'package-lock.json', 'src-tauri/src', 'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock', 'src-tauri/build.rs', 'src-tauri/tauri.conf.json', 'src-tauri/capabilities'];
+const inputs = ['src', 'public', 'index.html', 'preferences.html', 'vite.config.mjs', 'package.json', 'package-lock.json', 'src-tauri/src', 'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock', 'src-tauri/build.rs', 'src-tauri/tauri.conf.json', 'src-tauri/capabilities'];
 if (git('status', '--porcelain', '--untracked-files=all', '--', ...inputs)) {
   throw new Error('Commit the reviewed application sources before exporting a traceable test build.');
 }
@@ -44,19 +44,29 @@ const manifest = {
   sourceBranch: 'feature/nivo-mvp',
   runtimeAcceptance: 'Pending for this exact build. No CPU/RAM/FPS claims.',
 };
+try {
+  const smoke = JSON.parse(await readFile(path.join(root, 'artifacts/native-ui/native-ui.json'), 'utf8'));
+  if (smoke.status === 'passed' && smoke.executableSha256 === sha256) {
+    manifest.runtimeAcceptance = 'Limited native smoke passed for this exact hash; full hardware/performance acceptance pending.';
+    await writeFile(path.join(output, 'native-smoke.json'), JSON.stringify(smoke, null, 2));
+  }
+} catch { /* A private build can be exported without claiming unexecuted acceptance. */ }
 await writeFile(path.join(output, 'build.json'), JSON.stringify(manifest, null, 2));
 await writeFile(path.join(output, 'LEEME.txt'), [
   'Nivo by Orvyn — prueba privada de desarrollo',
   '',
   'Abre Nivo.exe en Windows x64 con WebView2 instalado. No necesita Node, Rust ni Vite para ejecutarse.',
-  'No es una beta aceptada: faltan revisión visual, clics durante transición, sombra y medidas reales de rendimiento.',
-  'La mascota se activa en Preferencias > Compañero de Nivo. Una preferencia anterior desactivada se respeta.',
+  'Cierra la versión anterior desde su bandeja antes de abrir esta copia. Se conservan tus preferencias locales.',
+  'No es una beta aceptada: faltan juegos, DPI físico mixto, suspensión y pruebas prolongadas de rendimiento.',
+  'Preferencias tiene su propia ventana: icono de ajustes al abrir la isla o Preferencias desde la bandeja.',
+  'La mascota se configura en Apariencia. Una preferencia anterior desactivada se respeta.',
   'La música necesita una sesión GSMTC compatible. No hay notificaciones ajenas ni agentes simulados.',
-  'Puedes salir desde la bandeja o Preferencias. No habilita inicio automático por defecto.',
+  'Puedes salir desde la bandeja. No habilita inicio automático por defecto.',
   '',
   `Fuente: ${commit}`, `SHA256: ${sha256}`, '',
-  'La última prueba Cargo completa quedó bloqueada al ejecutar su harness vacío de main (4551); las 39 pruebas de biblioteca pasaron.',
-  'No cambies protecciones de Windows para probar esta build. Consulta docs/VALIDATION.md en el repositorio.',
+  manifest.runtimeAcceptance,
+  'Consulta docs/REDESIGN.md y los informes adjuntos para distinguir pruebas de navegador y nativas.',
+  'No cambies protecciones de Windows para probar esta build.',
 ].join('\r\n'), 'utf8');
 await copyFile(path.join(root, 'public', 'licenses', 'coucou-MIT.txt'), path.join(output, 'coucou-MIT.txt'));
 console.log(JSON.stringify({ executable, ...manifest }, null, 2));
