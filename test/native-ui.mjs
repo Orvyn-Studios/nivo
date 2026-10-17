@@ -242,7 +242,7 @@ try {
   }
   report.status = 'passed';
 } catch (error) {
-  report.status = 'failed'; report.error = error.message; process.exitCode = 1;
+  report.status = 'failed'; report.error = error.stack ?? error.message; process.exitCode = 1;
   if (page) {
     report.ui = await page.evaluate(() => ({ expanded: document.getElementById('toggle')?.getAttribute('aria-expanded'),
       views: ['activity', 'audio', 'preferences', 'drop', 'notification'].map(id => [id, document.getElementById(id)?.hidden]),
