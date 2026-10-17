@@ -23,7 +23,8 @@ struct NativeVisibility {
 pub struct IslandState {
     expanded: AtomicBool,
     surface_epoch: AtomicU64,
-    last_surface: Mutex<Option<placement::SurfaceGeometry>>,
+    last_surface: Mutex<Option<placement::SurfaceSample>>,
+    last_region: Mutex<Option<placement::SurfaceRegion>>,
     tray_available: AtomicBool,
     visibility: Mutex<NativeVisibility>,
 }
@@ -37,6 +38,18 @@ impl IslandState {
     }
     pub fn set_expanded(&self, expanded: bool) {
         self.expanded.store(expanded, Ordering::Relaxed);
+    }
+    pub fn prepare_surface(&self, expanded: bool) -> Result<placement::SurfaceSnapshot, String> {
+        let sample = self
+            .last_surface
+            .lock()
+            .map_err(|_| "La superficie no está disponible.")?;
+        let epoch = self.surface_epoch.fetch_add(1, Ordering::AcqRel) + 1;
+        self.set_expanded(expanded);
+        Ok(placement::SurfaceSnapshot {
+            epoch,
+            sample: *sample,
+        })
     }
     pub fn set_tray_available(&self, available: bool) {
         self.tray_available.store(available, Ordering::Relaxed);
@@ -73,22 +86,41 @@ pub fn place(window: &WebviewWindow, expanded: bool, settings: &Settings) -> Res
         settings.top_gap,
     )
     .map_err(str::to_owned)?;
-    let cached = if window.state::<IslandState>().expanded() {
-        *window
-            .state::<IslandState>()
-            .last_surface
-            .lock()
-            .map_err(|_| "La superficie no está disponible.")?
-    } else {
-        None
-    };
+    let cached = window
+        .state::<IslandState>()
+        .last_surface
+        .lock()
+        .map_err(|_| "La superficie no está disponible.")?
+        .map(|sample| sample.shape);
     let region = placement::retained_region(&p, cached, expanded).map_err(str::to_owned)?;
     window
         .state::<IslandState>()
         .surface_epoch
         .fetch_add(1, Ordering::AcqRel);
-    platform::set_bounds(window, &p)?;
+    let position = window.inner_position().map_err(|error| error.to_string())?;
+    let size = window.inner_size().map_err(|error| error.to_string())?;
+    if position.x != p.x || position.y != p.y || size.width != p.width || size.height != p.height {
+        platform::set_bounds(window, &p)?;
+    }
     platform::set_surface_region(window, &region)?;
+    let state = window.state::<IslandState>();
+    *state
+        .last_region
+        .lock()
+        .map_err(|_| "La región no está disponible.")? = Some(region);
+    *state
+        .last_surface
+        .lock()
+        .map_err(|_| "La superficie no está disponible.")? = Some(placement::SurfaceSample {
+        shape: placement::SurfaceGeometry {
+            left: f64::from(region.left) / p.scale,
+            top: f64::from(region.top) / p.scale,
+            width: f64::from(region.right - region.left) / p.scale,
+            height: f64::from(region.bottom - region.top) / p.scale,
+            radius: f64::from(region.diameter) / p.scale / 2.0,
+        },
+        velocity: placement::SurfaceVelocity::default(),
+    });
     let state = window
         .app_handle()
         .try_state::<IslandState>()
@@ -106,8 +138,16 @@ pub fn set_surface_geometry(
     state: &IslandState,
     epoch: u64,
     shape: placement::SurfaceGeometry,
+    velocity: placement::SurfaceVelocity,
 ) -> Result<bool, String> {
     require_island(window)?;
+    if !velocity.valid() {
+        return Err("Velocidad visual no válida.".into());
+    }
+    let mut previous = state
+        .last_surface
+        .lock()
+        .map_err(|_| "La superficie no está disponible.")?;
     if epoch != state.surface_epoch() {
         return Ok(false);
     }
@@ -115,11 +155,15 @@ pub fn set_surface_geometry(
     let scale = window.scale_factor().map_err(|error| error.to_string())?;
     let region = placement::animated_region((size.width, size.height), scale, shape)
         .map_err(str::to_owned)?;
-    platform::set_surface_region(window, &region)?;
-    *state
-        .last_surface
+    let mut last_region = state
+        .last_region
         .lock()
-        .map_err(|_| "La superficie no está disponible.")? = Some(shape);
+        .map_err(|_| "La región no está disponible.")?;
+    if last_region.as_ref() != Some(&region) {
+        platform::set_surface_region(window, &region)?;
+        *last_region = Some(region);
+    }
+    *previous = Some(placement::SurfaceSample { shape, velocity });
     Ok(true)
 }
 

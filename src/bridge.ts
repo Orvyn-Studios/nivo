@@ -1,7 +1,7 @@
 import { parsePreferences, type Preferences } from './domain/index.ts';
 import { parseMediaSnapshot, type MediaAction, type MediaSnapshot } from './media-state.ts';
 import { parseDisplays, type Display } from './display-state.ts';
-import type { SurfaceGeometry } from './native-surface.ts';
+import type { SurfaceGeometry, SurfaceVelocity, SurfaceSnapshot } from './native-surface.ts';
 import { emptyAudio, parseAudioSnapshot, type AudioSnapshot, type AudioAction } from './audio-state.ts';
 import { parsePowerSnapshot, type PowerSnapshot } from './power-state.ts';
 import { parseIntegrationEvent, type IntegrationEvent } from './integration-state.ts';
@@ -14,6 +14,7 @@ declare global { interface Window { __TAURI__?: { core: Core; event: EventApi } 
 const core = window.__TAURI__?.core;
 export const isNative = Boolean(core);
 let surfaceEpoch = 0;
+let surfaceSnapshot: SurfaceSnapshot | undefined;
 export const bridge = {
   trackCursor: (enabled: boolean) => core?.invoke<void>('set_companion_tracking', { enabled }) ?? Promise.resolve(),
   onCursor: (handler: (point: { x: number; y: number }) => void): Promise<() => void> => core
@@ -62,10 +63,15 @@ export const bridge = {
   },
   ready: () => core?.invoke<void>('ready') ?? Promise.resolve(),
   async resize(expanded: boolean): Promise<void> {
-    if (core) surfaceEpoch = await core.invoke<number>('set_expanded', { expanded });
+    if (core) {
+      const value=await core.invoke<number|SurfaceSnapshot>('set_expanded',{expanded});
+      if(typeof value==='number'){surfaceEpoch=value;surfaceSnapshot=undefined;}
+      else if(value&&Number.isSafeInteger(value.epoch)&&value.epoch>=surfaceEpoch){surfaceEpoch=value.epoch;surfaceSnapshot=value;}
+    }
   },
   surfaceEpoch: () => surfaceEpoch,
-  surface: (shape: SurfaceGeometry, epoch: number) => core?.invoke<boolean>('set_surface_geometry', { shape, epoch }) ?? Promise.resolve(true),
+  surfaceSnapshot: () => surfaceSnapshot,
+  surface: (shape: SurfaceGeometry, epoch: number, velocity?:SurfaceVelocity) => core?.invoke<boolean>('set_surface_geometry', { shape, epoch, velocity:velocity??null }) ?? Promise.resolve(true),
   async audio(): Promise<AudioSnapshot> {
     if (!core) return emptyAudio('unavailable');
     const value = parseAudioSnapshot(await core.invoke('get_audio_snapshot'));

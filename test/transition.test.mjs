@@ -9,6 +9,26 @@ function deferred() {
 }
 const tick = async () => { for (let index = 0; index < 8; index++) await Promise.resolve(); };
 
+test('native preparation stays serialized and a reversal skips the obsolete visual leg',async()=>{
+  const hold=deferred(),calls=[];let active=0,peak=0;
+  const {dependencies,events}=adapter({prepare:async expanded=>{
+    calls.push(expanded);peak=Math.max(peak,++active);if(calls.length===1)await hold.promise;active--;
+  }});
+  const controller=createTransitionController(dependencies);
+  const first=controller.set(true);controller.set(false);hold.resolve();
+  assert.equal(await first,false);assert.equal(peak,1);
+  assert.deepEqual(calls,[true,false]);
+  assert.equal(events.filter(event=>event[0]==='animate'&&event[1]).length,0);
+});
+
+test('a preparation failure settles before reporting, so a recovery request is not lost',async()=>{
+  let first=true,controller;
+  const {dependencies}=adapter({prepare:async()=>{if(first){first=false;throw new Error('prepare failed')}},onError:()=>{void controller.set(true)}});
+  controller=createTransitionController(dependencies);
+  assert.equal(await controller.set(true),false);
+  await tick();assert.equal(await controller.set(true),true);
+});
+
 test('geometry refresh reacquires the native epoch even when the expanded intent is unchanged', async () => {
   const { dependencies, events } = adapter();
   const controller = createTransitionController(dependencies);

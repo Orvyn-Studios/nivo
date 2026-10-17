@@ -10,7 +10,7 @@ function fixture() {
   globalThis.document = { hidden: false };
   globalThis.requestAnimationFrame = callback => { const id = ++counter; scheduled.set(id, callback); return id; };
   globalThis.cancelAnimationFrame = id => scheduled.delete(id);
-  globalThis.getComputedStyle = () => ({ borderRadius: '23px', clipPath: island.renderedClip ?? style.clipPath ?? 'none', getPropertyValue: () => '280' });
+  globalThis.getComputedStyle = target => ({ opacity:target.style?.opacity??'1',transform:target.style?.transform??'none',borderRadius: '23px', clipPath: island.renderedClip ?? style.clipPath ?? 'none', getPropertyValue: () => '280' });
   const animations = [];
   const animate = (keyframes, options) => {
     let resolve, reject;
@@ -18,13 +18,14 @@ function fixture() {
     const result = { keyframes, options, finished, finish: resolve, cancel: () => reject(new Error('cancelled')) };
     animations.push(result); return result;
   };
-  const style = { removeProperty(key) { delete this[key === 'clip-path' ? 'clipPath' : key === 'border-radius' ? 'borderRadius' : key]; } };
+  const makeStyle=()=>({setProperty(key,value){this[key]=value},removeProperty(key) { delete this[key === 'clip-path' ? 'clipPath' : key === 'border-radius' ? 'borderRadius' : key]; }});
+  const style=makeStyle();
   const island = {
     dataset: { expanded: 'false' }, style, animate, rendered: null,
     getBoundingClientRect() { return this.rendered ?? { width: Number.parseFloat(style.width) || (this.dataset.expanded === 'true' ? 388 : 112), height: Number.parseFloat(style.height) || (this.dataset.expanded === 'true' ? 320 : 34) }; },
   };
   return {
-    island, animations, scheduled, motion: new IslandMotion(island, { animate }),
+    island, animations, scheduled, motion: new IslandMotion(island, { animate,style:makeStyle() }),
     restore() { for (const [key, descriptor] of originals) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; } },
   };
 }

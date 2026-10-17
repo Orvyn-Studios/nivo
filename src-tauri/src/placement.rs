@@ -11,7 +11,7 @@ pub struct Placement {
     pub scale: f64,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SurfaceRegion {
     pub left: i32,
     pub top: i32,
@@ -20,7 +20,7 @@ pub struct SurfaceRegion {
     pub diameter: i32,
 }
 
-#[derive(Clone, Copy, Debug, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SurfaceGeometry {
     pub left: f64,
@@ -28,6 +28,34 @@ pub struct SurfaceGeometry {
     pub width: f64,
     pub height: f64,
     pub radius: f64,
+}
+
+#[derive(Clone, Copy, Debug, Default, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SurfaceVelocity {
+    pub width: f64,
+    pub height: f64,
+    pub radius: f64,
+}
+
+impl SurfaceVelocity {
+    pub fn valid(self) -> bool {
+        [self.width, self.height, self.radius]
+            .iter()
+            .all(|v| v.is_finite() && v.abs() <= 100_000.0)
+    }
+}
+
+#[derive(Clone, Copy, Debug, serde::Serialize)]
+pub struct SurfaceSample {
+    pub shape: SurfaceGeometry,
+    pub velocity: SurfaceVelocity,
+}
+
+#[derive(Clone, Copy, Debug, serde::Serialize)]
+pub struct SurfaceSnapshot {
+    pub epoch: u64,
+    pub sample: Option<SurfaceSample>,
 }
 
 /// The webview may only refine a region inside its own actual client area.
@@ -75,7 +103,7 @@ pub fn fit(
     origin: (i32, i32),
     size: (u32, u32),
     scale: f64,
-    expanded: bool,
+    _expanded: bool,
     horizontal_position: f64,
     top_gap: u16,
 ) -> Result<Placement, &'static str> {
@@ -89,11 +117,9 @@ pub fn fit(
     {
         return Err("Posición de isla no válida.");
     }
-    let surface = if expanded {
-        EXPANDED_SURFACE
-    } else {
-        COMPACT_SURFACE
-    };
+    // Allocate once. HRGN supplies the actual silhouette and hit region in every
+    // state; no swap-chain resize or horizontal anchor shift on each interaction.
+    let surface = EXPANDED_SURFACE;
     let w = (((surface.0 + PADDING * 2.0) * scale).round() as u32).min(width);
     let h = (((surface.1 + PADDING * 2.0) * scale).round() as u32).min(height);
     let left = i64::from(origin.0) + (f64::from(width - w) * horizontal_position).round() as i64;
@@ -119,8 +145,16 @@ pub fn surface_region(
     let pad = (PADDING * placement.scale).round() as u32;
     let left = pad.min(placement.width.saturating_sub(1) / 2);
     let top = pad.min(placement.height.saturating_sub(1) / 2);
-    let right = placement.width - left;
-    let bottom = placement.height - top;
+    let surface = if expanded {
+        EXPANDED_SURFACE
+    } else {
+        COMPACT_SURFACE
+    };
+    let width = ((surface.0 * placement.scale).round() as u32).min(placement.width - left * 2);
+    let height = ((surface.1 * placement.scale).round() as u32).min(placement.height - top * 2);
+    let left = (placement.width - width) / 2;
+    let right = left + width;
+    let bottom = top + height;
     let radius = if expanded {
         28.0
     } else {
@@ -143,9 +177,9 @@ pub fn surface_region(
 pub fn retained_region(
     p: &Placement,
     previous: Option<SurfaceGeometry>,
-    expanded: bool,
+    _expanded: bool,
 ) -> Result<SurfaceRegion, &'static str> {
-    if !expanded {
+    if previous.is_none() {
         return surface_region(p, false);
     }
     let mut shape = previous.unwrap_or(SurfaceGeometry {
@@ -169,6 +203,32 @@ pub fn retained_region(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn backing_envelope_and_anchor_do_not_change_between_visual_states() {
+        for scale in [1.0, 1.25, 1.5, 2.0] {
+            for position in [0.0, 0.2, 0.5, 0.8, 1.0] {
+                let compact = fit((-1920, -120), (3840, 2160), scale, false, position, 8).unwrap();
+                let expanded = fit((-1920, -120), (3840, 2160), scale, true, position, 8).unwrap();
+                assert_eq!(compact, expanded);
+                let hit = surface_region(&compact, false).unwrap();
+                assert_eq!(hit.right - hit.left, (112.0 * scale).round() as i32);
+                assert_eq!(hit.bottom - hit.top, (34.0 * scale).round() as i32);
+            }
+        }
+    }
+
+    #[test]
+    fn native_velocity_payload_is_finite_and_bounded() {
+        assert!(SurfaceVelocity::default().valid());
+        for width in [f64::NAN, f64::INFINITY, 100_001.0] {
+            assert!(!SurfaceVelocity {
+                width,
+                ..SurfaceVelocity::default()
+            }
+            .valid());
+        }
+    }
 
     #[test]
     fn envelope_resize_retains_the_visible_hud_instead_of_capturing_the_whole_panel() {
@@ -239,7 +299,7 @@ mod tests {
     #[test]
     fn supports_negative_monitor_origins() {
         let p = fit((-1920, 0), (1920, 1040), 1.0, false, 0.5, 8).unwrap();
-        assert_eq!((p.x, p.y, p.width, p.height), (-1032, -8, 144, 66));
+        assert_eq!((p.x, p.y, p.width, p.height), (-1170, -8, 420, 352));
     }
 
     #[test]
@@ -283,9 +343,9 @@ mod tests {
         assert_eq!(
             surface_region(&p, false).unwrap(),
             SurfaceRegion {
-                left: 24,
+                left: 231,
                 top: 24,
-                right: 192,
+                right: 399,
                 bottom: 75,
                 diameter: 51,
             }

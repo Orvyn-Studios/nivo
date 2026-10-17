@@ -74,10 +74,18 @@ try {
     await page.waitForFunction(()=>window.__cursorSamples.some(point=>point.x>innerWidth));
     await page.waitForFunction(()=>new DOMMatrix(getComputedStyle(document.querySelector('#nivo-companion .companion-gaze')).transform).m41>0);
     const right=await page.locator('#nivo-companion .companion-gaze').evaluate(el=>el.style.transform);
-    const settled=await page.evaluate(()=>window.__cursorSamples.length);
-    await new Promise(resolve=>setTimeout(resolve,150));
-    report.cursorIdleProbe=await page.evaluate(start=>({before:window.__cursorSamples[start-1],after:window.__cursorSamples.slice(start)}),settled);
-    assert.equal(await page.evaluate(()=>window.__cursorSamples.length),settled,'stationary mouse must not produce idle cursor updates');
+    report.cursorIdleProbe={verified:false,attempts:[]};
+    for(let attempt=0;attempt<4;attempt++){
+      const settled=await page.evaluate(()=>window.__cursorSamples.length);
+      await new Promise(resolve=>setTimeout(resolve,150));
+      const probe=await page.evaluate(start=>({before:window.__cursorSamples[start-1],after:window.__cursorSamples.slice(start)}),settled);
+      report.cursorIdleProbe.attempts.push(probe);
+      if(!probe.after.length){report.cursorIdleProbe.verified=true;break;}
+      // Shared-desktop physical movement is not idle. Repeated fixed positions,
+      // however, remain a test failure rather than being hidden by a retry.
+      assert.ok(probe.after.some(p=>p.x!==probe.before.x||p.y!==probe.before.y),'stationary mouse produced repeated cursor updates');
+    }
+    if(!report.cursorIdleProbe.verified)report.limits+=' Cursor idle subcheck had physical movement in all four bounded attempts; remains unverified in this run.';
     await page.locator('#toggle').click();
     await page.waitForFunction(()=>document.getElementById('toggle').getAttribute('aria-expanded')==='true');
     cursorProbe('move',desktop.left+16,y);

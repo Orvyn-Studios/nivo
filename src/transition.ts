@@ -1,5 +1,7 @@
 export interface TransitionDependencies {
   resize(expanded: boolean): Promise<void>;
+  /** Optional serialized epoch barrier for a fixed native backing window. */
+  prepare?(expanded: boolean): Promise<void>;
   animate(expanded: boolean): Promise<void>;
   cancelAnimation(): void;
   setInteractive(expanded: boolean): void;
@@ -31,6 +33,7 @@ export function createTransitionController(
   let interrupt: (() => void) | undefined;
   let pending: Promise<boolean> | undefined;
   let resolvePending: ((expanded: boolean) => void) | undefined;
+  let version=0;
 
   function cancelAnimation(): void {
     dependencies.cancelAnimation();
@@ -64,6 +67,17 @@ export function createTransitionController(
   async function drain(): Promise<void> {
     for (;;) {
       dependencies.setInteractive(false);
+      if(dependencies.prepare){
+        const own=version,target=desired;
+        try { await dependencies.prepare(target); }
+        catch(error){
+          desired=nativeExpanded;refreshNative=false;commit(nativeExpanded);
+          dependencies.setInteractive(nativeExpanded);
+          const settle=resolvePending;pending=undefined;resolvePending=undefined;settle?.(nativeExpanded);
+          dependencies.onError(error);return;
+        }
+        if(own!==version)continue;
+      }
       if (desired) {
         if (!nativeExpanded || refreshNative) {
           try {
@@ -131,6 +145,7 @@ export function createTransitionController(
     // cannot accumulate a controller-owned array of promise resolvers.
     const promise = pending;
     if (next !== desired || refresh) {
+      version++;
       desired = next;
       cancelAnimation();
     }

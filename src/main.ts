@@ -60,10 +60,11 @@ let unlistenDisplays: (() => void) | undefined;
 let observedTransition: Promise<boolean> | undefined;
 let geometryDirty = false;
 let mediaDirty = false;
+let integrationsDirty = true;
 const mediaInbox = new MediaInbox();
 let requestedMedia: boolean | undefined;
 const motion = new IslandMotion(island, panel, element('toggle-identity'), isNative ? {
-  send: bridge.surface, epoch: bridge.surfaceEpoch, onError: report,
+  send: bridge.surface, epoch: bridge.surfaceEpoch, snapshot:bridge.surfaceSnapshot, recover:bridge.resize, onError: report,
 } : undefined);
 toggle.disabled = true;
 document.body.dataset.environment = isNative ? 'native' : 'preview';
@@ -96,6 +97,7 @@ function applyPreferences(preferences: Preferences): void {
   if (dropOptOut) { droppedFiles = []; dropReturn = undefined; dropView.render([], preferences.privacy_mode); }
   else dropView.render(droppedFiles, preferences.privacy_mode);
   renderIntegrations(integrationInbox, preferences.privacy_mode);
+  integrationsDirty=false;
   if (!preferences.audio_enabled) { audioSnapshot = undefined; audioView.render(emptyAudio()); }
   if (!preferences.media_enabled) mediaView.render(mediaInbox.setEnabled(false));
   dispatch({ type: 'preferences', value: preferences });
@@ -169,14 +171,20 @@ function report(error: unknown): void {
     title: 'No se pudo completar', body: 'Vuelve a intentarlo en un momento.', reaction: 'error', groupKey: 'error' } });
 }
 const transition = createTransitionController({
-  resize: bridge.resize,
+  // Ready allocates one backing surface. Each leg only acquires an epoch/sample;
+  // its HRGN is the visible silhouette as well as the interactive region.
+  resize: async () => {},
+  prepare: isNative ? bridge.resize : undefined,
   cancelAnimation: () => motion.cancel(),
   setInteractive: (expanded: boolean) => { panel.inert = !expanded; },
   commit: (expanded: boolean) => {
     toggle.setAttribute('aria-expanded', String(expanded));
     toggle.setAttribute('aria-label', expanded ? 'Cerrar Nivo' : 'Abrir Nivo');
     panel.hidden = !expanded;
-    if (!expanded) island.dataset.expanded = 'false';
+    if (!expanded) {
+      island.dataset.expanded = 'false';
+      render(); geometryDirty=false;
+    }
   },
   animate: async (expanded: boolean) => {
     if (!expanded && document.hasFocus() && panel.contains(document.activeElement)) toggle.focus({ preventScroll: true });
@@ -198,10 +206,13 @@ function render(): void {
   mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden);
   syncCompanion();
   if (mediaDirty) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
-  if (state.base.kind === 'expanded' && state.base.view === 'activity') renderIntegrations(integrationInbox, state.preferences.privacy_mode);
+  if (integrationsDirty && state.base.kind === 'expanded' && state.base.view === 'activity') {
+    renderIntegrations(integrationInbox, state.preferences.privacy_mode);integrationsDirty=false;
+  }
   const now = Date.now();
   const view = presentation(state, now);
   const notification = view.kind === 'notification';
+  const retainOutgoing = !notification && state.base.kind==='compact' && !panel.hidden;
   const currentMedia = activeMedia(mediaInbox.snapshot);
   const downloads = [...integrationInbox.downloads.values()].filter(value => value.state === 'active' || value.state === 'activity');
   const agent = [...integrationInbox.agents.values()].some(value => ['working', 'waiting', 'review'].includes(value));
@@ -213,29 +224,31 @@ function render(): void {
     : context === 'audio' ? audioSnapshot?.status === 'ready' ? 2 + audioSnapshot.sessions.length : 0 : downloads.length,
     currentMedia?.positionMs != null && currentMedia.durationMs != null && currentMedia.durationMs > 0);
   const key = `${context}:${geometry.width}:${geometry.height}`;
-  if (island.dataset.geometry !== key) {
-    motion.captureLayout(); geometryDirty = true; island.dataset.geometry = key;
+  if (!retainOutgoing && island.dataset.geometry !== key) {
+    if(!panel.hidden)motion.captureLayout(); geometryDirty = true; island.dataset.geometry = key;
     island.style.setProperty('--context-width', `${geometry.width}px`);
     island.style.setProperty('--context-height', `${geometry.height}px`);
     island.style.setProperty('--context-radius', `${geometry.radius}px`);
     island.style.setProperty('--context-duration', String(geometry.duration));
   }
-  island.dataset.context = context;
+  if(!retainOutgoing) island.dataset.context = context;
   // One shared action group, moved rather than cloned between the two layouts.
-  const actionSlot = element(context === 'music' ? 'media-actions-slot' : 'activity-actions-slot');
+  const actionSlot = element((retainOutgoing?island.dataset.context:context) === 'music' ? 'media-actions-slot' : 'activity-actions-slot');
   const actions = element('activity-footer');
   if (actions.parentElement !== actionSlot) actionSlot.append(actions);
-  island.dataset.overlay = String(notification);
+  if(!retainOutgoing) island.dataset.overlay = String(notification);
   island.dataset.notice = 'false';
   island.dataset.hovered = String(state.hovered);
   island.dataset.companion = String(state.preferences.mascot_enabled);
   element('nivo-companion').toggleAttribute('hidden', !state.preferences.mascot_enabled);
   element('companion-welcome').toggleAttribute('hidden', !state.preferences.mascot_enabled);
   document.querySelector('.media-empty-mark')?.toggleAttribute('hidden', state.preferences.mascot_enabled);
-  element('notification').hidden = !notification;
-  element('activity').hidden = notification || (state.base.kind === 'expanded' && state.base.view !== 'activity');
-  element('audio').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'audio';
-  element('drop').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'drop';
+  if(!retainOutgoing){
+    element('notification').hidden = !notification;
+    element('activity').hidden = notification || (state.base.kind === 'expanded' && state.base.view !== 'activity');
+    element('audio').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'audio';
+    element('drop').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'drop';
+  }
   element('media-widget').hidden = !currentMedia && (agent || downloads.length > 0);
   if (!currentMedia) { element('media-empty-title').textContent = 'Todo en calma'; element('media-empty-description').textContent = 'Un momento para ti.'; }
   element('activity-footer').hidden = notification;
@@ -249,7 +262,6 @@ function render(): void {
   }
   const notice = view.kind === 'notification' ? view.notification : undefined;
   element('compact-label').textContent = notice?.compact ? notice.title
-    : state.base.kind === 'expanded' ? ''
     : currentMedia ? (currentMedia.title || (currentMedia.playback === 'playing' ? 'Música' : 'En pausa'))
     : [...integrationInbox.agents.values()].includes('working') ? 'Codex'
     : [...integrationInbox.downloads.values()].some(value => value.state === 'active') ? 'Descarga' : 'Nivo';
@@ -272,8 +284,10 @@ function scheduleClock(): void {
 }
 
 function dispatch(event: IslandEvent): void {
+  const previous=state;
   try { state = reduceIsland(state, event); }
   catch (error) { report(error); return; }
+  if(state===previous&&!geometryDirty&&!mediaDirty&&!integrationsDirty)return;
   mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden);
   if (state.hidden || document.hidden) syncCompanion();
   if (!state.hidden && !document.hidden) render();
@@ -386,6 +400,7 @@ void (async () => {
   try { unlistenIntegration = await bridge.onIntegration(event => {
     if (!state.preferences.integrations_enabled || integrationOptOut) return;
     const notifications = integrationInbox.receive(event);
+    integrationsDirty=true;
     if (!notifications.length && !state.hidden && !document.hidden) render();
     for (const notification of notifications) dispatch({ type: 'notify', notification, now: Date.now() });
   }); } catch (error) { report(error); }

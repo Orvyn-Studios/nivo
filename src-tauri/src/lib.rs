@@ -75,38 +75,10 @@ fn ready(
 fn set_expanded(
     window: WebviewWindow,
     state: State<IslandState>,
-    settings: State<SettingsStore>,
     expanded: bool,
-) -> Result<u64, String> {
+) -> Result<placement::SurfaceSnapshot, String> {
     window::require_island(&window)?;
-    let previous = state.expanded();
-    let settings = settings.snapshot()?;
-    if let Err(error) = window::place(&window, expanded, &settings) {
-        if let Err(rollback) = window::place(&window, previous, &settings) {
-            return Err(format!(
-                "{error} Tampoco se pudo restaurar el tamaño anterior: {rollback}"
-            ));
-        }
-        return Err(error);
-    }
-    state.set_expanded(expanded);
-    if expanded && !previous {
-        let size = window.inner_size().map_err(|error| error.to_string())?;
-        let scale = window.scale_factor().map_err(|error| error.to_string())?;
-        window::set_surface_geometry(
-            &window,
-            &state,
-            state.surface_epoch(),
-            placement::SurfaceGeometry {
-                left: (f64::from(size.width) / scale - 112.0) / 2.0,
-                top: 16.0,
-                width: 112.0,
-                height: 34.0,
-                radius: 17.0,
-            },
-        )?;
-    }
-    Ok(state.surface_epoch())
+    state.prepare_surface(expanded)
 }
 
 #[tauri::command]
@@ -115,8 +87,9 @@ fn set_surface_geometry(
     state: State<IslandState>,
     epoch: u64,
     shape: placement::SurfaceGeometry,
+    velocity: Option<placement::SurfaceVelocity>,
 ) -> Result<bool, String> {
-    window::set_surface_geometry(&window, &state, epoch, shape)
+    window::set_surface_geometry(&window, &state, epoch, shape, velocity.unwrap_or_default())
 }
 
 #[tauri::command]

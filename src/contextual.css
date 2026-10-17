@@ -1,5 +1,9 @@
 /* Higher specificity than the shared component primitives. */
 body #island { border-radius:17px; color:var(--text) }
+/* During native motion HRGN is the sole paint/input mask; never race a second
+   independently sampled CSS mask against the Windows hit region. */
+body #island[data-native-mask=true] { clip-path:none!important; border-radius:0!important }
+body #island[data-native-mask=true] .island-surface { border-radius:0 }
 body #island[data-input=pointer] #toggle:focus-visible { outline:none }
 body #island[data-expanded=true] { width:var(--context-width,260px); height:var(--context-height,138px); border-radius:var(--context-radius,28px) }
 body #island[data-expanded=true] #toggle { position:absolute; z-index:4; top:7px; right:7px; width:28px; height:28px; min-height:28px; padding:6px; border-radius:50%; color:var(--muted) }
