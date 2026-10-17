@@ -5,6 +5,7 @@ mod display;
 mod drop_files;
 mod events;
 mod fullscreen;
+mod instance;
 mod integration;
 mod media;
 mod placement;
@@ -368,6 +369,14 @@ async fn open_preferences(window: WebviewWindow) -> Result<(), String> {
 }
 
 pub fn run() {
+    let _instance = match instance::InstanceGuard::acquire() {
+        Ok(Some(guard)) => guard,
+        Ok(None) => return,
+        Err(error) => {
+            eprintln!("{error}");
+            return;
+        }
+    };
     let result = tauri::Builder::default()
         .manage(IslandState::default())
         .invoke_handler(tauri::generate_handler![
