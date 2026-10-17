@@ -76,6 +76,7 @@ try {
     const right=await page.locator('#nivo-companion .companion-gaze').evaluate(el=>el.style.transform);
     const settled=await page.evaluate(()=>window.__cursorSamples.length);
     await new Promise(resolve=>setTimeout(resolve,150));
+    report.cursorIdleProbe=await page.evaluate(start=>({before:window.__cursorSamples[start-1],after:window.__cursorSamples.slice(start)}),settled);
     assert.equal(await page.evaluate(()=>window.__cursorSamples.length),settled,'stationary mouse must not produce idle cursor updates');
     await page.locator('#toggle').click();
     await page.waitForFunction(()=>document.getElementById('toggle').getAttribute('aria-expanded')==='true');
