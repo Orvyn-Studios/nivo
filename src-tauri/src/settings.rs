@@ -40,6 +40,8 @@ pub struct Settings {
     pub mascot_enabled: bool,
     pub privacy_mode: bool,
     pub media_enabled: bool,
+    #[serde(default)]
+    pub audio_enabled: bool,
     pub notifications_enabled: bool,
     pub hide_in_fullscreen: bool,
     pub monitor_name: Option<String>,
@@ -56,6 +58,7 @@ impl Default for Settings {
             mascot_enabled: true,
             privacy_mode: true,
             media_enabled: true,
+            audio_enabled: false,
             notifications_enabled: true,
             hide_in_fullscreen: true,
             monitor_name: None,
@@ -277,6 +280,16 @@ mod tests {
         let mut json = serde_json::to_value(expected).unwrap();
         json["shell_command"] = serde_json::json!("untrusted");
         assert!(decode(&serde_json::to_vec(&json).unwrap()).is_err());
+    }
+
+    #[test]
+    fn older_settings_keep_existing_choices_without_enabling_audio() {
+        let mut value = serde_json::to_value(Settings::default()).unwrap();
+        value.as_object_mut().unwrap().remove("audio_enabled");
+        value["mascot_enabled"] = serde_json::json!(false);
+        let settings = decode(&serde_json::to_vec(&value).unwrap()).unwrap();
+        assert!(!settings.audio_enabled);
+        assert!(!settings.mascot_enabled);
     }
 
     #[test]

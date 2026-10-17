@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { checkAudioControls } from './audio-ui-fixture.mjs';
 
 let chromium, createServer;
 console.log('UI: loading Playwright and Vite');
@@ -106,6 +107,11 @@ try {
   assert.equal(await page.locator('#nivo-companion').getAttribute('data-pose'), 'focus');
   assert.equal(await page.locator('#companion-welcome').evaluate(el => getComputedStyle(el).color), 'rgb(35, 40, 49)');
   await capture('island-expanded.png');
+  await page.getByRole('button', { name: 'Sonido', exact: true }).click();
+  assert.equal(await page.locator('#audio').isVisible(), true);
+  assert.equal(await page.locator('#audio-controls').isVisible(), false);
+  assert.equal(await page.locator('#output-volume').isDisabled(), true);
+  await capture('island-audio-empty.png');
   await page.getByRole('button', { name: 'Preferencias', exact: true }).click();
   await page.keyboard.press('Escape');
   await stable(false);
@@ -210,6 +216,8 @@ try {
   await capture('companion-expression-review.png');
   await page.locator('#companion-review').evaluate(el => el.remove());
   assert.deepEqual(errors, []);
+  await checkAudioControls(browser, `http://127.0.0.1:${address.port}`, assert);
+  report.checks.push('Audio controls exercised with browser-only fixtures; no Windows levels changed.');
   report.status = 'passed';
   console.log('PASS: current Vite frontend, geometry, keyboard/focus, rapid intent, event pause, preferences, reduced-motion interruption and 320px viewport. Native Tauri acceptance remains separate.');
 } catch (error) {

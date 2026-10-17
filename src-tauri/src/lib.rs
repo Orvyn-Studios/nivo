@@ -1,3 +1,4 @@
+mod audio;
 mod autostart;
 mod display;
 mod events;
@@ -133,6 +134,7 @@ fn save_settings(
     state: State<IslandState>,
     store: State<SettingsStore>,
     media: State<Arc<media::MediaService>>,
+    audio: State<Arc<audio::AudioService>>,
     settings: Settings,
 ) -> Result<Settings, String> {
     window::require_island(&window)?;
@@ -148,6 +150,7 @@ fn save_settings(
     }
     match store.save(settings) {
         Ok(settings) => {
+            audio.set_enabled(settings.audio_enabled);
             window::refresh_fullscreen(&window);
             media.set_enabled(settings.media_enabled).map_err(|error| {
                 format!("Preferencias guardadas; no se pudo actualizar multimedia: {error}")
@@ -190,6 +193,53 @@ fn get_media_snapshot(
 ) -> Result<media::MediaSnapshot, String> {
     window::require_island(&window)?;
     media.snapshot()
+}
+
+#[tauri::command]
+fn get_audio_snapshot(
+    window: WebviewWindow,
+    audio: State<Arc<audio::AudioService>>,
+) -> Result<audio::AudioSnapshot, String> {
+    window::require_island(&window)?;
+    audio.snapshot()
+}
+
+#[tauri::command]
+async fn audio_control(
+    window: WebviewWindow,
+    audio: State<'_, Arc<audio::AudioService>>,
+    action: audio::AudioAction,
+) -> Result<(), String> {
+    window::require_island(&window)?;
+    let audio = Arc::clone(audio.inner());
+    tauri::async_runtime::spawn_blocking(move || audio.control(action))
+        .await
+        .map_err(|_| "El control de audio no pudo terminar.".to_string())?
+}
+
+#[tauri::command]
+fn open_sound_settings(window: WebviewWindow) -> Result<(), String> {
+    window::require_island(&window)?;
+    #[cfg(windows)]
+    {
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        // Fixed documented Windows Settings URI; never accepts a path/command from the webview.
+        let result = unsafe {
+            ShellExecuteW(
+                None,
+                windows::core::w!("open"),
+                windows::core::w!("ms-settings:sound"),
+                None,
+                None,
+                SW_SHOWNORMAL,
+            )
+        };
+        if result.0 as isize <= 32 {
+            return Err("No se pudo abrir la configuración de sonido.".into());
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -240,6 +290,9 @@ pub fn run() {
             get_autostart,
             set_autostart,
             get_media_snapshot,
+            get_audio_snapshot,
+            audio_control,
+            open_sound_settings,
             media_control,
             select_media_session,
             quit_app
@@ -255,7 +308,18 @@ pub fn run() {
                 .snapshot()
                 .map(|value| value.media_enabled)
                 .unwrap_or(false);
+            let audio_enabled = settings
+                .snapshot()
+                .map(|value| value.audio_enabled)
+                .unwrap_or(false);
             app.manage(settings);
+            let audio_handle = app.handle().clone();
+            app.manage(Arc::new(audio::AudioService::start(
+                audio_enabled,
+                move |snapshot| {
+                    let _ = audio_handle.emit_to("island", "nivo://audio", snapshot);
+                },
+            )));
             let handle = app.handle().clone();
             app.manage(Arc::new(media::MediaService::start(
                 media_enabled,
@@ -313,6 +377,9 @@ pub fn run() {
     match result {
         Ok(app) => app.run(|handle, event| {
             if matches!(event, tauri::RunEvent::Exit) {
+                if let Some(audio) = handle.try_state::<Arc<audio::AudioService>>() {
+                    audio.shutdown();
+                }
                 if let Some(media) = handle.try_state::<Arc<media::MediaService>>() {
                     media.shutdown();
                 }

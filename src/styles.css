@@ -447,6 +447,17 @@ input[type=number],select {
 .activity-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding-top:14px; margin-top:16px }
 .activity-status { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--muted) }
 .activity-status i { width:4px; height:4px; border-radius:50%; background:#b9c1bc }
+.audio-section { border-top:1px solid var(--line); padding-top:14px; margin-top:14px }
+.audio-section h2 { font-size:12px; font-weight:600 }
+.audio-section input[type=range] { width:100%; min-width:0; margin:12px 0 6px; accent-color:#e3e7e8 }
+.device-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:5px }
+.text-action { color:var(--muted); background:transparent; font-size:11px; padding:5px 0; min-height:32px }
+.audio-button,.audio-session button { border-radius:7px; background:var(--surface); padding:7px 10px; margin-top:8px; font-size:11px; min-height:32px }
+.detail-note { font-size:10px; line-height:1.6; color:var(--muted); margin-top:8px }
+.audio-session { display:grid; grid-template-columns:minmax(0,1fr) 66px; align-items:center; gap:0 12px; padding-top:12px }
+.audio-session-name { grid-column:1/-1; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.audio-session input[type=range] { margin:8px 0 0 }
+.preference-heading { padding:12px 0 0; font-size:11px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase }
 #compact-event-progress { position:absolute; bottom:3px; left:14px; width:calc(100% - 28px); height:2px; margin:0; pointer-events:none }
 #island[data-notice=true] .compact-media { display:none }
 #island[data-notice=true] .nivo-companion { display:block }

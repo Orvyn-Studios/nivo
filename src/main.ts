@@ -11,6 +11,8 @@ import { createMediaView } from './components/media.ts';
 import { createWindowsPreferences } from './components/windows-preferences.ts';
 import { createCompanion } from './components/companion.ts';
 import { companionPose } from './companion-state.ts';
+import { audioActivity, emptyAudio, type AudioSnapshot } from './audio-state.ts';
+import { createAudioView } from './components/audio.ts';
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -28,6 +30,11 @@ let preferenceWrite = Promise.resolve();
 let unlistenVisibility: (() => void) | undefined;
 let unlistenMedia: (() => void) | undefined;
 let unlistenView: (() => void) | undefined;
+let unlistenAudio: (() => void) | undefined;
+let audioSnapshot: AudioSnapshot | undefined;
+let audioSequence = -1;
+let requestedAudio: boolean | undefined;
+let audioRequestSerial = 0;
 let observedTransition: Promise<boolean> | undefined;
 let mediaDirty = false;
 const mediaInbox = new MediaInbox();
@@ -40,6 +47,10 @@ toggle.disabled = true;
 document.body.dataset.environment = isNative ? 'native' : 'preview';
 document.title = isNative ? 'Nivo by Orvyn' : 'Nivo by Orvyn · desarrollo';
 const mediaView = createMediaView({ control: bridge.controlMedia, select: bridge.selectMedia });
+const audioView = createAudioView({ control: bridge.controlAudio, refresh: async () => {
+  const snapshot = await bridge.audio();
+  return state.preferences.audio_enabled && requestedAudio !== false ? snapshot : emptyAudio();
+}, settings: bridge.soundSettings }, report);
 const companion = createCompanion(element('nivo-companion'), toggle);
 const welcomeCompanion = createCompanion(element('companion-welcome'), element('media-empty'));
 
@@ -70,6 +81,16 @@ function receiveMedia(snapshot: MediaSnapshot, reconcile = false): void {
   // Revoke private contents immediately, but defer ordinary visual updates while hidden.
   if (!mediaInbox.enabled) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
   if (mediaInbox.enabled) dispatch({ type: 'media', sequence: snapshot.sequence, session: activeMedia(snapshot) });
+}
+
+function receiveAudio(snapshot: AudioSnapshot, reconcile = false): void {
+  if (snapshot.sequence < audioSequence || (snapshot.sequence === audioSequence && !reconcile)) return;
+  audioSequence = snapshot.sequence;
+  if (!state.preferences.audio_enabled || requestedAudio === false) { audioSnapshot = undefined; audioView.render(emptyAudio()); return; }
+  const events = audioActivity(audioSnapshot, snapshot);
+  audioSnapshot = snapshot;
+  if (!state.hidden && !document.hidden && state.base.kind === 'expanded' && state.base.view === 'audio') audioView.render(snapshot);
+  for (const notification of events) dispatch({ type: 'notify', notification, now: Date.now() });
 }
 
 function report(error: unknown): void {
@@ -112,7 +133,8 @@ function render(): void {
   element('notification').hidden = !notification;
   element('activity').hidden = notification || (state.base.kind === 'expanded' && state.base.view !== 'activity');
   element('preferences').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'preferences';
-  for (const name of ['activity', 'preferences']) {
+  element('audio').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'audio';
+  for (const name of ['activity', 'audio', 'preferences']) {
     element(`${name}-tab`).setAttribute('aria-pressed', String(state.base.kind === 'expanded' && state.base.view === name));
   }
   if (notification) {
@@ -124,6 +146,7 @@ function render(): void {
   const notice = view.kind === 'notification' ? view.notification : undefined;
   island.dataset.notice = String(Boolean(notice?.compact));
   element('compact-label').textContent = notice?.compact ? notice.title
+    : state.base.kind === 'expanded' ? 'Nivo'
     : currentMedia ? (currentMedia.title || (currentMedia.playback === 'playing' ? 'Música' : 'En pausa')) : 'Nivo';
   toggle.title = notice?.compact ? `${notice.title}${notice.body ? ` · ${notice.body}` : ''}` : currentMedia?.title ?? '';
   toggle.setAttribute('aria-label', `${transition.expanded ? 'Cerrar' : 'Abrir'} Nivo${notice ? `, ${notice.title}` : currentMedia ? `, ${currentMedia.title || 'reproductor multimedia'}` : ''}`);
@@ -176,12 +199,15 @@ function renderPreferences(): void {
   element<HTMLInputElement>('notifications-enabled').checked = state.preferences.notifications_enabled;
   element<HTMLInputElement>('privacy-mode').checked = state.preferences.privacy_mode;
   element<HTMLInputElement>('media-enabled').checked = state.preferences.media_enabled;
+  element<HTMLInputElement>('audio-enabled').checked = state.preferences.audio_enabled;
   element<HTMLInputElement>('mascot-enabled').checked = state.preferences.mascot_enabled;
   element<HTMLSelectElement>('horizontal-position').value = String(state.preferences.horizontal_position);
   element<HTMLInputElement>('top-gap').value = String(state.preferences.top_gap);
 }
 
 function savePreferences(patch: Partial<Preferences>): void {
+  const audioRequest = patch.audio_enabled === undefined ? 0 : ++audioRequestSerial;
+  if (patch.audio_enabled !== undefined) requestedAudio = patch.audio_enabled;
   const mediaRequest = patch.media_enabled === undefined ? 0 : ++mediaRequestSerial;
   if (patch.media_enabled !== undefined) requestedMedia = patch.media_enabled;
   // Serialize saves and derive each patch from the last confirmed native value.
@@ -197,6 +223,10 @@ function savePreferences(patch: Partial<Preferences>): void {
       catch { /* Keep the last confirmed settings; report the original operation. */ }
       report(error); renderPreferences();
     } finally {
+      if (audioRequest && audioRequest === audioRequestSerial) {
+        requestedAudio = undefined;
+        try { receiveAudio(await bridge.audio(), true); } catch (error) { report(error); }
+      }
       if (mediaRequest && mediaRequest === mediaRequestSerial) {
         requestedMedia = undefined;
         mediaInbox.setEnabled(state.preferences.media_enabled);
@@ -219,7 +249,16 @@ document.addEventListener('keydown', event => {
     else dispatch({ type: 'collapse' });
   }
 });
-document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(button => button.addEventListener('click', () => dispatch({ type: 'expand', view: button.dataset.view === 'preferences' ? 'preferences' : 'activity' })));
+document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(button => button.addEventListener('click', () => {
+  if (button.dataset.view === 'audio') audioView.render(audioSnapshot ?? emptyAudio());
+  dispatch({ type: 'expand', view: button.dataset.view === 'preferences' ? 'preferences' : button.dataset.view === 'audio' ? 'audio' : 'activity' });
+}));
+
+element<HTMLInputElement>('audio-enabled').addEventListener('change', event => {
+  const enabled = (event.target as HTMLInputElement).checked;
+  if (!enabled) { audioSnapshot = undefined; audioView.render(emptyAudio()); }
+  savePreferences({ audio_enabled: enabled });
+});
 element('pause-events').addEventListener('click', () => dispatch({ type: 'pause-events', paused: !state.eventsPaused }));
 
 element('notification-dismiss').addEventListener('click', () => dispatch({ type: 'dismiss-notification', now: Date.now() }));
@@ -255,7 +294,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
 window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); });
-window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
+window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); audioView.dispose(); mediaView.dispose(); windowsPreferences.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
 Object.defineProperty(window, '__NIVO_METRICS__', { value: transitionMetrics });
@@ -278,9 +317,12 @@ void (async () => {
       if (!visible) motion.settle();
       dispatch({ type: 'visibility', hidden: !visible });
       if (visible) dispatch({ type: 'advance', now: Date.now() });
+      if (visible && state.base.kind === 'expanded' && state.base.view === 'audio') audioView.render(audioSnapshot ?? emptyAudio());
     });
   } catch (error) { report(error); }
   await windowsPreferences.start();
+  try { unlistenAudio = await bridge.onAudio(receiveAudio); receiveAudio(await bridge.audio()); }
+  catch (error) { report(error); }
   toggle.disabled = false;
   try { await bridge.ready(); } catch (error) { report(error); }
 })();

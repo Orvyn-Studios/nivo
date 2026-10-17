@@ -5,6 +5,7 @@ export interface Preferences {
   mascot_enabled: boolean;
   privacy_mode: boolean;
   media_enabled: boolean;
+  audio_enabled: boolean;
   notifications_enabled: boolean;
   hide_in_fullscreen: boolean;
   monitor_name: string | null;
@@ -19,6 +20,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   mascot_enabled: true,
   privacy_mode: true,
   media_enabled: true,
+  audio_enabled: false,
   notifications_enabled: true,
   hide_in_fullscreen: true,
   monitor_name: null,
@@ -36,7 +38,7 @@ export function parsePreferences(value: unknown): Preferences {
   if (!record(value) || value.schema_version !== 1) return result;
   if (value.theme === 'system' || value.theme === 'dark' || value.theme === 'light') result.theme = value.theme;
   if (value.motion === 'system' || value.motion === 'reduced' || value.motion === 'full') result.motion = value.motion;
-  for (const key of ['mascot_enabled', 'privacy_mode', 'media_enabled', 'notifications_enabled', 'hide_in_fullscreen'] as const) {
+  for (const key of ['mascot_enabled', 'privacy_mode', 'media_enabled', 'audio_enabled', 'notifications_enabled', 'hide_in_fullscreen'] as const) {
     if (typeof value[key] === 'boolean') result[key] = value[key];
   }
   if (typeof value.monitor_name === 'string' && value.monitor_name.trim().length > 0 && value.monitor_name.length <= 256 && !/[\u0000-\u001f\u007f-\u009f]/.test(value.monitor_name)) {

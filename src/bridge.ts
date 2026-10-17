@@ -2,6 +2,7 @@ import { parsePreferences, type Preferences } from './domain/index.ts';
 import { parseMediaSnapshot, type MediaAction, type MediaSnapshot } from './media-state.ts';
 import { parseDisplays, type Display } from './display-state.ts';
 import type { SurfaceGeometry } from './native-surface.ts';
+import { emptyAudio, parseAudioSnapshot, type AudioSnapshot, type AudioAction } from './audio-state.ts';
 export type { Display } from './display-state.ts';
 
 type Core = { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> };
@@ -17,6 +18,20 @@ export const bridge = {
   },
   surfaceEpoch: () => surfaceEpoch,
   surface: (shape: SurfaceGeometry, epoch: number) => core?.invoke<boolean>('set_surface_geometry', { shape, epoch }) ?? Promise.resolve(true),
+  async audio(): Promise<AudioSnapshot> {
+    if (!core) return emptyAudio('unavailable');
+    const value = parseAudioSnapshot(await core.invoke('get_audio_snapshot'));
+    if (!value) throw new Error('Windows devolvió audio no válido.');
+    return value;
+  },
+  onAudio: (handler: (snapshot: AudioSnapshot) => void): Promise<() => void> => {
+    if (!core) return Promise.resolve(() => {});
+    return window.__TAURI__!.event.listen<unknown>('nivo://audio', event => {
+      const value = parseAudioSnapshot(event.payload); if (value) handler(value);
+    }, { target: 'island' });
+  },
+  controlAudio: (action: AudioAction) => core ? core.invoke<void>('audio_control', { action }) : Promise.reject(new Error('Requiere Nivo para Windows.')),
+  soundSettings: () => core ? core.invoke<void>('open_sound_settings') : Promise.reject(new Error('Los ajustes requieren Windows.')),
   hide: () => core?.invoke<void>('hide_island') ?? Promise.resolve(),
   quit: () => core?.invoke<void>('quit_app') ?? Promise.resolve(),
   autostart: () => core ? core.invoke<boolean>('get_autostart') : Promise.resolve(false),

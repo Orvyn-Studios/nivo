@@ -78,6 +78,7 @@
       <section id="island-panel" hidden inert aria-label="Panel de Nivo">
         <nav aria-label="Vistas">
           <button id="activity-tab" data-view="activity" aria-pressed="true">Actividad</button>
+          <button id="audio-tab" data-view="audio" aria-pressed="false">Sonido</button>
           <button id="preferences-tab" data-view="preferences" aria-pressed="false">Preferencias</button>
         </nav>
         <div class="panel-scroll">
@@ -173,7 +174,36 @@
             </div>
             <p class="local-note">Solo en tu equipo. Sin cuentas ni telemetría.</p>
           </section>
+          <section id="audio" aria-label="Sonido de Windows" hidden>
+            <div id="audio-panel" aria-busy="false">
+              <div class="section-heading"><h1>Sonido</h1><button id="sound-settings" class="text-action">Ajustes de Windows ↗</button></div>
+              <p id="audio-empty">Activa Audio de Windows en Preferencias.</p>
+              <div id="audio-controls" hidden>
+                <section class="audio-section" aria-label="Salida predeterminada">
+                  <div class="section-heading"><h2>Salida</h2><output id="output-level">—</output></div>
+                  <p id="output-name" class="device-name"></p>
+                  <input id="output-volume" type="range" min="0" max="100" aria-label="Volumen general" disabled />
+                  <button id="output-mute" class="text-action" disabled>Silenciar</button>
+                </section>
+                <section class="audio-section" aria-label="Entrada predeterminada">
+                  <h2>Micrófono</h2><p id="input-name" class="device-name"></p>
+                  <button id="input-mute" class="audio-button" disabled>Silenciar micrófono</button>
+                  <p class="detail-note">Controla el silencio de la entrada predeterminada. No indica qué aplicaciones la utilizan.</p>
+                </section>
+                <section class="audio-section" aria-label="Mezclador por sesión">
+                  <h2>Mezclador</h2><div id="audio-sessions"></div>
+                  <p id="audio-sessions-empty">No hay sesiones de audio compatibles.</p>
+                </section>
+                <details class="audio-section"><summary>Salidas disponibles</summary><p id="output-devices"></p><p class="detail-note">Elige la salida predeterminada desde los ajustes de Windows.</p></details>
+              </div>
+            </div>
+          </section>
           <section id="preferences" aria-label="Preferencias" hidden>
+            <h2 class="preference-heading">Audio</h2>
+            <label class="setting">
+              <span><strong>Audio de Windows</strong><small>Volumen, mezclador y silencio del micrófono. Sin grabación.</small></span>
+              <input id="audio-enabled" type="checkbox" />
+            </label>
             <label id="startup-setting" class="setting" hidden>
               <span><strong>Iniciar con Windows</strong><small>Opcional. Windows también permite desactivarlo desde Aplicaciones de inicio.</small></span>
               <input id="start-with-windows" type="checkbox" disabled />
