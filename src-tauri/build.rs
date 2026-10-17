@@ -6,6 +6,7 @@ fn main() {
             "close_preferences",
             "set_expanded",
             "set_surface_geometry",
+            "set_companion_tracking",
             "hide_island",
             "get_settings",
             "save_settings",

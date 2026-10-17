@@ -25,6 +25,36 @@ fn reconcile_display(window: &WebviewWindow) -> Result<(), String> {
 
 fn apply(window: &WebviewWindow, event: SystemEvent) -> Result<(), String> {
     match event {
+        SystemEvent::CursorMoved { x, y } => {
+            if window.app_handle().state::<IslandState>().paused()?
+                || !window
+                    .app_handle()
+                    .state::<SettingsStore>()
+                    .snapshot()?
+                    .mascot_enabled
+            {
+                return Ok(());
+            }
+            #[derive(Clone, serde::Serialize)]
+            struct CursorPoint {
+                x: f64,
+                y: f64,
+            }
+            // Both positions are physical pixels, including negative monitor origins.
+            // Divide by the island's DPI exactly once for WebView CSS coordinates.
+            let origin = window.inner_position().map_err(|error| error.to_string())?;
+            let scale = window.scale_factor().map_err(|error| error.to_string())?;
+            window
+                .emit_to(
+                    "island",
+                    "nivo://cursor",
+                    CursorPoint {
+                        x: (f64::from(x) - f64::from(origin.x)) / scale,
+                        y: (f64::from(y) - f64::from(origin.y)) / scale,
+                    },
+                )
+                .map_err(|error| error.to_string())
+        }
         SystemEvent::LockKey { caps, enabled } => {
             #[derive(Clone, serde::Serialize)]
             struct LockState {

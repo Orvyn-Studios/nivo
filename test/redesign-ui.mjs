@@ -49,6 +49,15 @@ try {
   await page.locator('#toggle').click();await stable(page);
   let size=await page.locator('#island').boundingBox();assert.equal(size.width,260);assert.equal(size.height,138);
   await shot(page,'03-calma');
+  assert.equal(await page.locator('.panel-scroll').evaluate(el=>getComputedStyle(el).scrollbarWidth),'none');
+  await page.keyboard.press('Escape'); await stable(page);
+  await page.keyboard.press('Enter'); await stable(page);
+  assert.equal(await page.locator('#toggle').getAttribute('aria-expanded'),'true');
+  assert.equal(await page.locator('#toggle').evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
+  await page.locator('#toggle').click();await stable(page);
+  await page.locator('#toggle').click();await stable(page);
+  assert.equal(await page.locator('#toggle').evaluate(el=>getComputedStyle(el).outlineStyle),'none');
+  report.checks.push('Chevron pointer clicks show no circle after keyboard interaction; Enter retains visible keyboard focus.');
   await page.keyboard.press('Escape'); await stable(page);
   const media={sequence:1,status:'ready',activeSessionId:'music',sessions:[{id:'music',title:'Horizonte',artist:'Sesión de prueba visual',playback:'playing',positionMs:42000,durationMs:210000,canPrevious:true,canNext:true,canPlayPause:true,canSeek:false}],error:null};
   await emit(page,'nivo://media',media);await shot(page,'04-musica-compacta');
@@ -87,6 +96,11 @@ try {
   await page.locator('#open-audio').click();await stable(page);await shot(page,'18-mezclador');
   await page.locator('#output-volume').fill('35');assert.equal(await page.evaluate(()=>window.__test.calls.at(-1).action.value),.35);
   await page.locator('#input-mute').click();assert.equal(await page.evaluate(()=>window.__test.calls.at(-1).action.kind),'inputMute');
+  await emit(page,'nivo://audio',{...await page.evaluate(()=>window.__test.audio),sequence:5,sessions:Array.from({length:16},(_,i)=>({id:`long-${i}`,name:`Sesión de prueba ${i+1}`,volume:.5,muted:false,active:true}))});
+  await page.locator('.panel-scroll').hover();await page.mouse.wheel(0,300);
+  await page.waitForFunction(()=>document.querySelector('.panel-scroll').scrollTop>0);
+  assert.equal(await page.locator('.panel-scroll').evaluate(el=>getComputedStyle(el).scrollbarWidth),'none');
+  report.checks.push('Hidden island scrollbars retain wheel scrolling through a long audio-session fixture.');
   report.checks.push('Real UI components: contextual sizes, no island tabs/preferences, media/audio commands, real-value HUD, notices, downloads, agent states and Drop capability actions using labelled fixtures.');
   await page.emulateMedia({reducedMotion:'no-preference'});
   await emit(page,'nivo://settings',{schema_version:1,motion:'full',media_enabled:true,audio_enabled:true});
@@ -94,6 +108,19 @@ try {
   await stable(page);await page.emulateMedia({reducedMotion:'reduce'});await stable(page);
   assert.equal(await page.locator('#island').evaluate(el=>el.getAnimations({subtree:true}).filter(a=>a.playState==='running').length),0);
   report.checks.push('Rapid interrupted transitions settle; reduced motion leaves no running animations.');
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await emit(page,'nivo://settings',{schema_version:1,motion:'full',mascot_enabled:true});
+  await page.keyboard.press('Escape');await stable(page);
+  await emit(page,'nivo://cursor',{x:-2000,y:800});
+  await page.waitForFunction(()=>document.querySelector('#nivo-companion .companion-gaze').style.transform.includes('-'));
+  const left=await page.locator('#nivo-companion .companion-gaze').evaluate(el=>el.style.transform);
+  await emit(page,'nivo://cursor',{x:3000,y:-800});
+  await page.waitForFunction(previous=>document.querySelector('#nivo-companion .companion-gaze').style.transform!==previous,left);
+  await emit(page,'nivo://settings',{schema_version:1,motion:'reduced',mascot_enabled:true});
+  assert.equal(await page.locator('#nivo-companion .companion-gaze').evaluate(el=>el.style.transform),'');
+  await emit(page,'nivo://cursor',{x:-3000,y:800});
+  assert.equal(await page.locator('#nivo-companion .companion-gaze').evaluate(el=>el.style.transform),'');
+  report.checks.push('Desktop cursor fixture reaches outside the WebView in both directions, including negative coordinates; reduced motion clears and blocks gaze.');
   for(const [width,height,scale] of [[1920,1080,1],[2560,1440,1.25],[3840,2160,1.5],[1920,1080,2]]){
     const p=await browser.newPage({viewport:{width:Math.round(width/scale),height:Math.round(height/scale)},deviceScaleFactor:scale,reducedMotion:'reduce'});
     await fixture(p);await p.goto(address);await ready(p);await p.locator('#toggle').click();await stable(p);

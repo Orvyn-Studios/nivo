@@ -32,6 +32,10 @@ const systemMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let state = createIslandState();
 let clockTimeout: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
+let unlistenCursor: (() => void) | undefined;
+let cursorReady = false;
+let requestedTracking = false;
+let trackingCommand = Promise.resolve();
 let lastReportAt = 0;
 let celebratedEvent: string | undefined;
 let unlistenVisibility: (() => void) | undefined;
@@ -69,14 +73,16 @@ const audioView = createAudioView({ control: bridge.controlAudio, refresh: async
   const snapshot = await bridge.audio();
   return state.preferences.audio_enabled && requestedAudio !== false ? snapshot : emptyAudio();
 }, settings: bridge.soundSettings }, report);
-const companion = createCompanion(element('nivo-companion'), toggle);
-const welcomeCompanion = createCompanion(element('companion-welcome'), element('media-empty'));
+const companionInput = { desktop: isNative, pointerTarget: document };
+const companion = createCompanion(element('nivo-companion'), toggle, companionInput);
+const welcomeCompanion = createCompanion(element('companion-welcome'), element('media-empty'), companionInput);
 const eventFace = element('nivo-companion').cloneNode(true) as SVGElement;
 eventFace.id = 'event-companion'; eventFace.classList.add('companion-welcome'); eventFace.removeAttribute('hidden');
-const eventCompanion = createCompanion(eventFace, element('notification'));
+const eventCompanion = createCompanion(eventFace, element('notification'), companionInput);
 const agentFace = eventFace.cloneNode(true) as SVGElement; agentFace.id = 'agent-companion';
 element('integration-activity').prepend(agentFace);
-const agentCompanion = createCompanion(agentFace, element('integration-activity'));
+const agentCompanion = createCompanion(agentFace, element('integration-activity'), companionInput);
+const companions = [companion, welcomeCompanion, eventCompanion, agentCompanion];
 const dropView = createDropView(bridge.dropAction, report);
 mountIcons();
 
@@ -100,7 +106,7 @@ function applyPreferences(preferences: Preferences): void {
 function syncCompanion(): void {
   const value = {
     enabled: state.preferences.mascot_enabled,
-    visible: !state.hidden && !document.hidden,
+    visible: !disposed && !state.hidden && !document.hidden,
     reduced: shouldReduceMotion(state.preferences, systemMotion.matches),
     pose: companionPose(activeMedia(mediaInbox.snapshot)?.playback, {
       reaction: state.notification?.notification.reaction ?? ([...integrationInbox.agents.values()].includes('working') ? 'working' : undefined),
@@ -119,6 +125,11 @@ function syncCompanion(): void {
   const working = [...integrationInbox.agents.values()].includes('working');
   agentFace.toggleAttribute('hidden', !working || hasMedia || !state.preferences.mascot_enabled);
   agentCompanion.update({ ...value, pose: working ? 'working' : value.pose, visible: value.visible && working && !hasMedia });
+  const tracking = cursorReady && value.enabled && value.visible && !value.reduced && (!hasMedia || expanded);
+  if (tracking !== requestedTracking) {
+    requestedTracking = tracking;
+    trackingCommand = trackingCommand.then(() => bridge.trackCursor(tracking)).catch(report);
+  }
 }
 
 function receiveMedia(snapshot: MediaSnapshot, reconcile = false): void {
@@ -281,6 +292,8 @@ function dispatch(event: IslandEvent): void {
   scheduleClock();
 }
 
+// WebView2 can retain :focus-visible after keyboard/programmatic focus restoration.
+document.addEventListener('pointerdown', () => { island.dataset.input = 'pointer'; }, { capture: true });
 toggle.addEventListener('click', () => {
   if (state.notification) dispatch({ type: 'dismiss-notification', now: Date.now() });
   else dispatch(state.base.kind === 'expanded' ? { type: 'collapse' } : { type: 'expand' });
@@ -288,6 +301,7 @@ toggle.addEventListener('click', () => {
 island.addEventListener('pointerenter', () => dispatch({ type: 'hover', active: true }));
 island.addEventListener('pointerleave', () => dispatch({ type: 'hover', active: false }));
 document.addEventListener('keydown', event => {
+  island.dataset.input = 'keyboard';
   if (event.key === 'Escape') {
     if (state.notification) dispatch({ type: 'dismiss-notification', now: Date.now() });
     else dispatch({ type: 'collapse' });
@@ -311,8 +325,8 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
-window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); });
-window.addEventListener('beforeunload', () => { unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); unlistenDrop?.(); unlistenDisplays?.(); eventCompanion.dispose(); agentCompanion.dispose(); dropView.dispose(); audioView.dispose(); mediaView.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
+window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); syncCompanion(); });
+window.addEventListener('beforeunload', () => { unlistenCursor?.(); unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); unlistenDrop?.(); unlistenDisplays?.(); eventCompanion.dispose(); agentCompanion.dispose(); dropView.dispose(); audioView.dispose(); mediaView.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
 Object.defineProperty(window, '__NIVO_METRICS__', { value: transitionMetrics });
@@ -322,6 +336,11 @@ void (async () => {
     state = createIslandState(await bridge.settings());
     // Legacy timer storage is intentionally left untouched and is no longer read.
     render(); scheduleClock();
+  } catch (error) { report(error); }
+  try {
+    unlistenCursor = await bridge.onCursor(({ x, y }) => { for (const face of companions) face.lookAt(x, y, true); });
+    cursorReady = isNative;
+    syncCompanion();
   } catch (error) { report(error); }
   try {
     // Subscribe first: the initial snapshot cannot overwrite a newer event.

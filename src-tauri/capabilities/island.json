@@ -9,6 +9,7 @@
     "allow-open-preferences",
     "allow-set-expanded",
     "allow-set-surface-geometry",
+    "allow-set-companion-tracking",
     "allow-hide-island",
     "allow-get-settings",
     "allow-save-settings",

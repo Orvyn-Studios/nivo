@@ -1,5 +1,6 @@
 /* Higher specificity than the shared component primitives. */
 body #island { border-radius:17px; color:var(--text) }
+body #island[data-input=pointer] #toggle:focus-visible { outline:none }
 body #island[data-expanded=true] { width:var(--context-width,260px); height:var(--context-height,138px); border-radius:var(--context-radius,28px) }
 body #island[data-expanded=true] #toggle { position:absolute; z-index:4; top:7px; right:7px; width:28px; height:28px; min-height:28px; padding:6px; border-radius:50%; color:var(--muted) }
 body #island[data-expanded=true] #toggle .toggle-identity { display:none }
@@ -12,7 +13,9 @@ body #island[data-expanded=false] .toggle-identity { justify-content:center; wid
 body #island .island-surface { background:var(--bg); border-color:rgb(255 255 255 / 6%); box-shadow:inset 0 1px 0 rgb(255 255 255 / 4%),inset 0 -8px 20px rgb(0 0 0 / 14%) }
 body #island[data-hovered=true][data-expanded=false] .island-surface { background:var(--surface); border-color:rgb(184 212 255 / 15%) }
 body #island-panel { height:100% }
-body #island .panel-scroll { height:100%; padding:20px; overflow:auto; scrollbar-width:thin }
+body #island .panel-scroll { height:100%; padding:20px; overflow:auto }
+body #island * { scrollbar-width:none }
+body #island ::-webkit-scrollbar { display:none }
 body #island h1 { font-size:var(--type-title); letter-spacing:-.35px; line-height:1.3 }
 body #island h2 { font-size:var(--type-body); font-weight:550 }
 body #island p { line-height:1.45 }

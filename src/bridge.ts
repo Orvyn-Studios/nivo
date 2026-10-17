@@ -15,6 +15,11 @@ const core = window.__TAURI__?.core;
 export const isNative = Boolean(core);
 let surfaceEpoch = 0;
 export const bridge = {
+  trackCursor: (enabled: boolean) => core?.invoke<void>('set_companion_tracking', { enabled }) ?? Promise.resolve(),
+  onCursor: (handler: (point: { x: number; y: number }) => void): Promise<() => void> => core
+    ? window.__TAURI__!.event.listen<{ x: number; y: number }>('nivo://cursor', ({ payload }) => {
+      if (payload && Number.isFinite(payload.x) && Number.isFinite(payload.y)) handler(payload);
+    }, { target: 'island' }) : Promise.resolve(() => {}),
   closePreferences: () => core ? core.invoke<void>('close_preferences') : Promise.resolve(window.close()),
   openPreferences: () => core ? core.invoke<void>('open_preferences') : Promise.resolve(window.open('/preferences.html', 'nivo-preferences', 'width=820,height=620')).then(() => {}),
   onSettings: (handler: (settings: Preferences) => void): Promise<() => void> => core

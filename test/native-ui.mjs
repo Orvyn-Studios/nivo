@@ -41,9 +41,64 @@ try {
   await page.waitForFunction(() => document.getElementById('toggle')?.disabled === false);
   assert.equal(await page.locator('body').getAttribute('data-environment'), 'native');
   original = await page.evaluate(() => window.__TAURI__.core.invoke('get_settings'));
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.evaluate(async settings => {
+    await window.__TAURI__.core.invoke('save_settings',{settings:{...settings,media_enabled:false,motion:'full',mascot_enabled:true}});
+    window.__cursorSamples=[];
+    await window.__TAURI__.event.listen('nivo://cursor',({payload})=>window.__cursorSamples.push(payload),{target:'island'});
+  },original);
+  function cursorProbe(action='snapshot',x=0,y=0) {
+    return JSON.parse(execFileSync('powershell.exe',['-NoProfile','-File',path.join(root,'test/native-cursor.ps1'),'-Action',action,'-X',String(x),'-Y',String(y)],{cwd:root,encoding:'utf8',windowsHide:true}).trim().replace(/^\uFEFF/,''));
+  }
+  const desktop=cursorProbe();
+  try {
+    const y=desktop.top+desktop.height-48;
+    cursorProbe('move',desktop.left+16,y);
+    await page.waitForFunction(()=>window.__cursorSamples.some(point=>point.x<0));
+    await page.waitForFunction(()=>new DOMMatrix(getComputedStyle(document.querySelector('#nivo-companion .companion-gaze')).transform).m41<0);
+    const left=await page.locator('#nivo-companion .companion-gaze').evaluate(el=>el.style.transform);
+    cursorProbe('move',desktop.left+desktop.width-16,y);
+    await page.waitForFunction(()=>window.__cursorSamples.some(point=>point.x>innerWidth));
+    await page.waitForFunction(()=>new DOMMatrix(getComputedStyle(document.querySelector('#nivo-companion .companion-gaze')).transform).m41>0);
+    const right=await page.locator('#nivo-companion .companion-gaze').evaluate(el=>el.style.transform);
+    const settled=await page.evaluate(()=>window.__cursorSamples.length);
+    await new Promise(resolve=>setTimeout(resolve,150));
+    assert.equal(await page.evaluate(()=>window.__cursorSamples.length),settled,'stationary mouse must not produce idle cursor updates');
+    await page.locator('#toggle').click();
+    await page.waitForFunction(()=>document.getElementById('toggle').getAttribute('aria-expanded')==='true');
+    cursorProbe('move',desktop.left+16,y);
+    await page.waitForFunction(()=>new DOMMatrix(getComputedStyle(document.querySelector('#companion-welcome .companion-gaze')).transform).m41<0);
+    const expandedLeft=await page.locator('#companion-welcome .companion-gaze').evaluate(el=>el.style.transform);
+    await page.locator('#island').screenshot({path:fileURLToPath(new URL('native-gaze-left.png',artifacts))});
+    cursorProbe('move',desktop.left+desktop.width-16,y);
+    await page.waitForFunction(()=>new DOMMatrix(getComputedStyle(document.querySelector('#companion-welcome .companion-gaze')).transform).m41>0);
+    const expandedRight=await page.locator('#companion-welcome .companion-gaze').evaluate(el=>el.style.transform);
+    await page.locator('#island').screenshot({path:fileURLToPath(new URL('native-gaze-right.png',artifacts))});
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(()=>document.getElementById('toggle').getAttribute('aria-expanded')==='false');
+    await page.evaluate(async()=>{const settings=await window.__TAURI__.core.invoke('get_settings');await window.__TAURI__.core.invoke('save_settings',{settings:{...settings,motion:'reduced'}})});
+    await page.waitForFunction(()=>document.querySelector('#nivo-companion .companion-gaze').style.transform==='');
+    const before=await page.evaluate(()=>window.__cursorSamples.length);
+    cursorProbe('move',desktop.left+16,y);
+    await new Promise(resolve=>setTimeout(resolve,150));
+    assert.equal(await page.evaluate(()=>window.__cursorSamples.length),before,'reduced motion must unregister background cursor input');
+    report.cursor={left,right,expandedLeft,expandedRight,samples:before,desktop:{width:desktop.width,height:desktop.height}};
+  } finally { cursorProbe('restore',desktop.x,desktop.y); }
+  report.checks.push('Real Win32 mouse movement at both desktop edges outside Nivo updates gaze in opposite directions; reduced motion unregisters cursor input; pointer position restored.');
   await page.locator('#island').screenshot({ path: fileURLToPath(new URL('native-compact.png', artifacts)) });
   await page.locator('#toggle').click();
   await page.waitForFunction(() => document.getElementById('toggle').getAttribute('aria-expanded') === 'true');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(()=>document.getElementById('toggle').getAttribute('aria-expanded')==='true');
+  assert.equal(await page.locator('#toggle').evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
+  await page.locator('#toggle').click();
+  await page.locator('#toggle').click();
+  await page.waitForFunction(()=>document.getElementById('toggle').getAttribute('aria-expanded')==='true');
+  assert.equal(await page.locator('#toggle').evaluate(el=>getComputedStyle(el).outlineStyle),'none');
+  assert.equal(await page.locator('.panel-scroll').evaluate(el=>getComputedStyle(el).scrollbarWidth),'none');
+  await page.locator('#island').screenshot({path:fileURLToPath(new URL('native-chevron-fixed.png',artifacts))});
+  report.checks.push('Actual WebView2 chevron retains keyboard focus, removes pointer-click ring and hides the island scrollbar.');
   const context = browser.contexts()[0];
   const [preferencesPage] = await Promise.all([context.waitForEvent('page'), page.locator('#open-preferences').click()]);
   await preferencesPage.waitForSelector('body[data-ready=true]');
@@ -56,6 +111,9 @@ try {
   let denied = false;
   try { await preferencesPage.evaluate(() => window.__TAURI__.core.invoke('get_audio_snapshot')); } catch { denied = true; }
   assert.equal(denied, true, 'preferences capability must not read/control audio sessions');
+  denied=false;
+  try { await preferencesPage.evaluate(() => window.__TAURI__.core.invoke('set_companion_tracking',{enabled:true})); } catch { denied=true; }
+  assert.equal(denied,true,'preferences capability must not enable desktop cursor tracking');
   await preferencesPage.keyboard.press('Escape');
   await page.locator('#open-audio').click();
   await page.waitForFunction(() => !document.getElementById('audio-controls').hidden);

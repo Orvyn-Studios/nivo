@@ -19,11 +19,11 @@ export function companionPose(playback: string | undefined, context: CompanionCo
   return context.hovered ? 'hover' : 'quiet';
 }
 
-/** Local pointer coordinates only; no global cursor tracking. */
-export function companionGaze(x: number, y: number, width: number, height: number): { x: number; y: number } {
-  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return { x: 0, y: 0 };
+/** Bounded eye travel; desktop reach spreads the response over a useful distance. */
+export function companionGaze(x: number, y: number, width: number, height: number, reach = 1): { x: number; y: number } {
+  if (![x, y, width, height, reach].every(Number.isFinite) || width <= 0 || height <= 0 || reach <= 0) return { x: 0, y: 0 };
   return {
-    x: Math.tanh((x - width / 2) / Math.max(1, width)) * 1.6,
-    y: Math.tanh((y - height / 2) / Math.max(1, height)) * 1.1,
+    x: Math.tanh((x - width / 2) / Math.max(1, width * reach)) * 1.6,
+    y: Math.tanh((y - height / 2) / Math.max(1, height * reach)) * 1.1,
   };
 }

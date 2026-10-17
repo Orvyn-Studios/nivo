@@ -119,6 +119,18 @@ fn set_surface_geometry(
 }
 
 #[tauri::command]
+fn set_companion_tracking(
+    window: WebviewWindow,
+    state: State<IslandState>,
+    settings: State<SettingsStore>,
+    observer: State<platform::lifecycle::LifecycleGuard>,
+    enabled: bool,
+) -> Result<(), String> {
+    window::require_island(&window)?;
+    observer.set_cursor(enabled && settings.snapshot()?.mascot_enabled && !state.paused()?)
+}
+
+#[tauri::command]
 fn hide_island(window: WebviewWindow, state: State<IslandState>) -> Result<(), String> {
     window::require_island(&window)?;
     if !state.tray_available() {
@@ -364,6 +376,7 @@ pub fn run() {
             ready,
             set_expanded,
             set_surface_geometry,
+            set_companion_tracking,
             hide_island,
             get_settings,
             save_settings,

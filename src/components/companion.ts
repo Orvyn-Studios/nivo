@@ -1,7 +1,7 @@
 import { companionGaze, type CompanionPose } from '../companion-state.ts';
 
 /** Original SVG companion: finite reactions and one coalesced pointer frame. */
-export function createCompanion(face: Element, target: HTMLElement) {
+export function createCompanion(face: Element, target: HTMLElement, options: { desktop?: boolean; pointerTarget?: EventTarget } = {}) {
   const eyes = face.querySelector<SVGElement>('.companion-eyes');
   const look = face.querySelector<SVGElement>('.companion-gaze');
   if (!eyes || !look) throw new Error('Missing companion face layers');
@@ -33,33 +33,37 @@ export function createCompanion(face: Element, target: HTMLElement) {
     react(face, [{ transform: 'translateY(0)' }, { transform: 'translateY(-2px)', offset: .4 }, { transform: 'translateY(0)' }], 240);
   }
 
-  target.addEventListener('pointerenter', () => {
+  function lookAt(x: number, y: number, desktop = false): void {
     if (!enabled || !visible || reduced) return;
-    const rectangle = face.getBoundingClientRect();
-    if (rectangle.width > 0 && rectangle.height > 0) bounds = rectangle;
-  }, { signal: listeners.signal });
-  target.addEventListener('pointermove', event => {
-    if (!enabled || !visible || reduced) return;
-    // A state change invalidates geometry; reacquire once on the next interaction.
-    if (!bounds) {
+    // Reacquire after layout transitions; never cache a desktop screen origin.
+    if (!bounds || desktop) {
       const rectangle = face.getBoundingClientRect();
       if (rectangle.width <= 0 || rectangle.height <= 0) return;
       bounds = rectangle;
     }
-    gaze = companionGaze(event.clientX - bounds.x, event.clientY - bounds.y, bounds.width, bounds.height);
+    gaze = companionGaze(x - bounds.x, y - bounds.y, bounds.width, bounds.height, desktop ? 10 : 1);
     if (frame !== undefined) return;
     frame = requestAnimationFrame(() => {
       frame = undefined;
       if (enabled && visible && !reduced) look!.style.transform = `translate(${gaze.x}px, ${gaze.y}px)`;
     });
-  }, { signal: listeners.signal });
-  target.addEventListener('pointerleave', clear, { signal: listeners.signal });
+  }
+  if (!options.desktop) {
+    const pointerTarget = options.pointerTarget ?? target;
+    pointerTarget.addEventListener('pointermove', event => {
+      const pointer = event as PointerEvent;
+      bounds = undefined;
+      lookAt(pointer.clientX, pointer.clientY, true);
+    }, { signal: listeners.signal });
+    pointerTarget.addEventListener('pointerleave', clear, { signal: listeners.signal });
+  }
   target.addEventListener('click', () => react(eyes!, [
     { transform: 'scaleY(1)' }, { transform: 'scaleY(.18)', offset: .4 }, { transform: 'scaleY(1)' },
   ], 140), { signal: listeners.signal });
 
   return {
     celebrate,
+    lookAt,
     update(next: { enabled: boolean; visible: boolean; reduced: boolean; pose: CompanionPose }) {
       const changed = next.pose !== pose;
       const availabilityChanged = next.enabled !== enabled || next.visible !== visible || next.reduced !== reduced;

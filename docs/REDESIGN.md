@@ -50,6 +50,16 @@ Los JSON, capturas y comparación anterior/posterior se guardan en `artifacts/`;
 
 Siguiente hito: revisar la copia privada en el escritorio, perfilar memoria sin depuración y completar la matriz física antes de una beta o distribución. No se publica una release.
 
+## Ajustes de flecha, mirada y desplazamiento
+
+La flecha distingue ratón y teclado: al pulsarla con el ratón no conserva el contorno circular de WebView2 después de usar Escape. La navegación con teclado mantiene su foco visible. Las barras de desplazamiento de la isla se ocultan sin desactivar la rueda, los gestos ni el desplazamiento por teclado de las listas.
+
+La mirada recibe movimientos del escritorio mediante Raw Input de Windows, usando el observador existente. No captura ni bloquea el ratón. Un temporizador de un solo disparo agrupa movimientos a unos 30 envíos por segundo y se cancela tras cada entrega; no hay sondeo en reposo. La posición física se convierte al área cliente y DPI de la isla, admitiendo orígenes negativos. La suscripción se desactiva con la mascota, la visibilidad o el movimiento reducido y se libera al salir. Las coordenadas no se guardan ni se transmiten fuera de Nivo.
+
+`test/native-cursor.ps1`, usado solo en las pruebas locales, mueve el cursor sin pulsar botones. `native-ui.mjs` conserva y restaura su posición, comprueba la mirada en ambos extremos del escritorio fuera de la ventana y contrasta la baja por movimiento reducido. Esto no sustituye la matriz de varios monitores y DPI físicos pendiente.
+
+Comprobado con el release Windows en un escritorio físico de 1920 × 1080 al 100 %: mirada hacia ambos extremos en modo compacto y expandido, sin nuevos eventos con el cursor quieto; movimiento reducido detiene la suscripción. La flecha conserva el foco de teclado y elimina el círculo al pulsar con el ratón. La rueda sigue recorriendo una lista larga sin barra visible en la prueba de interfaz. `verify`, pruebas de interfaz y ensayo nativo aprobados. SHA-256 de esta copia: `a1a98873f141c92d17341dd57e9b5afce5e1a3bc677f3222d1f7c67986e31d0b`.
+
 ## Resultados finales de esta entrega
 
 - `npm run verify`: aprobado, 76 pruebas Node, tipos, Vite, Rustfmt, 50 pruebas Rust y Clippy con advertencias como errores. Una prueba de audio físico permanece omitida por defecto; el proveedor se contrasta por separado en el release real.

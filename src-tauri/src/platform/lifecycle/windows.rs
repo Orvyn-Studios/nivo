@@ -7,7 +7,7 @@ use std::{
     sync::{atomic::Ordering, mpsc::SyncSender, Arc},
 };
 use windows_sys::Win32::{
-    Foundation::{GetLastError, SetLastError, HINSTANCE, HWND, LPARAM, LRESULT, WPARAM},
+    Foundation::{GetLastError, SetLastError, HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM},
     System::{
         LibraryLoader::GetModuleHandleW,
         RemoteDesktop::{
@@ -17,14 +17,14 @@ use windows_sys::Win32::{
         Threading::GetCurrentThreadId,
     },
     UI::WindowsAndMessaging::{
-        CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
-        GetWindowLongPtrW, IsWindow, PeekMessageW, PostMessageW, PostQuitMessage,
-        PostThreadMessageW, RegisterClassExW, SetWindowLongPtrW, TranslateMessage,
-        UnregisterClassW, CREATESTRUCTW, GWLP_USERDATA, MSG, PBT_APMPOWERSTATUSCHANGE,
-        PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND, PM_NOREMOVE, WM_APP,
-        WM_CLOSE, WM_DISPLAYCHANGE, WM_NCCREATE, WM_NCDESTROY, WM_NULL, WM_POWERBROADCAST, WM_QUIT,
-        WM_WTSSESSION_CHANGE, WNDCLASSEXW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
-        WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
+        CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos,
+        GetMessageW, GetWindowLongPtrW, IsWindow, KillTimer, PeekMessageW, PostMessageW,
+        PostQuitMessage, PostThreadMessageW, RegisterClassExW, SetTimer, SetWindowLongPtrW,
+        TranslateMessage, UnregisterClassW, CREATESTRUCTW, GWLP_USERDATA, MSG,
+        PBT_APMPOWERSTATUSCHANGE, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND,
+        PM_NOREMOVE, WM_APP, WM_CLOSE, WM_DISPLAYCHANGE, WM_NCCREATE, WM_NCDESTROY, WM_NULL,
+        WM_POWERBROADCAST, WM_QUIT, WM_TIMER, WM_WTSSESSION_CHANGE, WNDCLASSEXW, WS_EX_NOACTIVATE,
+        WS_EX_TOOLWINDOW, WS_POPUP, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
     },
 };
 
@@ -32,8 +32,9 @@ const FLUSH_DISPLAY: u32 = WM_APP + 41;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CAPITAL, VK_NUMLOCK};
 use windows_sys::Win32::UI::Input::{
     GetRawInputData, RegisterRawInputDevices, HRAWINPUT, RAWINPUT, RAWINPUTDEVICE, RAWINPUTHEADER,
-    RIDEV_INPUTSINK, RIDEV_REMOVE, RID_INPUT, RIM_TYPEKEYBOARD,
+    RIDEV_INPUTSINK, RIDEV_REMOVE, RID_INPUT, RIM_TYPEKEYBOARD, RIM_TYPEMOUSE,
 };
+const CURSOR_FRAME: usize = 42;
 type Callback = Box<dyn Fn(SystemEvent) + Send + Sync>;
 
 fn last_error(operation: &str) -> String {
@@ -59,10 +60,58 @@ struct Context {
     locked: Cell<Option<bool>>,
     display_pending: Cell<bool>,
     keyboard_registered: Cell<bool>,
+    cursor_registered: Cell<bool>,
+    cursor_pending: Cell<bool>,
     lock_states: Cell<[Option<bool>; 2]>,
 }
 
 impl Context {
+    fn cursor_settings(&self, hwnd: HWND) {
+        let enabled = self.shared.cursor_enabled.load(Ordering::Acquire)
+            && self.locked.get() != Some(true)
+            && self.suspended.get() != Some(true);
+        if enabled == self.cursor_registered.get() {
+            return;
+        }
+        let device = RAWINPUTDEVICE {
+            usUsagePage: 1,
+            usUsage: 2,
+            dwFlags: if enabled {
+                RIDEV_INPUTSINK
+            } else {
+                RIDEV_REMOVE
+            },
+            hwndTarget: if enabled { hwnd } else { ptr::null_mut() },
+        };
+        // Observe movements in the background; never capture/suppress mouse input.
+        if unsafe { RegisterRawInputDevices(&device, 1, size_of::<RAWINPUTDEVICE>() as u32) } == 0 {
+            self.shared
+                .error(last_error("No se pudo actualizar la mirada de Nivo"));
+            return;
+        }
+        self.cursor_registered.set(enabled);
+        if !enabled {
+            unsafe { KillTimer(hwnd, CURSOR_FRAME) };
+            self.cursor_pending.set(false);
+        }
+    }
+
+    fn cursor_frame(&self, hwnd: HWND) {
+        // One shot, armed only by real mouse movement. No timer runs in idle.
+        unsafe { KillTimer(hwnd, CURSOR_FRAME) };
+        self.cursor_pending.set(false);
+        if !self.cursor_registered.get() || !self.shared.cursor_enabled.load(Ordering::Acquire) {
+            return;
+        }
+        let mut point = POINT::default();
+        if unsafe { GetCursorPos(&mut point) } != 0 {
+            self.emit(SystemEvent::CursorMoved {
+                x: point.x,
+                y: point.y,
+            });
+        }
+    }
+
     fn keyboard_settings(&self, hwnd: HWND) {
         let enabled = self.shared.caps_enabled.load(Ordering::Acquire)
             || self.shared.num_enabled.load(Ordering::Acquire);
@@ -98,10 +147,7 @@ impl Context {
         });
     }
 
-    fn lock_key(&self, handle: HRAWINPUT) {
-        if !self.keyboard_registered.get() {
-            return;
-        }
+    fn input(&self, hwnd: HWND, handle: HRAWINPUT) {
         let mut raw = RAWINPUT::default();
         let mut bytes = size_of::<RAWINPUT>() as u32;
         if unsafe {
@@ -113,8 +159,24 @@ impl Context {
                 size_of::<RAWINPUTHEADER>() as u32,
             )
         } == u32::MAX
-            || raw.header.dwType != RIM_TYPEKEYBOARD
         {
+            return;
+        }
+        if raw.header.dwType == RIM_TYPEMOUSE {
+            let mouse = unsafe { raw.data.mouse };
+            if self.cursor_registered.get()
+                && (mouse.lLastX != 0 || mouse.lLastY != 0)
+                && !self.cursor_pending.get()
+            {
+                // Coalesce high-rate devices to at most ~30 updates/s, retaining
+                // the final cursor position even when the mouse stops immediately.
+                if unsafe { SetTimer(hwnd, CURSOR_FRAME, 33, None) } != 0 {
+                    self.cursor_pending.set(true);
+                }
+            }
+            return;
+        }
+        if raw.header.dwType != RIM_TYPEKEYBOARD || !self.keyboard_registered.get() {
             return;
         }
         let key = unsafe { raw.data.keyboard };
@@ -245,8 +307,12 @@ unsafe extern "system" fn window_proc(
             }
             0x00ff => {
                 // WM_INPUT: DefWindowProc performs the required foreground cleanup.
-                context.lock_key(lparam as HRAWINPUT);
+                context.input(hwnd, lparam as HRAWINPUT);
                 DefWindowProcW(hwnd, message, wparam, lparam)
+            }
+            WM_TIMER if wparam == CURSOR_FRAME => {
+                context.cursor_frame(hwnd);
+                0
             }
             WM_WTSSESSION_CHANGE => {
                 match wparam as u32 {
@@ -282,6 +348,16 @@ impl Drop for Resources {
                 let device = RAWINPUTDEVICE {
                     usUsagePage: 1,
                     usUsage: 6,
+                    dwFlags: RIDEV_REMOVE,
+                    hwndTarget: ptr::null_mut(),
+                };
+                RegisterRawInputDevices(&device, 1, size_of::<RAWINPUTDEVICE>() as u32);
+            }
+            KillTimer(self.hwnd, CURSOR_FRAME);
+            if self.context.cursor_registered.get() {
+                let device = RAWINPUTDEVICE {
+                    usUsagePage: 1,
+                    usUsage: 2,
                     dwFlags: RIDEV_REMOVE,
                     hwndTarget: ptr::null_mut(),
                 };
@@ -340,6 +416,8 @@ fn create(shared: Arc<ObserverState>, callback: Callback) -> Result<Resources, S
             locked: Cell::new(None),
             display_pending: Cell::new(false),
             keyboard_registered: Cell::new(false),
+            cursor_registered: Cell::new(false),
+            cursor_pending: Cell::new(false),
             lock_states: Cell::new([None, None]),
         }),
     };
@@ -413,6 +491,7 @@ pub(super) fn run(
         }
         unsafe {
             resources.context.keyboard_settings(resources.hwnd);
+            resources.context.cursor_settings(resources.hwnd);
             TranslateMessage(&message);
             DispatchMessageW(&message);
         }
@@ -436,6 +515,7 @@ mod tests {
                 finished: false.into(),
                 caps_enabled: false.into(),
                 num_enabled: false.into(),
+                cursor_enabled: false.into(),
                 error: Mutex::new(None),
             }),
             callback: Box::new(move |event| output.lock().unwrap().push(event)),
@@ -443,6 +523,8 @@ mod tests {
             locked: Cell::new(None),
             display_pending: Cell::new(false),
             keyboard_registered: Cell::new(false),
+            cursor_registered: Cell::new(false),
+            cursor_pending: Cell::new(false),
             lock_states: Cell::new([None, None]),
         };
         assert!(events.lock().unwrap().is_empty());
