@@ -123,7 +123,7 @@ function applyPreferences(preferences: Preferences): void {
   requestedAudio = preferences.audio_enabled ? undefined : false;
   requestedMedia = preferences.media_enabled ? undefined : false;
   if (integrationOptOut) integrationInbox.clear();
-  if (dropOptOut) { droppedFiles = []; dropReturn = undefined; dropView.render([], preferences.privacy_mode); }
+  if (dropOptOut) {if(state.base.kind==='expanded'&&state.base.view==='drop')restoreDrop();droppedFiles = []; dropReturn = undefined; dropView.render([], preferences.privacy_mode); }
   else dropView.render(droppedFiles, preferences.privacy_mode);
   renderIntegrations(integrationInbox, preferences.privacy_mode);
   integrationsDirty=false;

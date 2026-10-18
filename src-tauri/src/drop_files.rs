@@ -276,15 +276,16 @@ fn copy_new_progress(
     let mut output = std::fs::File::create_new(destination).map_err(|_| {
         "No se creó el destino. No se sobrescriben archivos existentes.".to_string()
     })?;
-    let result = stream_copy(&mut input, &mut output, 0, Some(total), operation).and_then(|_| {
-        if let Some(op) = operation {
-            op.check()?;
-            op.progress("finalizing", total, Some(total));
-        }
-        output
-            .sync_all()
-            .map_err(|_| "No se pudo confirmar la copia.".to_string())
-    });
+    let result =
+        stream_copy(&mut input, &mut output, 0, Some(total), operation).and_then(|copied| {
+            if let Some(op) = operation {
+                op.check()?;
+                op.progress("finalizing", copied, (copied == total).then_some(total));
+            }
+            output
+                .sync_all()
+                .map_err(|_| "No se pudo confirmar la copia.".to_string())
+        });
     drop(output);
     if let Err(error) = result {
         let _ = std::fs::remove_file(destination);
