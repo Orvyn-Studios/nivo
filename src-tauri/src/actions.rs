@@ -3,7 +3,7 @@ use crate::drop_files::DroppedFile;
 use serde::Serialize;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
-    Arc, Mutex,
+    Arc, Condvar, Mutex,
 };
 use std::time::{Duration, Instant};
 
@@ -28,6 +28,8 @@ pub struct ActionResult {
 pub struct Operations {
     serial: AtomicU64,
     active: Mutex<Option<(String, Arc<AtomicBool>)>>,
+    closing: AtomicBool,
+    idle: Condvar,
 }
 pub struct Operation<'a> {
     owner: &'a Operations,
@@ -42,6 +44,9 @@ impl Operations {
         notify: impl Fn(Progress) + Send + Sync + 'static,
     ) -> Result<Operation<'_>, String> {
         let mut active = self.active.lock().map_err(|_| "Operación no disponible.")?;
+        if self.closing.load(Ordering::Acquire) {
+            return Err("Nivo se está cerrando.".into());
+        }
         if active.is_some() {
             return Err("Espera a que termine la operación actual o cancélala.".into());
         }
@@ -75,6 +80,21 @@ impl Operations {
     }
     pub fn busy(&self) -> bool {
         self.active.lock().map_or(true, |v| v.is_some())
+    }
+    pub fn start_shutdown(&self) -> bool {
+        if self.closing.swap(true, Ordering::AcqRel) {
+            return false;
+        }
+        self.cancel_all();
+        true
+    }
+    pub fn drain(&self, timeout: Duration) -> bool {
+        let Ok(active) = self.active.lock() else {
+            return false;
+        };
+        self.idle
+            .wait_timeout_while(active, timeout, |value| value.is_some())
+            .is_ok_and(|(value, _)| value.is_none())
     }
 }
 impl Operation<'_> {
@@ -122,6 +142,7 @@ impl Drop for Operation<'_> {
         if let Ok(mut active) = self.owner.active.lock() {
             if active.as_ref().is_some_and(|v| v.0 == self.id) {
                 *active = None;
+                self.owner.idle.notify_all();
             }
         }
     }
@@ -141,5 +162,17 @@ mod tests {
         drop(op);
         assert!(!state.busy());
         assert!(state.begin(|_| {}).is_ok());
+    }
+    #[test]
+    fn shutdown_seals_new_jobs_and_drains_only_after_cleanup_releases_the_operation() {
+        let state = Operations::default();
+        let op = state.begin(|_| {}).unwrap();
+        assert!(state.start_shutdown());
+        assert!(op.cancelled());
+        assert!(!state.start_shutdown());
+        assert!(!state.drain(Duration::from_millis(1)));
+        drop(op);
+        assert!(state.drain(Duration::from_millis(1)));
+        assert!(state.begin(|_| {}).is_err());
     }
 }

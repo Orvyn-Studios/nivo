@@ -615,7 +615,24 @@ pub fn run() {
         .build(tauri::generate_context!());
     match result {
         Ok(app) => app.run(|handle, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = &event {
+                if let Some(files) = handle.try_state::<Arc<drop_files::DropFiles>>() {
+                    if files.operations.start_shutdown() && files.operations.busy() {
+                        api.prevent_exit();
+                        files.clear();
+                        let files = Arc::clone(files.inner());
+                        let app = handle.clone();
+                        tauri::async_runtime::spawn_blocking(move || {
+                            let _ = files.operations.drain(std::time::Duration::from_secs(2));
+                            app.exit(0);
+                        });
+                    }
+                }
+            }
             if matches!(event, tauri::RunEvent::Exit) {
+                if let Some(files) = handle.try_state::<Arc<drop_files::DropFiles>>() {
+                    files.clear();
+                }
                 if let Some(github) = handle.try_state::<Arc<github::GithubService>>() {
                     github.shutdown();
                 }
