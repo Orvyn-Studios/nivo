@@ -43,3 +43,10 @@ La coreografía y las nuevas pruebas se detallan en LIVING_ISLAND.md y la integr
 de GitHub en GITHUB_INTEGRATION.md. El arnés OLE experimental no ha completado su
 arrastre en esta sesión; su fallo se registra y no se interpreta como aceptación
 de Explorer, del selector nativo o del flujo ZIP completo del ejecutable.
+
+Los eventos de agente reflejan turnos, no proyectos completos. Un nuevo estado
+working después de un estado terminal abre otro ciclo del mismo ID de sesión,
+con una huella de aviso distinta; duplicados terminales y estados waiting tardíos
+no reabren el ciclo. Se requiere el orden del proveedor local: sin un identificador
+de turno original, no se puede atribuir un Stop retrasado a otro turno solapado.
+No se leen prompts/transcripciones para intentar inferir esa asociación.

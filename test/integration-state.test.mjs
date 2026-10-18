@@ -20,13 +20,16 @@ test('downloads require known positive totals for percentages and folder activit
   assert.equal(parseIntegrationEvent(download({ received: Infinity })).received, null);
   assert.equal(parseIntegrationEvent({ kind: 'shell', command: 'anything' }), null);
 });
-test('real completion events deduplicate and late work cannot regress a completed task', () => {
+test('completion deduplicates within a turn; a new working hook starts a distinct turn in the same session', () => {
   const inbox = new IntegrationInbox();
   assert.deepEqual(inbox.receive({ kind: 'agent', taskId: 'a', status: 'working' }), []);
   assert.equal(inbox.receive({ kind: 'agent', taskId: 'a', status: 'review' })[0].priority, 'critical');
-  assert.equal(inbox.receive({ kind: 'agent', taskId: 'a', status: 'complete' })[0].reaction, 'complete');
+  const first=inbox.receive({ kind: 'agent', taskId: 'a', status: 'complete' })[0];assert.equal(first.reaction, 'complete');
+  assert.deepEqual(inbox.receive({ kind: 'agent', taskId: 'a', status: 'complete' }), []);
+  assert.deepEqual(inbox.receive({ kind: 'agent', taskId: 'a', status: 'waiting' }), []);
   assert.deepEqual(inbox.receive({ kind: 'agent', taskId: 'a', status: 'working' }), []);
-  assert.equal(inbox.agents.get('a'), 'complete');
+  assert.equal(inbox.agents.get('a'), 'working');
+  const second=inbox.receive({kind:'agent',taskId:'a',status:'complete'})[0];assert.notEqual(first.id,second.id);assert.match(second.title,/Turno/);
   assert.equal(inbox.receive(download({ state: 'complete' }))[0].reaction, 'download');
   assert.deepEqual(inbox.receive(download({ state: 'active' })), []);
   for (let index = 0; index < 100; index++) inbox.receive(download({ id: `fixture:${index}` }));

@@ -21,16 +21,20 @@ export function downloadProgress(event: DownloadEvent): number | undefined {
 }
 export class IntegrationInbox {
   readonly agents = new Map<string, AgentStatus>();
+  private readonly cycles = new Map<string,number>();
   readonly downloads = new Map<string, DownloadEvent>();
-  clear(): void { this.agents.clear(); this.downloads.clear(); }
+  clear(): void { this.agents.clear(); this.cycles.clear(); this.downloads.clear(); }
   receive(event: IntegrationEvent): IslandNotification[] {
     if (event.kind === 'agent') {
       const previous = this.agents.get(event.taskId);
-      if (previous === event.status || previous === 'complete' || previous === 'error') return [];
+      if(previous===event.status)return[];
+      const terminal=previous==='complete'||previous==='error';
+      if(terminal&&event.status!=='working')return[];
+      if(terminal)this.cycles.set(event.taskId,((this.cycles.get(event.taskId)??0)+1)%2_147_483_647);
       this.agents.set(event.taskId, event.status);
-      if (this.agents.size > 8) this.agents.delete(this.agents.keys().next().value!);
+      if (this.agents.size > 8) {const oldest=this.agents.keys().next().value!;this.agents.delete(oldest);this.cycles.delete(oldest);}
       if (event.status === 'working' || event.status === 'waiting') return [];
-      return [{ id: `agent:${event.taskId}:${event.status}`, kind: 'agent', source: 'Codex', groupKey: `agent:${event.taskId}`,
+      return [{ id: `agent:${event.taskId}:${this.cycles.get(event.taskId)??0}:${event.status}`, kind: 'agent', source: 'Codex', groupKey: `agent:${event.taskId}`,
         title: event.status === 'review' ? 'Revisión necesaria' : event.status === 'complete' ? 'Turno de Codex finalizado' : 'Codex ha informado de un error',
         body: event.status === 'review' ? 'Responde a la solicitud en Codex.' : '',
         priority: event.status === 'review' ? 'critical' : 'high', reaction: event.status === 'review' ? 'attention' : event.status === 'complete' ? 'complete' : 'error' }];
