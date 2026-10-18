@@ -37,6 +37,7 @@ export class IslandMotion {
   private panel:HTMLElement;
   private identity:HTMLElement|undefined;
   private native:NativeMotion|undefined;
+  private previousGroups:Set<HTMLElement>|undefined;
   constructor(island:HTMLElement,panel:HTMLElement,identity?:HTMLElement,native?:NativeMotion){
     this.island=island;this.panel=panel;this.identity=identity;this.native=native;
     if(native)this.surface=createSurfaceWriter(native.send,native.onError);
@@ -92,6 +93,7 @@ export class IslandMotion {
     // are prepared. Otherwise changing CSS variables jumps before WAAPI starts.
     this.island.style.width=`${bounds.width}px`;this.island.style.height=`${bounds.height}px`;
   }
+  captureContent():void{this.previousGroups=new Set(this.groups());}
 
   private restoreContent():void {
     for(const [target,style] of this.base){
@@ -109,11 +111,12 @@ export class IslandMotion {
 
   private groups():HTMLElement[] {
     const selected=this.panel.querySelectorAll?.<HTMLElement>('.media-copy,.media-controls,.media-timeline,#activity-footer,.media-empty,#integration-activity,#notification,#audio,#drop');
-    const groups=selected?[...selected].filter(target=>target.getBoundingClientRect().width>0):[];
+    const groups=selected?[...selected].filter(target=>target.getBoundingClientRect().width>0&&!target.closest?.('[data-choreography-exiting=true]')):[];
     return groups.length?groups:[this.panel];
   }
 
   async to(expanded:boolean,reduced:boolean):Promise<void> {
+    const previousGroups=this.previousGroups;this.previousGroups=undefined;
     this.cancel();const own=this.revision;
     const oldLayout=this.island.getBoundingClientRect();
     const nativeState=this.native?.snapshot?.();
@@ -176,18 +179,20 @@ export class IslandMotion {
       this.velocity=zero();this.tracks=undefined;
     };
     const stationary=Math.abs(before.width-after.width)+Math.abs(before.height-after.height)+Math.abs(before.radius-after.radius)<.001&&Object.values(this.velocity).every(value=>Math.abs(value)<.01);
-    if(reduced||document.hidden||stationary){await finish();return;}
+    const contentGroups=this.groups();
+    const changedContent=previousGroups&&contentGroups.some(group=>!previousGroups.has(group));
+    if(reduced||document.hidden||stationary&&!changedContent){await finish();return;}
 
     const geometry=this.island.animate(this.nativeMask?[{},{}]:points.map((p,i)=>({clipPath:mask(layout,p.shape),offset:offsets[i]})),{duration,easing:'linear',fill:'both'});
     this.clock=geometry;
     const ownAnimations=[geometry];
     const progress=(value:Geometry)=>Math.min(clamp((value.width-112)/Math.max(1,target.width-112),0,1),clamp((value.height-34)/Math.max(1,target.height-34),0,1));
-    for(const group of this.groups()){
+    for(const group of contentGroups){
       this.base.set(group,{opacity:group.style.opacity,transform:group.style.transform,origin:group.style.transformOrigin});
       const previous=frozen.get(group);
       const secondary=group.id==='activity-footer'||group.classList?.contains('media-controls');
       const phase=(p:number)=>smoothStep((p-(secondary?.38:.12))/(secondary?.48:.58));
-      const first=previous?.opacity??(wasExpanded?1:phase(progress(before)));
+      const first=previous?.opacity??(wasExpanded?(previousGroups&&!previousGroups.has(group)?0:1):phase(progress(before)));
       const end=expanded?1:0;
       const firstPhase=phase(progress(before)),lastPhase=phase(progress(after));
       const frames=points.map((point,i)=>{

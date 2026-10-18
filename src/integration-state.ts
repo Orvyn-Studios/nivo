@@ -31,7 +31,7 @@ export class IntegrationInbox {
       if (this.agents.size > 8) this.agents.delete(this.agents.keys().next().value!);
       if (event.status === 'working' || event.status === 'waiting') return [];
       return [{ id: `agent:${event.taskId}:${event.status}`, kind: 'agent', source: 'Codex', groupKey: `agent:${event.taskId}`,
-        title: event.status === 'review' ? 'Revisión necesaria' : event.status === 'complete' ? 'Codex ha terminado' : 'La tarea ha fallado',
+        title: event.status === 'review' ? 'Revisión necesaria' : event.status === 'complete' ? 'Turno de Codex finalizado' : 'Codex ha informado de un error',
         body: event.status === 'review' ? 'Responde a la solicitud en Codex.' : '',
         priority: event.status === 'review' ? 'critical' : 'high', reaction: event.status === 'review' ? 'attention' : event.status === 'complete' ? 'complete' : 'error' }];
     }

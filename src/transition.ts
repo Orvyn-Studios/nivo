@@ -20,7 +20,8 @@ export interface TransitionController {
  * Resize is serialized, while an obsolete animation can be cancelled immediately.
  * Callers resolve to the final confirmed window state, including after a failure.
  * commit updates presentation state; animate owns the animated geometry. Only the
- * stable expanded panel is interactive. The compact trigger remains interactive.
+ * prepared expanded panel is interactive during its finite animation. Native
+ * hit testing remains limited to the painted region. Closing disables controls.
  */
 export function createTransitionController(
   dependencies: TransitionDependencies,
@@ -92,6 +93,7 @@ export function createTransitionController(
         }
         if (desired && nativeExpanded) {
           commit(true);
+          dependencies.setInteractive(true);
           const outcome = await animate(true);
           if (outcome === 'interrupted' || !desired) continue;
           // Failed animation retains the confirmed expanded native window.

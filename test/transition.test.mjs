@@ -53,6 +53,13 @@ function adapter(overrides = {}) {
   return { dependencies, events, errors };
 }
 
+test('prepared controls remain usable while opening animation is still pending',async()=>{
+ const hold=deferred();const{dependencies,events}=adapter({animate:()=>hold.promise});const controller=createTransitionController(dependencies);
+ const operation=controller.set(true);await tick();
+ assert.deepEqual(events.at(-1),['interactive',true]);assert.equal(controller.expanded,true);
+ hold.resolve();assert.equal(await operation,true);
+});
+
 test('opening enlarges the native window before content; closing shrinks it after animation', async () => {
   const { dependencies, events } = adapter();
   const controller = createTransitionController(dependencies);

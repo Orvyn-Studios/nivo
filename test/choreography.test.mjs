@@ -5,11 +5,13 @@ function fixture(){
  const saved=new Map(['document','getComputedStyle'].map(k=>[k,Object.getOwnPropertyDescriptor(globalThis,k)]));
  globalThis.document={hidden:false};globalThis.getComputedStyle=node=>({opacity:String(node.opacity)});
  const animations=[];
- const node={textContent:'Archivo',opacity:1,left:20,top:60,width:100,height:40,
-  getBoundingClientRect(){return{left:this.left,top:this.top,width:this.width,height:this.height}},
+ const attributes=new Map();
+ const node={textContent:'Archivo',opacity:1,left:20,top:60,width:100,height:40,hidden:false,inert:false,dataset:{},style:{},
+  getAttribute(k){return attributes.get(k)??null},setAttribute(k,v){attributes.set(k,v)},removeAttribute(k){attributes.delete(k)},
+  getBoundingClientRect(){return{left:this.left,top:this.top,width:this.hidden?0:this.width,height:this.hidden?0:this.height}},
   animate(frames,options){let resolve,reject;const finished=new Promise((a,b)=>{resolve=a;reject=b});
    const a={frames,options,finished,cancelled:false,cancel(){this.cancelled=true;reject(new Error('cancel'))},finish:resolve};animations.push(a);return a;}};
- const root={querySelectorAll:()=>[node],getBoundingClientRect:()=>({width:352})};let reduced=false;
+ const root={scrollLeft:0,scrollTop:0,querySelectorAll:()=>[node],getBoundingClientRect:()=>({width:352,left:0,top:0})};let reduced=false;
  return{node,animations,engine:createChoreography(root,()=>reduced),reduce(){reduced=true},restore(){for(const[k,v]of saved)if(v)Object.defineProperty(globalThis,k,v);else delete globalThis[k]}};
 }
 test('shared content retargets from the composited position and cancels the previous leg',async()=>{
@@ -31,4 +33,13 @@ test('hidden, reduced and disposed choreography retains no animation work',()=>{
   document.hidden=true;f.engine.change(()=>{f.node.top=100});assert.equal(f.animations.length,1);
   f.engine.dispose();f.engine.change(()=>{f.node.top=200});assert.equal(f.node.top,100);
  }finally{f.restore()}
+});
+test('outgoing controls are inert, leave flow immediately and cannot hide a reversed state later',async()=>{
+ const f=fixture();try{
+  f.engine.change(()=>{f.node.hidden=true});assert.equal(f.node.hidden,false);assert.equal(f.node.inert,true);assert.equal(f.node.style.position,'absolute');
+  assert.equal(f.node.getAttribute('aria-hidden'),'true');
+  f.engine.change(()=>{f.node.hidden=false});await Promise.resolve();await Promise.resolve();
+  assert.equal(f.node.hidden,false);assert.equal(f.node.inert,false);assert.equal(f.node.getAttribute('aria-hidden'),null);
+  f.engine.change(()=>{f.node.hidden=true});f.engine.settle();assert.equal(f.node.hidden,true);assert.equal(f.node.inert,false);
+ }finally{f.engine.dispose();f.restore()}
 });

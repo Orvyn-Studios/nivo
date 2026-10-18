@@ -21,6 +21,7 @@ import { contextGeometry, type Context } from './geometry.ts';
 import { icon, mountIcons } from './components/icons.ts';
 import {createGithubView} from './components/github.ts';
 import {emptyGithub,type GithubSnapshot,type GithubNotice} from './github-state.ts';
+import {createChoreography} from './choreography.ts';
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -31,6 +32,9 @@ const island = element('island');
 const panel = element('island-panel');
 const toggle = element<HTMLButtonElement>('toggle');
 const systemMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let renderedContext='',suppressContextMotion=false;
+const contentMotion=createChoreography(panel.querySelector<HTMLElement>('.panel-scroll')!,()=>shouldReduceMotion(state.preferences,systemMotion.matches),'[data-context-panel]',false);
+for(const id of ['activity','audio','drop','github','notification'])element(id).dataset.contextPanel=id;
 let state = createIslandState();
 let clockTimeout: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
@@ -101,7 +105,7 @@ const githubView=createGithubView({reduced:()=>shouldReduceMotion(state.preferen
 function openGithub(){if(state.base.kind!=='expanded'||state.base.view!=='github')githubReturn=state.base;githubView.render(githubSnapshot,state.preferences.privacy_mode);dispatch({type:'expand',view:'github'});}
 function receiveGithub(snapshot:GithubSnapshot,notices:GithubNotice[]=[]){
  if(snapshot.revision<githubSnapshot.revision)return;githubSnapshot=snapshot;githubView.render(snapshot,state.preferences.privacy_mode);
- if(!snapshot.options.enabled||!snapshot.options.notifications){dispatch({type:'cancel-event-group',groupKey:'github',now:Date.now()});return;}
+ if(!snapshot.options.enabled||!snapshot.options.notifications){suppressContextMotion=true;dispatch({type:'cancel-event-group',groupKey:'github',now:Date.now()});return;}
  for(const n of notices)dispatch({type:'notify',now:Date.now(),notification:{id:n.id,source:'GitHub',title:n.title,body:n.body,kind:'system',sensitive:true,groupKey:'github',priority:n.failure?'high':'normal',reaction:n.failure?'error':'attention',action:{provider:'github',id:n.actionId,label:n.actionLabel}}});
 }
 function restoreDrop():void{
@@ -111,6 +115,7 @@ function restoreDrop():void{
 mountIcons();
 
 function applyPreferences(preferences: Preferences): void {
+  suppressContextMotion=true;contentMotion.settle();
   githubView.render(githubSnapshot,preferences.privacy_mode);
   motion.captureLayout(); geometryDirty = true;
   integrationOptOut = !preferences.integrations_enabled;
@@ -229,7 +234,14 @@ const transition = createTransitionController({
   },
 });
 
-function render(): void {
+function render():void{
+ const key=state.notification?`notice:${state.notification.notification.kind}`:state.base.kind==='compact'?'compact':`${state.base.view}:${state.base.view==='activity'?(activeMedia(mediaInbox.snapshot)?'music':[...integrationInbox.downloads.values()].some(v=>v.state==='active')?'downloads':[...integrationInbox.agents.values()].some(v=>v==='working')?'agent':'summary'):''}`;
+ if(suppressContextMotion||state.hidden||document.hidden){contentMotion.settle();renderContent();suppressContextMotion=false;}
+ else if(key!==renderedContext){motion.captureContent();contentMotion.change(renderContent);}
+ else renderContent();
+ renderedContext=key;
+}
+function renderContent(): void {
   mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden);
   syncCompanion();
   if (mediaDirty) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
@@ -321,6 +333,7 @@ function dispatch(event: IslandEvent): void {
   if(state===previous&&!geometryDirty&&!mediaDirty&&!integrationsDirty)return;
   if(shouldReduceMotion(state.preferences,systemMotion.matches)||state.hidden||document.hidden)dropView.settle();
   if(shouldReduceMotion(state.preferences,systemMotion.matches)||state.hidden||document.hidden)githubView.settle();
+  if(shouldReduceMotion(state.preferences,systemMotion.matches)||state.hidden||document.hidden)contentMotion.settle();
   mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden);
   if (state.hidden || document.hidden) syncCompanion();
   if (!state.hidden && !document.hidden) render();
@@ -387,6 +400,7 @@ window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: '
 window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle();dropView.settle(); syncCompanion(); });
 window.addEventListener('beforeunload',()=>unlistenActionProgress?.());
 window.addEventListener('beforeunload',()=>{unlistenGithub?.();unlistenGithubOpen?.();githubView.dispose()});
+window.addEventListener('beforeunload',()=>contentMotion.dispose());
 window.addEventListener('beforeunload', () => { unlistenCursor?.(); unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); unlistenDrop?.(); unlistenDisplays?.(); eventCompanion.dispose(); agentCompanion.dispose();dropCompanion.dispose(); dropView.dispose(); audioView.dispose(); mediaView.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.

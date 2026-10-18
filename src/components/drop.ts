@@ -60,9 +60,9 @@ export function createDropView(options:{
       const title=document.createElement('h2');title.textContent=privacy?`Archivo ${index+1}`:file.name;title.title=title.textContent;
       const detail=document.createElement('p');detail.className='detail-note';detail.textContent=`${kind.label} · ${formatBytes(file.size)}`;
       copy.append(title,detail);heading.append(mark,copy);row.append(heading);
-      const actions=document.createElement('div');actions.className='drop-actions';
+      const actions=document.createElement('div');actions.className='drop-actions';actions.dataset.choreography='secondary';
       actions.append(button('copyPath','Copiar ruta',file.id),button('openFolder','Ver carpeta',file.id));
-      const more=document.createElement('details');more.className='drop-more';
+      const more=document.createElement('details');more.className='drop-more';more.dataset.choreography='more';
       const summary=document.createElement('summary');summary.textContent='Más acciones';
       more.append(summary,button('copy',FILE_ACTIONS.find(a=>a.id==='copy')!.name,file.id));
       more.addEventListener('toggle',()=>options.changed(),{signal:listeners.signal});
