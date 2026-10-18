@@ -2,7 +2,7 @@
 
 Isla de escritorio para Windows, independiente de StarOptimizer. Tauri 2 + Rust + TypeScript + Vite, sin framework de interfaz ni servicios externos. Versión de desarrollo `0.1.0-alpha.1`; todavía no es una beta validada.
 
-Repositorio de Nivo: [SnoW-099/nivo](https://github.com/SnoW-099/nivo). El desarrollo continúa en `feature/nivo-mvp`. Los cambios de Nivo se guardan en este repositorio independiente; las releases requieren autorización y aceptación nativa.
+Repositorio de Nivo: [Orvyn-Studios/nivo](https://github.com/Orvyn-Studios/nivo). El desarrollo continúa en `feature/nivo-mvp`. Los cambios de Nivo se guardan en este repositorio independiente; las releases requieren autorización y aceptación nativa.
 
 La primera subida se realizó mediante el conector de GitHub, con autorización para inicializar el repositorio vacío. El historial local se conserva y los commits remotos de importación tienen SHA diferentes. Consulta [la importación y sincronización](docs/GITHUB_IMPORT.md) antes de reconciliar ambas historias.
 

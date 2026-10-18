@@ -2,12 +2,12 @@
 
 Actualización de la iteración en la torre: `work/nivo` es una copia clonada de la rama remota de desarrollo. Los cambios actuales descienden de `d1b794d` y se sincronizan por avance normal, sin forzar referencias. El relato siguiente documenta la importación original; no exige reconciliar de nuevo esta copia ya basada en el remoto ni reemplazar el historial original conservado.
 
-El 17 de octubre de 2026 el usuario autorizó inicializar el repositorio vacío `SnoW-099/nivo` con un README en `main` y subir el código a `feature/nivo-mvp` mediante el conector de GitHub. Git en la terminal de esta sesión no podía conectar con `github.com:443`.
+El 17 de octubre de 2026 el usuario autorizó inicializar el repositorio vacío `Orvyn-Studios/nivo` con un README en `main` y subir el código a `feature/nivo-mvp` mediante el conector de GitHub. Git en la terminal de esta sesión no podía conectar con `github.com:443`.
 
 ## Evidencia de la copia
 
-- Repositorio: [SnoW-099/nivo](https://github.com/SnoW-099/nivo).
-- Rama del código: [feature/nivo-mvp](https://github.com/SnoW-099/nivo/tree/feature/nivo-mvp).
+- Repositorio: [Orvyn-Studios/nivo](https://github.com/Orvyn-Studios/nivo).
+- Rama del código: [feature/nivo-mvp](https://github.com/Orvyn-Studios/nivo/tree/feature/nivo-mvp).
 - Inicialización de `main`: `2be558d0483939ae8d872718d38d5531626a83de`, únicamente un README que apunta a la rama de desarrollo.
 - Commit local de origen: `efa507dca0bf85bbbd8bf98a3add1f2cd04a452d`.
 - Commit remoto de importación: `1918e81690603788b2ab6d185b480911fda60b4f`.
@@ -30,4 +30,4 @@ El workflow manual está en la rama de desarrollo; `main` solo contiene el READM
 
 Posteriormente, el usuario autorizó ejecutar validación Windows en GitHub Actions para `feature/nivo-mvp`. Se añadió un disparador `push` limitado a esa rama y a cambios de código/configuración. Este disparador evita depender de la inicialización de workflows manuales en `main`. Se conservan logs e informes; no se publican ejecutables ni releases automáticamente. La autorización de CI no acredita por sí misma que una ejecución haya comenzado o pasado.
 
-La ejecución [38983446431](https://github.com/SnoW-099/nivo/actions/runs/38983446431) terminó fallida en cuatro segundos: `runner_id=0`, ningún paso ejecutado y una anotación cuyo texto no expuso el conector. El usuario informó de un problema de facturación y pidió usar pruebas locales. Se retiró el disparador `push`; el workflow queda manual y no se volverá a ejecutar por iniciativa del agente.
+La ejecución [38983446431](https://github.com/Orvyn-Studios/nivo/actions/runs/38983446431) terminó fallida en cuatro segundos: `runner_id=0`, ningún paso ejecutado y una anotación cuyo texto no expuso el conector. El usuario informó de un problema de facturación y pidió usar pruebas locales. Se retiró el disparador `push`; el workflow queda manual y no se volverá a ejecutar por iniciativa del agente.

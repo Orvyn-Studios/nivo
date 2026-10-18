@@ -14,7 +14,7 @@ Los apartados siguientes conservan el plan inicial y no sustituyen este estado n
 
 ## 1. Base independiente — preparada
 
-Repositorio independiente [SnoW-099/nivo](https://github.com/SnoW-099/nivo), rama `feature/nivo-mvp`, shell Tauri, vista web y controlador de apertura, preferencias de movimiento, comandos acotados y pruebas Node. La música y las notificaciones se muestran como no conectadas. El código ya está subido; no se ha publicado un binario ni una release.
+Repositorio independiente [Orvyn-Studios/nivo](https://github.com/Orvyn-Studios/nivo), rama `feature/nivo-mvp`, shell Tauri, vista web y controlador de apertura, preferencias de movimiento, comandos acotados y pruebas Node. La música y las notificaciones se muestran como no conectadas. El código ya está subido; no se ha publicado un binario ni una release.
 
 ## 2. Aceptación de la ventana nativa — siguiente paso
 

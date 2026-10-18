@@ -56,7 +56,7 @@ Esta build contiene el compañero propio y las nuevas animaciones. Su aceptació
 
 Los puntos siguientes describen la validación anterior, antes de estas correcciones de diseño.
 
-- Rama `feature/nivo-mvp`, repositorio independiente `SnoW-099/nivo`. Sin cambios en StarOptimizer, `main`, políticas de Windows o releases. Actions permanece manual por petición del usuario.
+- Rama `feature/nivo-mvp`, repositorio independiente `Orvyn-Studios/nivo`. Sin cambios en StarOptimizer, `main`, políticas de Windows o releases. Actions permanece manual por petición del usuario.
 - Node 24.20.0; Rust/Cargo 1.99.1 MSVC. `npm run verify:web`: **53 aprobadas, 0 fallos, 0 omitidas**, tipos y build Vite aprobados. Incluye doce pruebas de contrato/bandeja de entrada multimedia y dos de validación de pantallas.
 - `cargo test --locked --offline --manifest-path src-tauri/Cargo.toml`: **39 aprobadas**, ejecutadas como binario de tests Windows. Compila la integración Tauri completa, no solo módulos aislados. El bloqueo anterior `schemars_derive.dll`/4551 no se reprodujo; no se modificaron protecciones para obtener este resultado.
 - `cargo clippy --locked --offline --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`: aprobado tras corregir la comprobación de longitud par del registro. Rustfmt y `git diff --check` aprobados.
