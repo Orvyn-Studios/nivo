@@ -6,7 +6,8 @@ function fixture(){
  globalThis.document={hidden:false};globalThis.getComputedStyle=node=>({opacity:String(node.opacity)});
  const animations=[];
  const attributes=new Map();
- const node={textContent:'Archivo',opacity:1,left:20,top:60,width:100,height:40,hidden:false,inert:false,dataset:{},style:{},
+ const styleKey=k=>k.replace(/-([a-z])/g,(_,c)=>c.toUpperCase());
+ const node={textContent:'Archivo',opacity:1,left:20,top:60,width:100,height:40,hidden:false,inert:false,dataset:{},style:{getPropertyValue(k){return this[styleKey(k)]??''},getPropertyPriority(){return''},setProperty(k,v){this[styleKey(k)]=v},removeProperty(k){delete this[styleKey(k)]}},
   getAttribute(k){return attributes.get(k)??null},setAttribute(k,v){attributes.set(k,v)},removeAttribute(k){attributes.delete(k)},
   getBoundingClientRect(){return{left:this.left,top:this.top,width:this.hidden?0:this.width,height:this.hidden?0:this.height}},
   animate(frames,options){let resolve,reject;const finished=new Promise((a,b)=>{resolve=a;reject=b});
@@ -40,6 +41,6 @@ test('outgoing controls are inert, leave flow immediately and cannot hide a reve
   assert.equal(f.node.getAttribute('aria-hidden'),'true');
   f.engine.change(()=>{f.node.hidden=false});await Promise.resolve();await Promise.resolve();
   assert.equal(f.node.hidden,false);assert.equal(f.node.inert,false);assert.equal(f.node.getAttribute('aria-hidden'),null);
-  f.engine.change(()=>{f.node.hidden=true});f.engine.settle();assert.equal(f.node.hidden,true);assert.equal(f.node.inert,false);
+  f.engine.change(()=>{f.node.hidden=true});f.node.style.opacity='.42';f.engine.settle();assert.equal(f.node.hidden,true);assert.equal(f.node.inert,false);assert.equal(f.node.style.opacity,'.42','cleanup must not restore stale properties owned by the surface engine');
  }finally{f.engine.dispose();f.restore()}
 });

@@ -34,10 +34,11 @@ export function createChoreography(root:HTMLElement,reduced:()=>boolean,selector
           // Reuse the outgoing node for a short inert fade. It leaves normal
           // layout immediately, so real progress/results never wait behind it.
           if(!old||old.exiting||!node.hidden)continue;
-          const style=node.getAttribute('style'),inert=node.inert,aria=node.getAttribute('aria-hidden');
+          const properties=['position','left','top','width','height','pointer-events'];
+          const style=properties.map(key=>({key,value:node.style.getPropertyValue(key),priority:node.style.getPropertyPriority(key)})),inert=node.inert,aria=node.getAttribute('aria-hidden');
           node.hidden=false;node.inert=true;node.setAttribute('aria-hidden','true');node.dataset.choreographyExiting='true';
           Object.assign(node.style,{position:'absolute',left:`${old.left-bounds.left+root.scrollLeft}px`,top:`${old.top-bounds.top+root.scrollTop}px`,width:`${old.width}px`,height:`${old.height}px`,pointerEvents:'none'});
-          const release=()=>{node.hidden=true;node.inert=inert;if(style===null)node.removeAttribute('style');else node.setAttribute('style',style);if(aria===null)node.removeAttribute('aria-hidden');else node.setAttribute('aria-hidden',aria);delete node.dataset.choreographyExiting;};
+          const release=()=>{node.hidden=true;node.inert=inert;for(const p of style){if(p.value)node.style.setProperty(p.key,p.value,p.priority);else node.style.removeProperty(p.key);}if(aria===null)node.removeAttribute('aria-hidden');else node.setAttribute('aria-hidden',aria);delete node.dataset.choreographyExiting;};
           releases.set(node,release);
           const animation=node.animate([{opacity:old.opacity,transform:'translateY(0px)'},{opacity:0,transform:'translateY(-2px)'}],{...choreographyProfiles.dismiss,duration:120});active.set(node,animation);
           void animation.finished.catch(()=>undefined).then(()=>{if(active.get(node)!==animation)return;active.delete(node);releases.delete(node);release();});
