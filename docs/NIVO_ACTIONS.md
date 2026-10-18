@@ -23,3 +23,23 @@ Se conservan/restauran intención anterior y sesión musical al cancelar el arra
 Verificación intermedia: 85 Node, 55 Rust y una ignorada, typecheck, Clippy y las suites generales/musicales. Cinco capturas de acciones con fixtures explícitos: arrastre, archivo, progreso medido, resultado y cancelación. Las pruebas de Rust crean un ZIP Deflate real, comprueban tamaño reducido, Unicode, lectura de contenido, rechazo de sobrescritura, revocación y limpieza al cancelar. La prueba UI asegura restauración musical sin comandos multimedia. La aceptación nativa OLE/selector de esta fase está pendiente; no se confunde con un arrastre desde Explorador.
 
 Los flujos de correo básicos solo preparan el cliente: nunca afirman adjuntar con mailto ni enviar. Compartir usa únicamente mecanismos oficiales compatibles y una acción deliberada. Las APIs avanzadas de correo y OAuth requieren sus propios consentimientos; no se transmiten archivos durante pruebas.
+
+## Correo básico y continuidad
+
+«Más acciones → Redactar correo» abre un compositor dentro de la isla: destinatario,
+asunto y mensaje escritos por el usuario. El comando nativo valida tamaños y evita
+inyección de cabeceras, escapa UTF-8 y abre exclusivamente un URI mailto. La UI
+indica antes de abrir que el archivo debe adjuntarse manualmente; no adjunta, envía
+ni confirma entrega. No se guardan borradores ni se consultan cuentas de correo.
+El botón de compartir permanece ausente hasta tener una implementación oficial
+probada; no hay una acción vacía que prometa compartir. Correo avanzado pendiente.
+
+Abrir la carpeta del resultado recupera ahora el contexto anterior, como Listo.
+Durante el cierre normal se impiden nuevos trabajos, se solicita cancelación y se
+esperan hasta dos segundos para la limpieza. Un cierre forzado o disco bloqueado
+puede interrumpir esa limpieza; no se promete eliminar parciales tras matar el proceso.
+
+La coreografía y las nuevas pruebas se detallan en LIVING_ISLAND.md y la integración
+de GitHub en GITHUB_INTEGRATION.md. El arnés OLE experimental no ha completado su
+arrastre en esta sesión; su fallo se registra y no se interpreta como aceptación
+de Explorer, del selector nativo o del flujo ZIP completo del ejecutable.

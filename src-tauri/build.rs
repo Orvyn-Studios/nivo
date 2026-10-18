@@ -18,6 +18,7 @@ fn main() {
             "get_power_snapshot",
             "get_drop_snapshot",
             "drop_action",
+            "open_mail_draft",
             "cancel_drop_action",
             "get_github_snapshot",
             "get_github_connection",

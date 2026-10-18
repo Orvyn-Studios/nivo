@@ -18,6 +18,7 @@ export const isNative = Boolean(core);
 let surfaceEpoch = 0;
 let surfaceSnapshot: SurfaceSnapshot | undefined;
 export const bridge = {
+  openMailDraft:(draft:{recipient:string;subject:string;body:string})=>core?.invoke<void>('open_mail_draft',{draft})??Promise.reject(new Error('Requiere Nivo para Windows.')),
   onGithubOpen:(handler:()=>void):Promise<()=>void>=>core?window.__TAURI__!.event.listen('nivo://github-open',handler,{target:'island'}):Promise.resolve(()=>{}),
   github:async():Promise<GithubSnapshot>=>{const value=core?await core.invoke('get_github_snapshot'):undefined;if(value===undefined)return emptyGithub();const state=parseGithub(value);if(!state)throw new Error('Estado de GitHub no válido.');return state;},
   githubConnection:async():Promise<GithubConnection>=>{const value=core?await core.invoke('get_github_connection'):undefined;if(value===undefined)return{snapshot:emptyGithub(),repositories:[],truncated:false};const state=parseGithubConnection(value);if(!state)throw new Error('Conexión de GitHub no válida.');return state;},

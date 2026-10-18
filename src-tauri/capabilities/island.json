@@ -19,6 +19,7 @@
     "allow-get-power-snapshot",
     "allow-get-drop-snapshot",
     "allow-drop-action",
+    "allow-open-mail-draft",
     "allow-cancel-drop-action",
     "allow-get-github-snapshot",
     "allow-refresh-github",

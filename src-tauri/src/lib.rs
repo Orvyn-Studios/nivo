@@ -9,6 +9,7 @@ mod fullscreen;
 mod github;
 mod instance;
 mod integration;
+mod mail;
 mod media;
 mod placement;
 mod platform;
@@ -319,6 +320,26 @@ fn get_drop_snapshot(
 }
 
 #[tauri::command]
+fn open_mail_draft(
+    window: WebviewWindow,
+    draft: mail::Draft,
+    settings: State<SettingsStore>,
+) -> Result<(), String> {
+    window::require_island(&window)?;
+    if !settings.snapshot()?.drop_enabled {
+        return Err("Nivo Drop está desactivado.".into());
+    }
+    #[cfg(windows)]
+    let owner = window
+        .hwnd()
+        .map_err(|_| "No se pudo identificar la ventana de Nivo.")?
+        .0 as isize;
+    #[cfg(not(windows))]
+    let owner = 0;
+    mail::open(draft, owner)
+}
+
+#[tauri::command]
 async fn drop_action(
     window: WebviewWindow,
     files: State<'_, Arc<drop_files::DropFiles>>,
@@ -465,6 +486,7 @@ pub fn run() {
             get_power_snapshot,
             get_drop_snapshot,
             drop_action,
+            open_mail_draft,
             cancel_drop_action,
             get_github_snapshot,
             get_github_connection,

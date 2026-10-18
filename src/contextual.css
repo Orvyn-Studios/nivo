@@ -147,3 +147,9 @@ body #island .github-calendar button[data-level="2"] { background:rgb(184 212 25
 body #island .github-calendar button[data-level="3"] { background:rgb(184 212 255 / 65%) }
 body #island .github-calendar button[data-level="4"] { background:rgb(184 212 255 / 90%) }
 body #island #notification-action { margin-top:8px }
+body #island #drop-mail { display:grid; gap:4px; margin-top:8px }
+body #island #drop-mail label { display:grid; gap:2px; font-size:10px; line-height:12px; color:var(--muted) }
+body #island #drop-mail input,body #island #drop-mail textarea { height:24px; min-height:24px; width:100%; border:1px solid var(--line); border-radius:7px; padding:4px 8px; background:var(--surface); color:var(--text); font:inherit; font-size:12px; line-height:14px; resize:none }
+body #island #drop-mail textarea { height:34px }
+body #island #drop-mail .detail-note { font-size:10px; line-height:14px; margin:2px 0 }
+body #island #drop-mail .text-action { min-height:26px }

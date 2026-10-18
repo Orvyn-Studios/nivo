@@ -96,7 +96,7 @@ const dropFace=eventFace.cloneNode(true) as SVGElement;dropFace.id='drop-compani
 element('drop').querySelector('.section-heading')!.prepend(dropFace);
 const dropCompanion=createCompanion(dropFace,element('drop'),companionInput);
 const companions = [companion, welcomeCompanion, eventCompanion, agentCompanion,dropCompanion];
-const dropView = createDropView({run:bridge.dropAction,cancel:bridge.cancelDropAction,close:restoreDrop,reduced:()=>shouldReduceMotion(state.preferences,systemMotion.matches),changed:()=>{
+const dropView = createDropView({run:bridge.dropAction,cancel:bridge.cancelDropAction,mail:bridge.openMailDraft,close:restoreDrop,reduced:()=>shouldReduceMotion(state.preferences,systemMotion.matches),changed:()=>{
   if(state.base.kind==='expanded'&&state.base.view==='drop'){motion.captureLayout();geometryDirty=true;dispatch({type:'advance',now:Date.now()});}
 }});
 const githubView=createGithubView({reduced:()=>shouldReduceMotion(state.preferences,systemMotion.matches),close:()=>{
@@ -390,14 +390,14 @@ element('notification-action').addEventListener('click',()=>{
  const action=state.notification?.notification.action;if(!action)return;
  void bridge.openGithubItem(action.id).then(()=>dispatch({type:'dismiss-notification',now:Date.now()})).catch(report);
 });
-systemMotion.addEventListener('change', () => { if (systemMotion.matches) {motion.settle();dropView.settle();} mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden); syncCompanion(); });
+systemMotion.addEventListener('change', () => { if (systemMotion.matches) {motion.settle();dropView.settle();githubView.settle();contentMotion.settle();} mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden); syncCompanion(); });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {motion.settle();dropView.settle();}
+  if (document.hidden) {motion.settle();dropView.settle();githubView.settle();contentMotion.settle();}
   dispatch({ type: 'advance', now: Date.now() });
 });
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
-window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle();dropView.settle(); syncCompanion(); });
+window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle();dropView.settle();githubView.settle();contentMotion.settle(); syncCompanion(); });
 window.addEventListener('beforeunload',()=>unlistenActionProgress?.());
 window.addEventListener('beforeunload',()=>{unlistenGithub?.();unlistenGithubOpen?.();githubView.dispose()});
 window.addEventListener('beforeunload',()=>contentMotion.dispose());

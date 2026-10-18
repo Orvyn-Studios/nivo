@@ -2,11 +2,13 @@ import type {DroppedFile,DropAction} from '../drop-state.ts';
 import {FILE_ACTIONS,actionFraction,fileKind,formatBytes,type ActionProgress,type ActionResult} from '../actions.ts';
 import {icon} from './icons.ts';
 import {createChoreography} from '../choreography.ts';
+import {createMailComposer} from './mail.ts';
 
 export function createDropView(options:{
   run(action:DropAction,id?:string):Promise<ActionResult>;
   cancel(operationId:string):Promise<boolean>; changed():void; close():void;
   reduced():boolean;
+  mail(draft:{recipient:string;subject:string;body:string}):Promise<void>;
 }){
   const root=document.getElementById('drop')!;
   const list=document.getElementById('drop-list')!;
@@ -27,11 +29,13 @@ export function createDropView(options:{
   let output:DroppedFile|null=null,stage:'drag'|'files'|'running'|'result'|'error'='drag';
   let revision=0,closeRequested=false,disposed=false,cancelled=false;
   let paintedStage:'drag'|'files'|'running'|'result'|'error'='drag';
+  let composing=false;
+  const composer=createMailComposer(root,{open:options.mail,back:()=>{composing=false;update()},done:()=>{composing=false;update();options.close()}});
   function update(){
     const changed=paintedStage!==stage;
     const paint=()=>{
     root.dataset.stage=stage;root.setAttribute('aria-busy',String(busy));
-    list.hidden=stage==='drag';operation.hidden=stage!=='running';result.hidden=stage!=='result'&&stage!=='error';
+    list.hidden=stage==='drag'||composing;composer.form.hidden=!composing;operation.hidden=stage!=='running';result.hidden=stage!=='result'&&stage!=='error';
     for(const [index,row] of [...list.children].entries()){
       (row as HTMLElement).hidden=stage!=='files'&&index>0;
       const title=row.querySelector('h2')!,detail=row.querySelector('.detail-note')!;
@@ -39,7 +43,7 @@ export function createDropView(options:{
       if(file){title.textContent=privacy?`Archivo ${index+1}`:file.name;detail.textContent=`${fileKind(file.name).label} · ${formatBytes(file.size)}`;}
       for(const control of row.querySelectorAll<HTMLElement>('.drop-actions,.drop-more'))control.hidden=stage!=='files';
     }
-    zip.hidden=stage!=='files';zip.disabled=busy||!files.length;
+    zip.hidden=stage!=='files'||composing;zip.disabled=busy||!files.length;
     for(const button of list.querySelectorAll('button'))button.disabled=busy;
     options.changed();
     };
@@ -65,6 +69,7 @@ export function createDropView(options:{
       const more=document.createElement('details');more.className='drop-more';more.dataset.choreography='more';
       const summary=document.createElement('summary');summary.textContent='Más acciones';
       more.append(summary,button('copy',FILE_ACTIONS.find(a=>a.id==='copy')!.name,file.id));
+      const email=document.createElement('button');email.type='button';email.className='text-action';email.textContent='Redactar correo…';email.onclick=()=>{if(!busy){choreography.change(()=>{composing=true;status.textContent='Borrador de correo';update()})}};more.append(email);
       more.addEventListener('toggle',()=>options.changed(),{signal:listeners.signal});
       row.append(actions,more);list.append(row);
     }
@@ -95,6 +100,7 @@ export function createDropView(options:{
     }
   }
   async function requestCancel(close=false){
+    if(composing){composing=false;composer.clear();update();return;}
     if(!busy){options.close();return;}
     closeRequested ||=close;
     if(!operationId)return;
@@ -110,15 +116,15 @@ export function createDropView(options:{
   document.getElementById('drop-back')!.addEventListener('click',()=>void requestCancel(true),{signal:listeners.signal});
   document.getElementById('drop-done')!.addEventListener('click',()=>options.close(),{signal:listeners.signal});
   retry.addEventListener('click',()=>{stage='files';status.textContent='Elige otra acción o destino.';update();},{signal:listeners.signal});
-  folder.addEventListener('click',()=>{if(output)void options.run('openFolder',output.id).then(v=>{status.textContent=v.message;}).catch(error=>{status.textContent=String(error).slice(0,280);});},{signal:listeners.signal});
+  folder.addEventListener('click',()=>{if(output)void options.run('openFolder',output.id).then(v=>{status.textContent=v.message;options.close();}).catch(error=>{status.textContent=String(error).slice(0,280);});},{signal:listeners.signal});
   return{
     get busy(){return busy;},get stage(){return stage;},
     get reaction():'working'|'complete'|'error'|'attention'{return stage==='running'?'working':stage==='result'&&!cancelled?'complete':stage==='error'?'error':'attention';},
-    height(){return stage==='drag'?152:stage==='running'?248:stage==='result'||stage==='error'?284:Math.min(300,files.length>1?300:list.querySelector('details[open]')?300:264);},
+    height(){return composing?320:stage==='drag'?152:stage==='running'?248:stage==='result'||stage==='error'?284:Math.min(300,files.length>1?300:list.querySelector('details[open]')?300:264);},
     settle(){choreography.settle();},
     render(value:DroppedFile[],privateMode:boolean){
       const key=JSON.stringify(value),changed=key!==signature;
-      if(changed){if(operationId)void options.cancel(operationId).catch(()=>{});revision++;busy=false;operationId=undefined;closeRequested=false;signature=key;files=value;stage=value.length?'files':'drag';output=null;}
+      if(changed){if(operationId)void options.cancel(operationId).catch(()=>{});revision++;busy=false;operationId=undefined;closeRequested=false;signature=key;files=value;stage=value.length?'files':'drag';output=null;composing=false;composer.clear();}
       if(changed||privacy!==privateMode){privacy=privateMode;rows();}
       if(changed)status.textContent=value.length?`${value.length} archivo${value.length===1?'':'s'} · originales intactos`:'Suelta archivos sobre la isla.';
       update();
@@ -132,6 +138,6 @@ export function createDropView(options:{
       if(closeRequested&&value.cancellable)void requestCancel(true);
     },
     close(){void requestCancel(true);},
-    dispose(){disposed=true;revision++;choreography.dispose();if(operationId)void options.cancel(operationId).catch(()=>{});listeners.abort();},
+    dispose(){disposed=true;revision++;choreography.dispose();composer.clear();composer.dispose();if(operationId)void options.cancel(operationId).catch(()=>{});listeners.abort();},
   };
 }

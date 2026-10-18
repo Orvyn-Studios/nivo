@@ -23,6 +23,7 @@ try{
    if(command==='get_power_snapshot')return{present:false,percent:null,charging:null,saving:null,acOnline:null,remainingSeconds:null};
    if(command==='set_expanded')return 1;
    if(command==='media_control')window.__actions.calls.push({command,args});
+   if(command==='open_mail_draft'){window.__actions.calls.push({command,args});return;}
    if(command==='cancel_drop_action'){window.__actions.calls.push({command,args});window.__actions.job.resolve({operationId:window.__actions.job.id,outcome:'cancelled',message:'Operación cancelada.',file:null});return true;}
    if(command==='drop_action'){
      const operationId=`action:${++serial}`;window.__actions.calls.push({command,args});
@@ -51,10 +52,15 @@ try{
  assert.match(await page.locator('#drop-list .file-heading').textContent(),/Entrega.zip/);
  await page.locator('#drop-result-folder').click();
  assert.equal(await page.evaluate(()=>window.__actions.calls.at(-1).args.id),'drop:9:0');
- await page.locator('#drop-done').click();await stable();assert.equal(await page.locator('#media-widget').isVisible(),true);
+ await stable();assert.equal(await page.locator('#media-widget').isVisible(),true);
  await emit('nivo://drop-files',[{...files[0],id:'drop:10:0'}]);await page.locator('#drop-zip').click();await running();await page.locator('#drop-cancel').click();
  await page.waitForFunction(()=>document.getElementById('drop').dataset.stage==='result');assert.match(await page.locator('#drop-result-title').textContent(),/cancelada/);await shot('05-cancelled');
  await page.locator('#drop-done').click();await stable();
+ await emit('nivo://drop-files',[{...files[0],id:'drop:11:0'}]);await page.locator('.drop-more summary').click();await page.getByRole('button',{name:'Redactar correo…'}).click();await stable();
+ await page.locator('#mail-recipient').fill('fixture@example.com');await page.locator('#mail-subject').fill('Revisión de documento');await page.locator('#mail-body').fill('Borrador de prueba, sin envío.');await shot('06-mail-draft-fixture');
+ const fits=await page.locator('#drop-mail').evaluate(node=>{const island=document.getElementById('island').getBoundingClientRect();return node.getBoundingClientRect().bottom<=island.bottom-10});assert.equal(fits,true,'composer fits the native envelope');
+ await page.getByRole('button',{name:'Abrir borrador'}).click();await stable();assert.equal(await page.locator('#media-widget').isVisible(),true);
+ const mail=await page.evaluate(()=>window.__actions.calls.find(c=>c.command==='open_mail_draft'));assert.equal(mail.args.draft.recipient,'fixture@example.com');assert.deepEqual(Object.keys(mail.args.draft).sort(),['body','recipient','subject']);
  assert.equal(await page.locator('#media-title').textContent(),'Música de prueba');
  assert.equal(await page.evaluate(()=>window.__actions.calls.filter(c=>c.command==='media_control').length),0);
  report.checks.push('File type/size, measured bytes, typed result and result-folder capability; cancellation; drag cancellation and Done restore the prior expanded music without playback commands.');

@@ -1,0 +1,13 @@
+/** A compact user-authored draft; no automatic attachments or sending. */
+export function createMailComposer(parent:HTMLElement,options:{open(draft:{recipient:string;subject:string;body:string}):Promise<void>;back():void;done():void}){
+ const form=document.createElement('form');form.id='drop-mail';form.dataset.choreography='mail';form.hidden=true;form.autocomplete='off';
+ function field(name:string,label:string,max:number,multiline=false){const row=document.createElement('label');row.textContent=label;const input=multiline?document.createElement('textarea'):document.createElement('input');input.name=name;input.id=`mail-${name}`;input.maxLength=max;if(input instanceof HTMLInputElement)input.type=name==='recipient'?'email':'text';row.append(input);form.append(row);return input}
+ const recipient=field('recipient','Para',254) as HTMLInputElement;recipient.required=true;const subject=field('subject','Asunto',160);const body=field('body','Mensaje',2000,true);
+ const note=document.createElement('p');note.className='detail-note';note.textContent='Se abrirá tu aplicación de correo. Adjunta el archivo manualmente y revisa el borrador antes de enviarlo.';
+ const buttons=document.createElement('div');buttons.className='drop-actions';const open=document.createElement('button');open.type='submit';open.textContent='Abrir borrador';open.className='text-action';const back=document.createElement('button');back.type='button';back.className='text-action';back.textContent='Volver';buttons.append(open,back);
+ const status=document.createElement('p');status.className='detail-note';status.setAttribute('role','status');form.append(note,buttons,status);parent.append(form);let pending=false,disposed=false,revision=0;
+ back.onclick=()=>{if(!pending)options.back()};form.onsubmit=event=>{event.preventDefault();if(pending||disposed)return;const own=revision;pending=true;open.disabled=true;status.textContent='Abriendo cliente de correo…';
+  void options.open({recipient:recipient.value.trim(),subject:subject.value,body:body.value}).then(()=>{if(disposed||own!==revision)return;recipient.value='';subject.value='';body.value='';status.textContent='Borrador solicitado. El envío se realiza desde tu cliente de correo.';options.done()}).catch(e=>{if(!disposed&&own===revision)status.textContent=String(e).slice(0,280)}).finally(()=>{if(!disposed&&own===revision){pending=false;open.disabled=false}});
+ };
+ return{form,clear(){revision++;pending=false;open.disabled=false;recipient.value='';subject.value='';body.value='';status.textContent=''},dispose(){disposed=true;revision++;form.onsubmit=null;back.onclick=null}};
+}
