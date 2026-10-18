@@ -31,6 +31,8 @@ pub struct Api {
     client: Client,
     token: Zeroizing<String>,
     cache: Mutex<BTreeMap<String, (String, Value)>>,
+    #[cfg(test)]
+    fixture_origin: Option<String>,
 }
 pub const MAX_BODY: usize = 2 * 1024 * 1024;
 impl Api {
@@ -50,6 +52,8 @@ impl Api {
             client,
             token,
             cache: Mutex::new(BTreeMap::new()),
+            #[cfg(test)]
+            fixture_origin: None,
         })
     }
     pub async fn get(&self, path: &str) -> Result<Value, ApiError> {
@@ -82,7 +86,7 @@ impl Api {
                 } else {
                     Method::GET
                 },
-                format!("https://api.github.com{path}"),
+                self.url(path),
             )
             .header(AUTHORIZATION, authorization)
             .header(ACCEPT, "application/vnd.github+json")
@@ -158,6 +162,13 @@ impl Api {
             base64::engine::general_purpose::STANDARD.encode(bytes)
         ))
     }
+    fn url(&self, path: &str) -> String {
+        #[cfg(test)]
+        if let Some(origin) = &self.fixture_origin {
+            return format!("{origin}{path}");
+        }
+        format!("https://api.github.com{path}")
+    }
 }
 async fn bounded_body(mut response: reqwest::Response, limit: usize) -> Result<Vec<u8>, ApiError> {
     if response.content_length().is_some_and(|n| n > limit as u64) {
@@ -224,6 +235,103 @@ pub fn status_error(status: u16, headers: &HeaderMap) -> ApiError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+    };
+    fn fixture(responses: Vec<String>, delay: Duration) -> (Api, thread::JoinHandle<Vec<String>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let server = thread::spawn(move || {
+            let mut requests = vec![];
+            for response in responses {
+                let until = std::time::Instant::now() + Duration::from_secs(2);
+                let mut socket = loop {
+                    match listener.accept() {
+                        Ok((socket, _)) => break socket,
+                        Err(e)
+                            if e.kind() == std::io::ErrorKind::WouldBlock
+                                && std::time::Instant::now() < until =>
+                        {
+                            thread::sleep(Duration::from_millis(2))
+                        }
+                        Err(e) => panic!("Owned mock request not received: {e}"),
+                    }
+                };
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(1)))
+                    .unwrap();
+                let mut request = vec![];
+                let mut buffer = [0u8; 1024];
+                while request.len() < 8192 && !request.ends_with(b"\r\n\r\n") {
+                    let n = socket.read(&mut buffer).unwrap();
+                    if n == 0 {
+                        break;
+                    }
+                    request.extend_from_slice(&buffer[..n]);
+                }
+                requests.push(String::from_utf8(request).unwrap());
+                thread::sleep(delay);
+                let _ = socket.write_all(response.as_bytes());
+            }
+            requests
+        });
+        let api = Api {
+            client: Client::builder()
+                .no_proxy()
+                .timeout(Duration::from_millis(500))
+                .build()
+                .unwrap(),
+            token: Zeroizing::new("explicit_mock_not_a_real_token".into()),
+            cache: Mutex::new(BTreeMap::new()),
+            fixture_origin: Some(format!("http://{address}")),
+        };
+        (api, server)
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn transport_reuses_etag_and_never_parses_error_bodies_as_identity() {
+        let (api,server)=fixture(vec!["HTTP/1.1 200 OK\r\nContent-Length: 8\r\nETag: \"fixture\"\r\nConnection: close\r\n\r\n{\"id\":1}".into(),"HTTP/1.1 304 Not Modified\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".into(),"HTTP/1.1 401 Unauthorized\r\nContent-Length: 19\r\nConnection: close\r\n\r\nprivate_server_body".into()],Duration::ZERO);
+        assert_eq!(api.get("/user").await.unwrap()["id"], 1);
+        assert_eq!(api.get("/user").await.unwrap()["id"], 1);
+        let error = api.get("/user").await.unwrap_err();
+        assert_eq!(error.kind, "auth");
+        assert!(!error.message.contains("private_server_body"));
+        let requests = server.join().unwrap();
+        assert!(requests[1]
+            .to_ascii_lowercase()
+            .contains("if-none-match: \"fixture\""));
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn transport_bounds_bodies_and_honors_rate_limit_headers() {
+        let (api,server)=fixture(vec!["HTTP/1.1 429 Too Many Requests\r\nRetry-After: 17\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".into(),format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",MAX_BODY+1)],Duration::ZERO);
+        let error = api.get("/user").await.unwrap_err();
+        assert_eq!(error.kind, "rateLimit");
+        assert_eq!(error.retry_seconds, 17);
+        assert!(api
+            .get("/user")
+            .await
+            .unwrap_err()
+            .message
+            .contains("límite local"));
+        server.join().unwrap();
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn abort_drops_an_inflight_transport_without_a_late_result() {
+        let (api, server) = fixture(
+            vec![
+                "HTTP/1.1 200 OK\r\nContent-Length: 8\r\nConnection: close\r\n\r\n{\"id\":1}"
+                    .into(),
+            ],
+            Duration::from_millis(100),
+        );
+        let task = tokio::spawn(async move { api.get("/user").await });
+        tokio::time::sleep(Duration::from_millis(25)).await;
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+        server.join().unwrap();
+    }
     #[test]
     fn errors_are_sanitized_and_retry_after_is_respected() {
         let mut h = HeaderMap::new();
