@@ -471,6 +471,6 @@ void (async () => {
       title: `${value.caps ? 'Caps Lock' : 'Num Lock'} ${value.enabled ? 'activado' : 'desactivado'}`,
       groupKey: value.caps ? 'caps' : 'num', compact: true, durationMs: 1800, reaction: 'attention' } });
   }); } catch (error) { report(error); }
-  toggle.disabled = false;
   try { await bridge.ready(); } catch (error) { report(error); }
+  toggle.disabled = false;
 })();

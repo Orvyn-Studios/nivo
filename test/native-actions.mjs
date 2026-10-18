@@ -18,7 +18,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
 function native(action,extra=[]){return new Promise((resolve,reject)=>{
  const p=spawn('powershell.exe',['-NoProfile','-STA','-File',path.join(root,'test/native-drop-fixture.ps1'),'-Action',action,'-NivoId',String(child.pid),...extra],{cwd:root,windowsHide:true,stdio:['ignore','pipe','pipe']});let out='',err='';
  const timeout=setTimeout(()=>{p.kill();reject(new Error(`Owned ${action} fixture exceeded 25 seconds. ${err} ${out}`))},25000);
- p.stdout.on('data',d=>out+=d);p.stderr.on('data',d=>err+=d);p.once('error',e=>{clearTimeout(timeout);reject(e)});p.once('exit',code=>{clearTimeout(timeout);code===0?resolve(out.trim()):reject(new Error(err||out))});
+ p.stdout.on('data',d=>out+=d);p.stderr.on('data',d=>err+=d);p.once('error',e=>{clearTimeout(timeout);reject(e)});p.once('exit',code=>{clearTimeout(timeout);code===0?resolve({output:out.trim(),diagnostic:err.trim()}):reject(new Error(err||out))});
 })}
 try{
  let endpoint;for(let n=0;n<80;n++){if(child.exitCode!==null)throw new Error('Close the existing workspace Nivo copy before native acceptance.');try{endpoint=await(await fetch(`http://127.0.0.1:${port}/json/version`)).json();break}catch{await delay(100)}}

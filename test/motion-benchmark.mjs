@@ -52,7 +52,9 @@ try{
   await page.waitForFunction(()=>document.getElementById('toggle')?.disabled===false);
   if(native){
     original=await page.evaluate(()=>window.__TAURI__.core.invoke('get_settings'));
-    await page.evaluate(async settings=>window.__TAURI__.core.invoke('save_settings',{settings:{...settings,motion:'full',mascot_enabled:false,media_enabled:false,audio_enabled:false,integrations_enabled:false}}),original);
+    await page.evaluate(async settings=>window.__TAURI__.core.invoke('save_settings',{settings:{...settings,motion:'full',mascot_enabled:false,media_enabled:false,audio_enabled:false,integrations_enabled:false,notifications_enabled:false,drop_enabled:false,caps_lock_enabled:false,num_lock_enabled:false,battery_enabled:false}}),original);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(()=>document.getElementById('island').getAnimations({subtree:true}).every(a=>a.playState!=='running')&&document.getElementById('island-panel').hidden);
   }
   const cdp=await page.context().newCDPSession(page);await cdp.send('Performance.enable');
   if(native&&process.env.NIVO_MOTION_REGION_PROBE==='1'){
@@ -61,6 +63,9 @@ try{
       let data='',error='';probe.stdout.on('data',d=>data+=d);probe.stderr.on('data',d=>error+=d);probe.once('error',reject);
       probe.once('exit',async code=>{if(code!==0){reject(new Error(error));return}try{const value=JSON.parse(data.trim().replace(/^\uFEFF/,''));await writeFile(path.join(output,'regions.json'),JSON.stringify(value));resolve(value)}catch(error){reject(error)}});
     });
+    // A failed action may close Nivo before the finite probe ends. Keep its
+    // rejection handled while preserving the primary assertion and evidence.
+    void probeDone.catch(()=>{});
   }
   report.before={performance:await cdp.send('Performance.getMetrics'),dom:await cdp.send('Memory.getDOMCounters')};
   await page.evaluate(()=>{
@@ -98,9 +103,9 @@ try{
         if(now-start>50&&(!interruptMs||now-start>interruptMs+35)&&island.getAnimations({subtree:true}).every(a=>a.playState!=='running')&&(expanded?!panel.inert:panel.hidden))break;
         if(now-start>2000)throw new Error(`Transition stuck: ${kind}`);
       }
-      return{kind,wall,duration:performance.now()-start,firstResponse,frames,expectedExpanded:interruptMs?wasExpanded:!wasExpanded,expanded:toggle.getAttribute('aria-expanded'),actions:document.querySelectorAll('#activity-footer').length};
+      return{kind,wall,duration:performance.now()-start,firstResponse,frames,expectedExpanded:interruptMs?wasExpanded:!wasExpanded,expanded:toggle.getAttribute('aria-expanded'),actions:document.querySelectorAll('#activity-footer').length,status:document.getElementById('bridge-status')?.textContent?.trim().slice(0,280)};
     },{kind,interruptMs});
-    assert.equal(value.actions,1);assert.equal(value.expanded,String(value.expectedExpanded),'intent must settle in the requested state');report.actions.push(value);
+    report.actions.push(value);assert.equal(value.actions,1);assert.equal(value.expanded,String(value.expectedExpanded),'intent must settle in the requested state');
   }
   for(let i=0;i<60;i++)await action('settled');
   report.checks.push('30 complete open/close cycles.');

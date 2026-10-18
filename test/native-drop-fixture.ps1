@@ -15,6 +15,9 @@ public static class DropPointer {
  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x,int y);
  [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra);
  [DllImport("user32.dll")] public static extern bool GetCursorPos(out Point p);
+ [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(Point p);
+ [DllImport("user32.dll")] static extern bool IsChild(IntPtr parent,IntPtr child);
+ [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hwnd);
  [StructLayout(LayoutKind.Sequential)] public struct Point {public int X,Y;}
  [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT {public int dx,dy;public uint data,flags,time;public UIntPtr extra;}
  [StructLayout(LayoutKind.Sequential)] public struct INPUT {public uint type;public MOUSEINPUT mouse;}
@@ -37,14 +40,19 @@ public static class DropPointer {
    var started=DateTime.UtcNow;int queries=0;
    form.QueryContinueDrag+=(sender,args)=>{
     if(++queries<=3)Console.Error.WriteLine("Owned OLE query state: "+args.KeyState+" / "+args.Action);
-    if((DateTime.UtcNow-started).TotalMilliseconds>800)args.Action=DragAction.Drop;
+    args.Action=args.EscapePressed?DragAction.Cancel:(DateTime.UtcNow-started).TotalMilliseconds>800?DragAction.Drop:DragAction.Continue;
    };
    form.Shown+=(sender,args)=>form.BeginInvoke(new Action(()=>{
     Console.Error.WriteLine("Owned source shown; entering OLE.");
-    Input(0xC001,form.Left+90,form.Top+45);Input(2);
+    SetForegroundWindow(form.Handle);
+    var origin=new Point{X=form.Left+90,Y=form.Top+45};var hit=WindowFromPoint(origin);
+    if(hit!=form.Handle&&!IsChild(form.Handle,hit))throw new Exception("Owned OLE source is not the input target.");
+    Input(0xC001,origin.X,origin.Y);Input(2);
+    Application.DoEvents();System.Threading.Thread.Sleep(30);Application.DoEvents();
     var pointer=new System.Threading.Thread(new System.Threading.ThreadStart(()=>{
      System.Threading.Thread.Sleep(250);Input(0xC001,x,y);Console.Error.WriteLine("Owned pointer moved.");System.Threading.Thread.Sleep(750);Input(4);Console.Error.WriteLine("Owned button released.");
     }));pointer.IsBackground=true;pointer.Start();
+    started=DateTime.UtcNow;
     try{effect=form.DoDragDrop(data,DragDropEffects.Copy).ToString();}
     finally{mouse_event(4,0,0,0,UIntPtr.Zero);form.Close();}
    }));
