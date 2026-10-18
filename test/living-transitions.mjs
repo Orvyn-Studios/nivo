@@ -20,7 +20,7 @@ try{
  page.on('pageerror',e=>report.errors.push(e.message));
  await page.addInitScript(reduced=>{
   const listeners=new Map();
-  const settings={schema_version:1,motion:reduced?'reduced':'full',privacy_mode:false,mascot_enabled:true,drop_enabled:true,media_enabled:true,audio_enabled:true,integrations_enabled:true};
+  const settings={schema_version:1,motion:reduced?'reduced':'full',privacy_mode:false,mascot_enabled:true,drop_enabled:true,media_enabled:true,audio_enabled:true,integrations_enabled:true,caps_lock_enabled:true,battery_enabled:true};
   window.__living={emit:(n,p)=>listeners.get(n)?.({payload:p}),calls:[],job:null};
   window.__TAURI__={event:{async listen(n,fn){listeners.set(n,fn);return()=>listeners.delete(n)}},core:{async invoke(c,a){
    if(c==='get_settings')return settings;
@@ -94,6 +94,27 @@ try{
  await transition('codex-result',()=>emit('nivo://integration',{kind:'agent',taskId:'explicit-review-fixture',status:'complete'}));
  assert.match(await page.locator('#notification-title').textContent(),/Turno de Codex finalizado/);
  await transition('codex-dismiss',()=>page.keyboard.press('Escape'));
+ const audio={status:'ready',output:{id:'out',name:'Fixture',volume:.6,muted:false},input:{id:'in',name:'Micrófono simulado',volume:.5,muted:true},devices:[],sessions:[],error:null};
+ await transition('microphone',()=>emit('nivo://audio',{...audio,sequence:2}));
+ assert.equal(await page.locator('#island').getAttribute('data-context'),'microphone');
+ await transition('microphone-dismiss',()=>page.keyboard.press('Escape'));
+ await transition('device',()=>emit('nivo://audio',{...audio,sequence:3,output:{...audio.output,id:'headphones',name:'Auriculares simulados'}}));
+ assert.equal(await page.locator('#island').getAttribute('data-context'),'device');
+ await transition('device-dismiss',()=>page.keyboard.press('Escape'));
+ await transition('keyboard',()=>emit('nivo://lock-key',{caps:true,enabled:true}));
+ await transition('keyboard-dismiss',()=>page.keyboard.press('Escape'));
+ const power={present:true,percent:60,acOnline:false,charging:false,saving:false,remainingSeconds:null};
+ await emit('nivo://power',{...power,sequence:1});
+ await transition('battery',()=>emit('nivo://power',{...power,sequence:2,percent:10}));
+ await transition('battery-dismiss',()=>page.keyboard.press('Escape'));
+ const download={kind:'download',id:'explicit-download-fixture',source:'browser',name:'Descarga simulada.zip',state:'active',received:42,total:100,bytesPerSecond:1000};
+ await transition('download',()=>emit('nivo://integration',download));
+ await transition('download-result',()=>emit('nivo://integration',{...download,state:'complete',received:100}));
+ await transition('download-dismiss',()=>page.keyboard.press('Escape'));
+ await transition('mixer',()=>page.locator('#open-audio').click());
+ await transition('mixer-dismiss',()=>page.keyboard.press('Escape'));
+ await transition('compact-expand',()=>page.locator('#toggle').click());
+ await transition('expanded-compact',()=>page.locator('#toggle').click());
  assert.deepEqual(await page.evaluate(()=>window.__living.calls),[],'no playback commands during restoration');
  assert.deepEqual(report.errors,[]);
  // A contact sheet makes the recorded intermediate states reviewable without
@@ -103,7 +124,9 @@ try{
  for(const t of report.transitions){const cells=[];for(const f of [{file:t.before,ms:0},t.frames[0],t.frames.at(-1)])cells.push(`<div><p>${t.name} · ${Math.round(f.ms)} ms observados</p><img src="data:image/png;base64,${(await readFile(path.join(output,f.file))).toString('base64')}"></div>`);rows.push(cells.join(''))}
  await sheet.setContent(`<style>body{margin:0;background:#26303e;color:white;font:12px sans-serif;display:grid;grid-template-columns:repeat(3,420px)}p{margin:3px}img{width:250px;height:185px;object-fit:contain;object-position:top left}</style>${rows.join('')}`);
  await sheet.locator('img').evaluateAll(imgs=>Promise.all(imgs.map(img=>img.decode())));
- await sheet.screenshot({path:path.join(output,'filmstrip.png'),fullPage:true});await sheet.close();
+ await sheet.screenshot({path:path.join(output,'filmstrip.png'),fullPage:true});
+ for(let row=0;row<report.transitions.length;row+=7)await sheet.screenshot({path:path.join(output,`filmstrip-${1+row/7}.png`),clip:{x:0,y:row*210,width:1260,height:Math.min(7,report.transitions.length-row)*210}});
+ await sheet.close();
  report.status='passed';
 }catch(error){report.status='failed';report.error=error.stack;process.exitCode=1}
 finally{

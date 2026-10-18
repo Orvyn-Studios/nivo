@@ -7,7 +7,7 @@ const root=fileURLToPath(new URL('../',import.meta.url)),output=new URL('../arti
 const server=await createServer({configFile:false,root,logLevel:'error',server:{host:'127.0.0.1',port:0,watch:{ignored:['**/src-tauri/**','**/artifacts/**']}}});await server.listen();const browser=await chromium.launch({headless:true,chromiumSandbox:true});
 const report={status:'running',environment:'Explicit synthetic GitHub API/account fixtures in Chromium; no real account, PAT, networking or browser opening',checks:[],errors:[]};
 try{
- const context=await browser.newContext({viewport:{width:820,height:620},reducedMotion:'no-preference'});
+ const context=await browser.newContext({viewport:{width:820,height:620},reducedMotion:'no-preference',recordVideo:{dir:fileURLToPath(output),size:{width:820,height:620}}});
  await context.addInitScript(()=>{
   const listeners=new Map(),options={enabled:true,repositories:['Orvyn-Studios/nivo'],pullRequests:true,reviews:true,ci:true,issues:false,calendar:true,notifications:true,intervalSeconds:300};
   const connected={revision:3,status:'connected',profile:{id:123,login:'fixture-account',avatar:null},options,items:[{id:'pr:42',kind:'pull',repository:'Orvyn-Studios/nivo',title:'Revisión de continuidad · fixture',number:42,state:'open',url:'https://github.com/Orvyn-Studios/nivo/pull/42',updatedAt:'2026-10-18T08:00:00Z',headSha:'a'.repeat(40),branch:'feature/fixture',ci:'failure',review:'REVIEW_REQUIRED',mine:true,reviewRequested:true,attempt:1}],calendar:{total:127,days:Array.from({length:28},(_,i)=>({date:`2026-09-${String(i+1).padStart(2,'0')}`,count:i%5,level:i%5}))},lastSync:1792300000000,nextRefresh:null,syncing:false,error:null,warnings:[]};
@@ -40,6 +40,8 @@ try{
  await prefs.getByRole('button',{name:'Desconectar y borrar credencial'}).click();await prefs.waitForFunction(()=>document.querySelector('#github-settings [role=status]').textContent==='Sin cuenta conectada');assert.equal(await prefs.locator('input[data-repository]').count(),0);
  const page=await context.newPage();page.on('pageerror',e=>report.errors.push(e.message));await page.goto(`http://127.0.0.1:${server.httpServer.address().port}`);await page.waitForFunction(()=>!document.getElementById('toggle').disabled);
  await page.evaluate(()=>{window.__githubFixture.emit('nivo://github',{snapshot:window.__githubFixture.connected,notices:[]});window.__githubFixture.emit('nivo://github-open',null)});
+ await page.waitForFunction(()=>document.getElementById('island').getAnimations({subtree:true}).every(a=>a.playState!=='running'));
+ await new Promise(r=>setTimeout(r,200));
  await page.locator('.github-card').click();await page.waitForFunction(()=>document.getElementById('island').getAnimations({subtree:true}).every(a=>a.playState!=='running'));
  assert.match(await page.locator('#github-detail').textContent(),/CI: Fallida/);assert.match(await page.locator('#github-detail').textContent(),/Sin aprobación confirmada/);
  report.geometry=await page.evaluate(()=>Object.fromEntries(['island','island-panel','github'].map(id=>{const n=document.getElementById(id),r=n.getBoundingClientRect();return[id,{x:r.x,y:r.y,height:r.height,scrollTop:n.scrollTop,parentScroll:n.parentElement.scrollTop}]})));
@@ -48,5 +50,7 @@ try{
  await page.locator('#island').screenshot({path:fileURLToPath(new URL('pull-detail-fixture.png',output))});await page.locator('#github-detail').getByRole('button',{name:'Volver',exact:true}).click();await page.locator('[data-github-filter=calendar]').click();assert.equal(await page.locator('.github-calendar button').count(),28);
  await page.waitForFunction(()=>document.getElementById('island').getAnimations({subtree:true}).every(a=>a.playState!=='running'));await page.locator('#island').screenshot({path:fileURLToPath(new URL('contributions-fixture.png',output))});
  await page.evaluate(()=>window.__githubFixture.emit('nivo://github',{snapshot:{...window.__githubFixture.connected,revision:9,status:'disconnected',profile:null,options:{...window.__githubFixture.connected.options,enabled:false}},notices:[]}));assert.equal(await page.locator('.github-calendar button').count(),0);
+ const video=page.video();await page.close();await video.saveAs(fileURLToPath(new URL('github-context-fixture.webm',output)));
+ report.recording='github-context-fixture.webm: synthetic account/items/calendar only, no authentication or actual network.';
  report.checks.push('PAT field cleared before native invoke; connected identity and personal/org repo selection; disconnect clears private repository list; contextual PR details keep CI separate from approval; opening passes only opaque ID; actual-shape calendar cells; opt-out clears calendar.');assert.deepEqual(report.errors,[]);report.status='passed';
 }catch(error){report.status='failed';report.error=error.stack;process.exitCode=1}finally{await browser.close();await server.close();await writeFile(new URL('results.json',output),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))}
