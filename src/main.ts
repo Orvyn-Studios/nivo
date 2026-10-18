@@ -33,7 +33,7 @@ const panel = element('island-panel');
 const toggle = element<HTMLButtonElement>('toggle');
 const systemMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let renderedContext='',suppressContextMotion=false;
-const contentMotion=createChoreography(panel.querySelector<HTMLElement>('.panel-scroll')!,()=>shouldReduceMotion(state.preferences,systemMotion.matches),'[data-context-panel]',false);
+const contentMotion=createChoreography(panel.querySelector<HTMLElement>('.panel-scroll')!,()=>shouldReduceMotion(state.preferences,systemMotion.matches),'[data-context-panel]');
 for(const id of ['activity','audio','drop','github','notification'])element(id).dataset.contextPanel=id;
 let state = createIslandState();
 let clockTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -154,7 +154,7 @@ function syncCompanion(): void {
     && !state.notification && state.base.kind === 'expanded' && state.base.view === 'activity' });
   eventCompanion.update({ ...value, visible: value.visible && state.notification?.notification.kind === 'agent' });
   const working = [...integrationInbox.agents.values()].includes('working');
-  agentFace.toggleAttribute('hidden', !working || hasMedia || !state.preferences.mascot_enabled);
+  if(!state.notification)agentFace.toggleAttribute('hidden', !working || hasMedia || !state.preferences.mascot_enabled);
   agentCompanion.update({ ...value, pose: working ? 'working' : value.pose, visible: value.visible && working && !hasMedia });
   const inDrop=state.base.kind==='expanded'&&state.base.view==='drop'&&!state.notification;
   dropFace.toggleAttribute('hidden',!inDrop||!value.enabled);
@@ -245,7 +245,7 @@ function renderContent(): void {
   mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden);
   syncCompanion();
   if (mediaDirty) { mediaView.render(mediaInbox.snapshot); mediaDirty = false; }
-  if (integrationsDirty && state.base.kind === 'expanded' && state.base.view === 'activity') {
+  if (integrationsDirty && !state.notification && state.base.kind === 'expanded' && state.base.view === 'activity') {
     renderIntegrations(integrationInbox, state.preferences.privacy_mode);integrationsDirty=false;
   }
   const now = Date.now();
@@ -291,7 +291,7 @@ function renderContent(): void {
     element('drop').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'drop';
     element('github').hidden = notification || state.base.kind !== 'expanded' || state.base.view !== 'github';
   }
-  element('media-widget').hidden = !currentMedia && (agent || downloads.length > 0);
+  if(!notification)element('media-widget').hidden = !currentMedia && (agent || downloads.length > 0);
   if (!currentMedia) { element('media-empty-title').textContent = 'Todo en calma'; element('media-empty-description').textContent = 'Un momento para ti.'; }
   element('activity-footer').hidden = notification || context==='drop'||context==='github';
   if (view.kind === 'notification' && notification) {
@@ -458,7 +458,7 @@ void (async () => {
     if (!state.preferences.integrations_enabled || integrationOptOut) return;
     const notifications = integrationInbox.receive(event);
     integrationsDirty=true;
-    if (!notifications.length && !state.hidden && !document.hidden) render();
+    if (!notifications.length && !state.hidden && !document.hidden) dispatch({type:'advance',now:Date.now()});
     for (const notification of notifications) dispatch({ type: 'notify', notification, now: Date.now() });
   }); } catch (error) { report(error); }
   try { unlistenAudio = await bridge.onAudio(receiveAudio); receiveAudio(await bridge.audio()); }

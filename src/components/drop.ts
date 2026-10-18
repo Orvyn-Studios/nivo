@@ -40,7 +40,12 @@ export function createDropView(options:{
       (row as HTMLElement).hidden=stage!=='files'&&index>0;
       const title=row.querySelector('h2')!,detail=row.querySelector('.detail-note')!;
       const file=output??files[index];
-      if(file){title.textContent=privacy?`Archivo ${index+1}`:file.name;detail.textContent=`${fileKind(file.name).label} · ${formatBytes(file.size)}`;}
+      if(file){
+        const kind=fileKind(file.name),mark=row.querySelector<HTMLElement>('.file-mark')!;
+        title.textContent=privacy?`Archivo ${index+1}`:file.name;title.setAttribute('title',title.textContent);
+        detail.textContent=`${kind.label} · ${formatBytes(file.size)}`;
+        if(mark.dataset.kind!==kind.icon){mark.replaceChildren(icon(kind.icon));mark.dataset.kind=kind.icon;}
+      }
       for(const control of row.querySelectorAll<HTMLElement>('.drop-actions,.drop-more'))control.hidden=stage!=='files';
     }
     zip.hidden=stage!=='files'||composing;zip.disabled=busy||!files.length;
@@ -59,7 +64,7 @@ export function createDropView(options:{
     for(const [index,file]of files.entries()){
       const kind=fileKind(file.name),row=document.createElement('section');row.className='drop-file';
       const heading=document.createElement('div');heading.className='file-heading';heading.dataset.choreography='file';
-      const mark=document.createElement('span');mark.className='file-mark';mark.append(icon(kind.icon));
+      const mark=document.createElement('span');mark.className='file-mark';mark.dataset.kind=kind.icon;mark.append(icon(kind.icon));
       const copy=document.createElement('div');copy.className='file-copy';
       const title=document.createElement('h2');title.textContent=privacy?`Archivo ${index+1}`:file.name;title.title=title.textContent;
       const detail=document.createElement('p');detail.className='detail-note';detail.textContent=`${kind.label} · ${formatBytes(file.size)}`;
@@ -88,7 +93,7 @@ export function createDropView(options:{
         if(value.outcome==='success'){progress.value=1;measure.textContent='Confirmado en disco';}
         resultTitle.textContent=value.outcome==='cancelled'?'Operación cancelada':kind==='zip'?'ZIP listo':'Copia guardada';
         resultDetail.textContent=value.message;
-        folder.hidden=!output;retry.hidden=true;status.textContent=value.message;
+        folder.hidden=!output;retry.hidden=true;status.textContent='Los archivos originales se conservan.';
       }
     }catch(error){
       if(disposed||own!==revision)return;

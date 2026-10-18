@@ -12,8 +12,9 @@ function fixture(){
   getBoundingClientRect(){return{left:this.left,top:this.top,width:this.hidden?0:this.width,height:this.hidden?0:this.height}},
   animate(frames,options){let resolve,reject;const finished=new Promise((a,b)=>{resolve=a;reject=b});
    const a={frames,options,finished,cancelled:false,cancel(){this.cancelled=true;reject(new Error('cancel'))},finish:resolve};animations.push(a);return a;}};
- const root={scrollLeft:0,scrollTop:0,querySelectorAll:()=>[node],getBoundingClientRect:()=>({width:352,left:0,top:0})};let reduced=false;
- return{node,animations,engine:createChoreography(root,()=>reduced),reduce(){reduced=true},restore(){for(const[k,v]of saved)if(v)Object.defineProperty(globalThis,k,v);else delete globalThis[k]}};
+ const nodes=[node];
+ const root={scrollLeft:0,scrollTop:0,querySelectorAll:()=>nodes,getBoundingClientRect:()=>({width:352,left:0,top:0})};let reduced=false;
+ return{node,nodes,animations,engine:createChoreography(root,()=>reduced),reduce(){reduced=true},restore(){for(const[k,v]of saved)if(v)Object.defineProperty(globalThis,k,v);else delete globalThis[k]}};
 }
 test('shared content retargets from the composited position and cancels the previous leg',async()=>{
  const f=fixture();try{f.engine.change(()=>{f.node.top=90});assert.equal(f.animations[0].frames[0].transform,'translate(0px,-30px)');
@@ -42,5 +43,19 @@ test('outgoing controls are inert, leave flow immediately and cannot hide a reve
   f.engine.change(()=>{f.node.hidden=false});await Promise.resolve();await Promise.resolve();
   assert.equal(f.node.hidden,false);assert.equal(f.node.inert,false);assert.equal(f.node.getAttribute('aria-hidden'),null);
   f.engine.change(()=>{f.node.hidden=true});f.node.style.opacity='.42';f.engine.settle();assert.equal(f.node.hidden,true);assert.equal(f.node.inert,false);assert.equal(f.node.style.opacity,'.42','cleanup must not restore stale properties owned by the surface engine');
+ }finally{f.engine.dispose();f.restore()}
+});
+
+test('replacement clears outgoing text before revealing the incoming panel without delaying mutation',()=>{
+ const f=fixture();try{
+  const incoming={...f.node,hidden:true,textContent:'Resultado',dataset:{}};f.nodes.push(incoming);
+  f.engine.change(()=>{f.node.hidden=true;incoming.hidden=false});
+  assert.equal(incoming.hidden,false,'real result is committed synchronously');
+  assert.equal(f.animations[0].options.duration,60);
+  assert.equal(f.animations[1].frames[0].opacity,0);
+  assert.equal(f.animations[1].frames[1].opacity,0);
+  assert.equal(f.animations[1].frames[1].offset*f.animations[1].options.duration,60);
+  assert.equal(f.animations[1].options.easing,'linear','the handoff hold is wall time, not eased progress');
+  assert.equal(f.animations[1].frames.at(-1).opacity,1);
  }finally{f.engine.dispose();f.restore()}
 });

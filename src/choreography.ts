@@ -28,6 +28,7 @@ export function createChoreography(root:HTMLElement,reduced:()=>boolean,selector
       if(reduced()||document.hidden||!root.getBoundingClientRect().width)return;
       const after=nodes.map(node=>({node,box:sample(node)}));
       const bounds=root.getBoundingClientRect();
+      const replacing=after.some(({node,box})=>!box&&before.get(node)&&node.hidden);
       for(const {node,box} of after){
         if(!box){
           const old=before.get(node);
@@ -40,7 +41,7 @@ export function createChoreography(root:HTMLElement,reduced:()=>boolean,selector
           Object.assign(node.style,{position:'absolute',left:`${old.left-bounds.left+root.scrollLeft}px`,top:`${old.top-bounds.top+root.scrollTop}px`,width:`${old.width}px`,height:`${old.height}px`,pointerEvents:'none'});
           const release=()=>{node.hidden=true;node.inert=inert;for(const p of style){if(p.value)node.style.setProperty(p.key,p.value,p.priority);else node.style.removeProperty(p.key);}if(aria===null)node.removeAttribute('aria-hidden');else node.setAttribute('aria-hidden',aria);delete node.dataset.choreographyExiting;};
           releases.set(node,release);
-          const animation=node.animate([{opacity:old.opacity,transform:'translateY(0px)'},{opacity:0,transform:'translateY(-2px)'}],{...choreographyProfiles.dismiss,duration:120});active.set(node,animation);
+          const animation=node.animate([{opacity:old.opacity,transform:'translateY(0px)'},{opacity:0,transform:'translateY(-2px)'}],{...choreographyProfiles.dismiss,duration:60});active.set(node,animation);
           void animation.finished.catch(()=>undefined).then(()=>{if(active.get(node)!==animation)return;active.delete(node);releases.delete(node);release();});
           continue;
         }
@@ -48,10 +49,16 @@ export function createChoreography(root:HTMLElement,reduced:()=>boolean,selector
         const old=before.get(node),x=old?old.left-box.left:0,y=old?old.top-box.top:4;
         const replaced=old&&old.text!==box.text;
         if(old&&!replaced&&Math.abs(x)+Math.abs(y)<.1&&old.opacity===1)continue;
-        const animation=node.animate([
-          {transform:`translate(${x}px,${y}px)`,opacity:replaced?Math.min(old.opacity,.65):old?.opacity??0},
-          {transform:'translate(0px,0px)',opacity:1},
-        ],choreographyProfiles[profile]);
+        const first={transform:`translate(${x}px,${y}px)`,opacity:replaced?Math.min(old.opacity,.65):old?.opacity??0};
+        // When two panels occupy the same space, clear the outgoing text before
+        // revealing the new panel. State, geometry and input never wait on this.
+        const frames:Keyframe[]=[{...first,offset:0}];
+        const handoff=!old&&replacing;
+        if(handoff)frames.push({...first,offset:Math.min(.6,60/choreographyProfiles[profile].duration),easing:choreographyProfiles[profile].easing});
+        frames.push({transform:'translate(0px,0px)',opacity:1,offset:1});
+        // Keep the hold in wall time: an effect-wide ease would accelerate past
+        // the hold offset and expose the result over the departing progress bar.
+        const animation=node.animate(frames,{...choreographyProfiles[profile],...(handoff?{easing:'linear'}:{})});
         active.set(node,animation);
         void animation.finished.catch(()=>undefined).then(()=>{if(active.get(node)===animation)active.delete(node);});
       }
