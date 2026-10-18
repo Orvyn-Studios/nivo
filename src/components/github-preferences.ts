@@ -25,22 +25,25 @@ export function createGithubPreferences(parent:HTMLElement){
  const help=document.createElement('p');help.className='settings-intro';help.textContent='En GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens, elige el propietario de los recursos y solo los repositorios deseados. Permisos de lectura: Metadata, Pull requests, Actions, Commit statuses y Checks. Issues es opcional. Las organizaciones pueden exigir aprobación; un token pendiente o de otro propietario no permite ver todos sus repositorios. Nivo no necesita permisos de escritura. Introduce el token únicamente aquí: se valida contra GitHub y Windows lo guarda en Credential Manager. El campo se vacía al conectar. Desconectar borra la credencial y los datos de la cuenta. No se envían archivos, conversaciones ni código.';
  guide.append(summary,help);root.append(heading,avatar,state,form,options,error,guide);parent.append(root);
  let current:GithubConnection={snapshot:{revision:0,status:'disconnected',profile:null,options:defaultGithubOptions(),items:[],calendar:null,lastSync:null,nextRefresh:null,syncing:false,error:null,warnings:[]},repositories:[],truncated:false};
- let pending=false,disposed=false,unlisten:(()=>void)|undefined,request=0;
+ let pending=false,disposed=false,unlisten:(()=>void)|undefined,request=0,editing=false;
+ options.addEventListener('change',()=>{editing=true});
  function render(value:GithubConnection){
-  if(disposed||value.snapshot.revision<current.snapshot.revision)return;current=value;
-  const s=value.snapshot;state.textContent=s.profile?`Conectado como @${s.profile.login}${s.syncing?' · Actualizando…':''}${s.lastSync?` · Última consulta ${new Date(s.lastSync).toLocaleTimeString('es-ES')}`:''}`:s.status==='connecting'?'Validando cuenta…':s.status==='verifying'?'Verificando credencial guardada…':'Sin cuenta conectada';
+  if(disposed||value.snapshot.revision<current.snapshot.revision)return;if(value.snapshot.profile?.id!==current.snapshot.profile?.id||!value.snapshot.options.enabled)editing=false;current=value;
+  const s=value.snapshot;state.textContent=s.profile?`Conectado como @${s.profile.login}${s.syncing?' · Actualizando…':''}${s.lastSync?` · Última consulta ${new Date(s.lastSync).toLocaleTimeString('es-ES')}`:''}`:s.status==='connecting'?'Validando cuenta…':s.status==='verifying'?'Verificando credencial guardada…':s.status==='disabled'?'Sincronización desactivada. Actívala para verificar la conexión guardada.':'Sin cuenta conectada';
   avatar.hidden=!s.profile?.avatar;if(s.profile?.avatar)avatar.src=s.profile.avatar;else avatar.removeAttribute('src');
-  error.textContent=s.error??s.warnings.join(' · ');options.hidden=!s.profile;
-  disconnect.hidden=!s.options.enabled&&s.status!=='connecting';connect.disabled=pending||!isNative;input.disabled=pending;
+  error.textContent=s.error??s.warnings.join(' · ');options.hidden=!s.profile&&!s.options.enabled&&s.status!=='disabled';
+  disconnect.hidden=!s.options.enabled&&s.status!=='connecting'&&s.status!=='disabled';connect.disabled=pending||!isNative;input.disabled=pending;
+  if(editing)return;
   for(const[key,control]of controls)control.checked=s.options[key]===true;interval.value=String(s.options.intervalSeconds);
   repositories.querySelectorAll('label,p').forEach(n=>n.remove());
   for(const organization of [false,true])for(const repo of value.repositories.filter(r=>r.organization===organization)){
    const row=document.createElement('label');row.className='github-repository';const toggle=document.createElement('input');toggle.type='checkbox';toggle.value=repo.fullName;toggle.checked=s.options.repositories.includes(repo.fullName);toggle.dataset.repository='true';
    const text=document.createElement('span');text.textContent=`${repo.fullName}${repo.private?' · Privado':''}${repo.organization?' · Organización':''}`;row.append(toggle,text);repositories.append(row);
   }
+  if(!value.repositories.length)for(const saved of s.options.repositories){const row=document.createElement('label');row.className='github-repository';const toggle=document.createElement('input');toggle.type='checkbox';toggle.value=saved;toggle.checked=true;toggle.dataset.repository='true';const text=document.createElement('span');text.textContent=`${saved} · Selección guardada, por verificar`;row.append(toggle,text);repositories.append(row)}
   if(!value.repositories.length||value.truncated){const note=document.createElement('p');note.textContent=value.truncated?'Lista limitada a 500 repositorios. Reduce el acceso del token para localizar los que necesitas.':'No hay repositorios disponibles con este token. Revisa el propietario, los permisos y la aprobación de la organización.';repositories.append(note)}
  }
- async function run(job:()=>Promise<GithubConnection>){pending=true;connect.disabled=true;input.disabled=true;error.textContent='';try{render(await job())}catch(e){error.textContent=(e instanceof Error?e.message:String(e)).slice(0,500)}finally{pending=false;connect.disabled=!isNative;input.disabled=false}}
+ async function run(job:()=>Promise<GithubConnection>){pending=true;connect.disabled=true;input.disabled=true;error.textContent='';try{const value=await job();editing=false;render(value)}catch(e){error.textContent=(e instanceof Error?e.message:String(e)).slice(0,500)}finally{pending=false;connect.disabled=!isNative;input.disabled=false}}
  form.addEventListener('submit',event=>{event.preventDefault();if(pending)return;let token=input.value.trim();input.value='';const operation=bridge.connectGithub(token);token='';void run(()=>operation)});
  disconnect.addEventListener('click',()=>{input.value='';request++;void run(()=>bridge.disconnectGithub())});
  save.addEventListener('click',()=>{if(pending)return;const o={...current.snapshot.options,repositories:[...repositories.querySelectorAll<HTMLInputElement>('input:checked')].map(i=>i.value),intervalSeconds:Number(interval.value)};for(const[key,control]of controls)(o as unknown as Record<string,unknown>)[key]=control.checked;void run(()=>bridge.configureGithub(o))});

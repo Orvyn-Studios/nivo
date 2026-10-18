@@ -25,7 +25,7 @@ try{
    if(command==='get_github_connection')return{snapshot:current,repositories:current.options.enabled?repos:[],truncated:false};
    if(command==='connect_github'){window.__githubFixture.clearedBeforeInvoke=document.getElementById('github-token').value==='';current=connected;return{snapshot:current,repositories:repos,truncated:false}}
    if(command==='disconnect_github'){current={...disconnected,revision:5};return{snapshot:current,repositories:[],truncated:false}}
-   if(command==='configure_github'){current={...connected,revision:4,options:args.options};window.__githubFixture.calls.push({command,args});return{snapshot:current,repositories:repos,truncated:false}}
+   if(command==='configure_github'){current={...connected,revision:current.revision+1,options:args.options,...(!args.options.enabled?{status:'disabled',profile:null,items:[],calendar:null}:{})};window.__githubFixture.calls.push({command,args});return{snapshot:current,repositories:args.options.enabled?repos:[],truncated:false}}
    if(command==='open_github_item')window.__githubFixture.calls.push({command,args});
   }}};
  });
@@ -33,6 +33,10 @@ try{
  await prefs.locator('#github-token').fill('github_pat_fixture_not_a_real_credential_00000000000000000');await prefs.locator('#github-settings button[type=submit]').click();await prefs.waitForFunction(()=>document.querySelector('#github-settings [role=status]').textContent.includes('@fixture-account'));
  assert.equal(await prefs.evaluate(()=>window.__githubFixture.clearedBeforeInvoke),true);assert.equal(await prefs.locator('#github-token').inputValue(),'');
  assert.equal(await prefs.locator('input[data-repository]').count(),2);assert.match(await prefs.locator('#github-settings').textContent(),/Organización/);await prefs.locator('#github-settings').screenshot({path:fileURLToPath(new URL('preferences-connected-fixture.png',output))});
+ await prefs.locator('[data-github-option=enabled]').uncheck();await prefs.locator('#github-save').click();await prefs.waitForFunction(()=>document.querySelector('#github-settings [role=status]').textContent.startsWith('Sincronización desactivada'));
+ assert.equal(await prefs.locator('[data-github-option=enabled]').isVisible(),true);assert.equal(await prefs.getByRole('button',{name:'Desconectar y borrar credencial'}).isVisible(),true);
+ await prefs.locator('[data-github-option=enabled]').check();await prefs.locator('#github-save').click();await prefs.waitForFunction(()=>document.querySelector('#github-settings [role=status]').textContent.includes('@fixture-account'));
+ assert.deepEqual(await prefs.evaluate(()=>window.__githubFixture.calls.at(-1).args.options.repositories),['Orvyn-Studios/nivo']);
  await prefs.getByRole('button',{name:'Desconectar y borrar credencial'}).click();await prefs.waitForFunction(()=>document.querySelector('#github-settings [role=status]').textContent==='Sin cuenta conectada');assert.equal(await prefs.locator('input[data-repository]').count(),0);
  const page=await context.newPage();page.on('pageerror',e=>report.errors.push(e.message));await page.goto(`http://127.0.0.1:${server.httpServer.address().port}`);await page.waitForFunction(()=>!document.getElementById('toggle').disabled);
  await page.evaluate(()=>{window.__githubFixture.emit('nivo://github',{snapshot:window.__githubFixture.connected,notices:[]});window.__githubFixture.emit('nivo://github-open',null)});

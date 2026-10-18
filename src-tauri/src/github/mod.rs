@@ -184,6 +184,9 @@ impl GithubService {
                 return;
             }
             s.view.syncing = true;
+            if s.view.profile.is_none() {
+                s.view.status = "verifying";
+            }
             s.generation
         };
         let service = Arc::clone(self);
