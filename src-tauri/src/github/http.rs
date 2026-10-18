@@ -260,6 +260,7 @@ mod tests {
                         Err(e) => panic!("Owned mock request not received: {e}"),
                     }
                 };
+                socket.set_nonblocking(false).unwrap();
                 socket
                     .set_read_timeout(Some(Duration::from_secs(1)))
                     .unwrap();
@@ -278,7 +279,10 @@ mod tests {
             }
             requests
         });
-        let api = Api {
+        (fixture_api(address), server)
+    }
+    fn fixture_api(address: std::net::SocketAddr) -> Api {
+        Api {
             client: Client::builder()
                 .no_proxy()
                 .timeout(Duration::from_millis(500))
@@ -287,8 +291,7 @@ mod tests {
             token: Zeroizing::new("explicit_mock_not_a_real_token".into()),
             cache: Mutex::new(BTreeMap::new()),
             fixture_origin: Some(format!("http://{address}")),
-        };
-        (api, server)
+        }
     }
     #[tokio::test(flavor = "current_thread")]
     async fn transport_reuses_etag_and_never_parses_error_bodies_as_identity() {
@@ -319,18 +322,17 @@ mod tests {
     }
     #[tokio::test(flavor = "current_thread")]
     async fn abort_drops_an_inflight_transport_without_a_late_result() {
-        let (api, server) = fixture(
-            vec![
-                "HTTP/1.1 200 OK\r\nContent-Length: 8\r\nConnection: close\r\n\r\n{\"id\":1}"
-                    .into(),
-            ],
-            Duration::from_millis(100),
-        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let api = fixture_api(listener.local_addr().unwrap());
         let task = tokio::spawn(async move { api.get("/user").await });
-        tokio::time::sleep(Duration::from_millis(25)).await;
+        // Hold the actual accepted connection open without responding; abort only
+        // after connect, independent of scheduler timing or desktop load.
+        let _connection = tokio::time::timeout(Duration::from_secs(2), listener.accept())
+            .await
+            .unwrap()
+            .unwrap();
         task.abort();
         assert!(task.await.unwrap_err().is_cancelled());
-        server.join().unwrap();
     }
     #[test]
     fn errors_are_sanitized_and_retry_after_is_respected() {
