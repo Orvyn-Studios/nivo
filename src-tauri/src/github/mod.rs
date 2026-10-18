@@ -260,7 +260,7 @@ impl GithubService {
         if !valid_token(&token) {
             return Err("Introduce un PAT fine-grained válido (github_pat_…), sin espacios. No se admite un token clásico de acceso completo.".into());
         }
-        let (generation, previous_config) = {
+        let (generation, previous_config, prepared) = {
             let _control = self
                 .control
                 .lock()
@@ -285,11 +285,19 @@ impl GithubService {
             s.baseline = false;
             s.calendar_at = 0;
             s.cooldown = 0;
-            secrets::clear()?;
-            self.save(&s)?;
-            (generation, previous)
+            let cleared = secrets::clear();
+            let saved = self.save(&s);
+            let prepared = cleared.and(saved);
+            if let Err(message) = &prepared {
+                s.view.status = "error";
+                s.view.syncing = false;
+                s.view.error = Some(message.clone());
+                s.view.revision += 1;
+            }
+            (generation, previous, prepared)
         };
         self.notify(vec![]);
+        prepared?;
         let mut cancelled = self.epoch.subscribe();
         if *cancelled.borrow() != generation {
             return Err("La conexión se canceló antes de empezar.".into());
@@ -320,11 +328,15 @@ impl GithubService {
                 Ok((api, profile, repositories, truncated)) => {
                     // The token stays exclusively inside the native API reader. Only this
                     // validated connection may write the fixed Credential Manager entry.
-                    api.store_credential().inspect_err(|e| {
+                    if let Err(message) = api.store_credential() {
                         s.view.status = "error";
                         s.view.syncing = false;
-                        s.view.error = Some(e.clone());
-                    })?;
+                        s.view.error = Some(message.clone());
+                        s.view.revision += 1;
+                        drop(s);
+                        self.notify(vec![]);
+                        return Err(message);
+                    }
                     s.config = if previous_config.account_id == Some(profile.id) {
                         previous_config
                     } else {
@@ -344,7 +356,14 @@ impl GithubService {
                     s.view.revision += 1;
                     s.repositories = repositories;
                     s.truncated = truncated;
-                    self.save(&s)?;
+                    if let Err(message) = self.save(&s) {
+                        s.view.status = "error";
+                        s.view.error = Some(message.clone());
+                        s.view.revision += 1;
+                        drop(s);
+                        self.notify(vec![]);
+                        return Err(message);
+                    }
                 }
                 Err(error) => {
                     s.view.status = "error";

@@ -32,7 +32,7 @@ export function createGithubPreferences(parent:HTMLElement){
   const s=value.snapshot;state.textContent=s.profile?`Conectado como @${s.profile.login}${s.syncing?' · Actualizando…':''}${s.lastSync?` · Última consulta ${new Date(s.lastSync).toLocaleTimeString('es-ES')}`:''}`:s.status==='connecting'?'Validando cuenta…':s.status==='verifying'?'Verificando credencial guardada…':s.status==='disabled'?'Sincronización desactivada. Actívala para verificar la conexión guardada.':'Sin cuenta conectada';
   avatar.hidden=!s.profile?.avatar;if(s.profile?.avatar)avatar.src=s.profile.avatar;else avatar.removeAttribute('src');
   error.textContent=s.error??s.warnings.join(' · ');options.hidden=!s.profile&&!s.options.enabled&&s.status!=='disabled';
-  disconnect.hidden=!s.options.enabled&&s.status!=='connecting'&&s.status!=='disabled';connect.disabled=pending||!isNative;input.disabled=pending;
+  disconnect.hidden=!s.options.enabled&&s.status!=='connecting'&&s.status!=='disabled'&&s.status!=='error';connect.disabled=pending||!isNative;input.disabled=pending;
   if(editing)return;
   for(const[key,control]of controls)control.checked=s.options[key]===true;interval.value=String(s.options.intervalSeconds);
   repositories.querySelectorAll('label,p').forEach(n=>n.remove());
