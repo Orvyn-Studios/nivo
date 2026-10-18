@@ -1,10 +1,12 @@
 import type {DroppedFile,DropAction} from '../drop-state.ts';
 import {FILE_ACTIONS,actionFraction,fileKind,formatBytes,type ActionProgress,type ActionResult} from '../actions.ts';
 import {icon} from './icons.ts';
+import {createChoreography} from '../choreography.ts';
 
 export function createDropView(options:{
   run(action:DropAction,id?:string):Promise<ActionResult>;
   cancel(operationId:string):Promise<boolean>; changed():void; close():void;
+  reduced():boolean;
 }){
   const root=document.getElementById('drop')!;
   const list=document.getElementById('drop-list')!;
@@ -20,15 +22,29 @@ export function createDropView(options:{
   const folder=document.getElementById('drop-result-folder') as HTMLButtonElement;
   const retry=document.getElementById('drop-retry') as HTMLButtonElement;
   const listeners=new AbortController();
+  const choreography=createChoreography(root,options.reduced);
   let files:DroppedFile[]=[],privacy=true,signature='',busy=false,operationId:string|undefined;
   let output:DroppedFile|null=null,stage:'drag'|'files'|'running'|'result'|'error'='drag';
-  let revision=0,closeRequested=false,disposed=false;
+  let revision=0,closeRequested=false,disposed=false,cancelled=false;
+  let paintedStage:'drag'|'files'|'running'|'result'|'error'='drag';
   function update(){
+    const changed=paintedStage!==stage;
+    const paint=()=>{
     root.dataset.stage=stage;root.setAttribute('aria-busy',String(busy));
-    list.hidden=stage!=='files';operation.hidden=stage!=='running';result.hidden=stage!=='result'&&stage!=='error';
+    list.hidden=stage==='drag';operation.hidden=stage!=='running';result.hidden=stage!=='result'&&stage!=='error';
+    for(const [index,row] of [...list.children].entries()){
+      (row as HTMLElement).hidden=stage!=='files'&&index>0;
+      const title=row.querySelector('h2')!,detail=row.querySelector('.detail-note')!;
+      const file=output??files[index];
+      if(file){title.textContent=privacy?`Archivo ${index+1}`:file.name;detail.textContent=`${fileKind(file.name).label} · ${formatBytes(file.size)}`;}
+      for(const control of row.querySelectorAll<HTMLElement>('.drop-actions,.drop-more'))control.hidden=stage!=='files';
+    }
     zip.hidden=stage!=='files';zip.disabled=busy||!files.length;
     for(const button of list.querySelectorAll('button'))button.disabled=busy;
     options.changed();
+    };
+    if(changed)choreography.change(paint,stage==='result'&&!cancelled?'completion':'soft');else paint();
+    paintedStage=stage;
   }
   function button(action:DropAction,name:string,id:string){
     const node=document.createElement('button');node.type='button';node.className='text-action';
@@ -38,7 +54,7 @@ export function createDropView(options:{
     list.replaceChildren();
     for(const [index,file]of files.entries()){
       const kind=fileKind(file.name),row=document.createElement('section');row.className='drop-file';
-      const heading=document.createElement('div');heading.className='file-heading';
+      const heading=document.createElement('div');heading.className='file-heading';heading.dataset.choreography='file';
       const mark=document.createElement('span');mark.className='file-mark';mark.append(icon(kind.icon));
       const copy=document.createElement('div');copy.className='file-copy';
       const title=document.createElement('h2');title.textContent=privacy?`Archivo ${index+1}`:file.name;title.title=title.textContent;
@@ -55,7 +71,7 @@ export function createDropView(options:{
   }
   async function run(kind:DropAction,id?:string){
     if(busy||disposed)return;
-    const own=revision;busy=true;operationId=undefined;closeRequested=false;output=null;
+    const own=revision;busy=true;operationId=undefined;closeRequested=false;output=null;cancelled=false;
     stage='running';status.textContent=kind==='zip'?'Preparando ZIP…':kind==='copy'?'Preparando copia…':'Preparando acción…';
     progress.removeAttribute('value');measure.textContent='';cancel.disabled=true;cancel.textContent='Cancelar';update();
     try{
@@ -63,9 +79,10 @@ export function createDropView(options:{
       if(disposed||own!==revision)return;
       if(kind==='copyPath'||kind==='openFolder'){stage='files';status.textContent=value.message;}
       else{
-        stage='result';output=value.file;
+        stage='result';output=value.file;cancelled=value.outcome==='cancelled';
+        if(value.outcome==='success'){progress.value=1;measure.textContent='Confirmado en disco';}
         resultTitle.textContent=value.outcome==='cancelled'?'Operación cancelada':kind==='zip'?'ZIP listo':'Copia guardada';
-        resultDetail.textContent=output?`${privacy?'Archivo guardado':output.name} · ${formatBytes(output.size)}`:value.message;
+        resultDetail.textContent=value.message;
         folder.hidden=!output;retry.hidden=true;status.textContent=value.message;
       }
     }catch(error){
@@ -96,8 +113,9 @@ export function createDropView(options:{
   folder.addEventListener('click',()=>{if(output)void options.run('openFolder',output.id).then(v=>{status.textContent=v.message;}).catch(error=>{status.textContent=String(error).slice(0,280);});},{signal:listeners.signal});
   return{
     get busy(){return busy;},get stage(){return stage;},
-    get reaction():'working'|'complete'|'error'|'attention'{return stage==='running'?'working':stage==='result'?'complete':stage==='error'?'error':'attention';},
-    height(){return stage==='drag'?152:stage==='running'?178:stage==='result'||stage==='error'?200:Math.min(300,files.length>1?300:list.querySelector('details[open]')?300:264);},
+    get reaction():'working'|'complete'|'error'|'attention'{return stage==='running'?'working':stage==='result'&&!cancelled?'complete':stage==='error'?'error':'attention';},
+    height(){return stage==='drag'?152:stage==='running'?248:stage==='result'||stage==='error'?284:Math.min(300,files.length>1?300:list.querySelector('details[open]')?300:264);},
+    settle(){choreography.settle();},
     render(value:DroppedFile[],privateMode:boolean){
       const key=JSON.stringify(value),changed=key!==signature;
       if(changed){if(operationId)void options.cancel(operationId).catch(()=>{});revision++;busy=false;operationId=undefined;closeRequested=false;signature=key;files=value;stage=value.length?'files':'drag';output=null;}
@@ -114,6 +132,6 @@ export function createDropView(options:{
       if(closeRequested&&value.cancellable)void requestCancel(true);
     },
     close(){void requestCancel(true);},
-    dispose(){disposed=true;revision++;if(operationId)void options.cancel(operationId).catch(()=>{});listeners.abort();},
+    dispose(){disposed=true;revision++;choreography.dispose();if(operationId)void options.cancel(operationId).catch(()=>{});listeners.abort();},
   };
 }

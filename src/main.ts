@@ -84,8 +84,11 @@ const eventCompanion = createCompanion(eventFace, element('notification'), compa
 const agentFace = eventFace.cloneNode(true) as SVGElement; agentFace.id = 'agent-companion';
 element('integration-activity').prepend(agentFace);
 const agentCompanion = createCompanion(agentFace, element('integration-activity'), companionInput);
-const companions = [companion, welcomeCompanion, eventCompanion, agentCompanion];
-const dropView = createDropView({run:bridge.dropAction,cancel:bridge.cancelDropAction,close:restoreDrop,changed:()=>{
+const dropFace=eventFace.cloneNode(true) as SVGElement;dropFace.id='drop-companion';
+element('drop').querySelector('.section-heading')!.prepend(dropFace);
+const dropCompanion=createCompanion(dropFace,element('drop'),companionInput);
+const companions = [companion, welcomeCompanion, eventCompanion, agentCompanion,dropCompanion];
+const dropView = createDropView({run:bridge.dropAction,cancel:bridge.cancelDropAction,close:restoreDrop,reduced:()=>shouldReduceMotion(state.preferences,systemMotion.matches),changed:()=>{
   if(state.base.kind==='expanded'&&state.base.view==='drop'){motion.captureLayout();geometryDirty=true;dispatch({type:'advance',now:Date.now()});}
 }});
 function restoreDrop():void{
@@ -134,6 +137,9 @@ function syncCompanion(): void {
   const working = [...integrationInbox.agents.values()].includes('working');
   agentFace.toggleAttribute('hidden', !working || hasMedia || !state.preferences.mascot_enabled);
   agentCompanion.update({ ...value, pose: working ? 'working' : value.pose, visible: value.visible && working && !hasMedia });
+  const inDrop=state.base.kind==='expanded'&&state.base.view==='drop'&&!state.notification;
+  dropFace.toggleAttribute('hidden',!inDrop||!value.enabled);
+  dropCompanion.update({...value,visible:value.visible&&inDrop});
   const tracking = cursorReady && value.enabled && value.visible && !value.reduced && (!hasMedia || expanded);
   if (tracking !== requestedTracking) {
     requestedTracking = tracking;
@@ -296,6 +302,7 @@ function dispatch(event: IslandEvent): void {
   try { state = reduceIsland(state, event); }
   catch (error) { report(error); return; }
   if(state===previous&&!geometryDirty&&!mediaDirty&&!integrationsDirty)return;
+  if(shouldReduceMotion(state.preferences,systemMotion.matches)||state.hidden||document.hidden)dropView.settle();
   mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden);
   if (state.hidden || document.hidden) syncCompanion();
   if (!state.hidden && !document.hidden) render();
@@ -348,16 +355,16 @@ window.addEventListener('storage', event => { if (event.key === 'nivo:preference
 element('pause-events').addEventListener('click', () => dispatch({ type: 'pause-events', paused: !state.eventsPaused }));
 
 element('notification-dismiss').addEventListener('click', () => dispatch({ type: 'dismiss-notification', now: Date.now() }));
-systemMotion.addEventListener('change', () => { if (systemMotion.matches) motion.settle(); mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden); syncCompanion(); });
+systemMotion.addEventListener('change', () => { if (systemMotion.matches) {motion.settle();dropView.settle();} mediaView.setMotion(shouldReduceMotion(state.preferences, systemMotion.matches) || state.hidden || document.hidden); syncCompanion(); });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) motion.settle();
+  if (document.hidden) {motion.settle();dropView.settle();}
   dispatch({ type: 'advance', now: Date.now() });
 });
 window.addEventListener('focus', () => dispatch({ type: 'advance', now: Date.now() }));
 window.addEventListener('pageshow', () => { disposed = false; dispatch({ type: 'advance', now: Date.now() }); });
-window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle(); syncCompanion(); });
+window.addEventListener('pagehide', () => { disposed = true; clearTimeout(clockTimeout); motion.settle();dropView.settle(); syncCompanion(); });
 window.addEventListener('beforeunload',()=>unlistenActionProgress?.());
-window.addEventListener('beforeunload', () => { unlistenCursor?.(); unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); unlistenDrop?.(); unlistenDisplays?.(); eventCompanion.dispose(); agentCompanion.dispose(); dropView.dispose(); audioView.dispose(); mediaView.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
+window.addEventListener('beforeunload', () => { unlistenCursor?.(); unlistenVisibility?.(); unlistenMedia?.(); unlistenView?.(); unlistenAudio?.(); unlistenPower?.(); unlistenLockKey?.(); unlistenIntegration?.(); unlistenDrop?.(); unlistenDisplays?.(); eventCompanion.dispose(); agentCompanion.dispose();dropCompanion.dispose(); dropView.dispose(); audioView.dispose(); mediaView.dispose(); companion.dispose(); welcomeCompanion.dispose(); });
 
 // Local, bounded diagnostics; contains timings only, no titles or system activity.
 Object.defineProperty(window, '__NIVO_METRICS__', { value: transitionMetrics });

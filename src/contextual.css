@@ -118,6 +118,9 @@ body #island .drop-more summary:focus-visible { outline:1px solid var(--accent);
 body #island .drop-primary { min-height:30px; padding:5px 14px; margin-top:8px; border:1px solid rgb(255 255 255 / 15%); border-radius:16px; background:rgb(255 255 255 / 7%); color:var(--text); font:inherit; font-size:12px }
 body #island #drop[data-stage=drag]::after { content:'Soltar archivos'; display:grid; place-items:center; border:1px dashed rgb(184 212 255 / 25%); border-radius:14px; height:40px; margin-top:12px; color:var(--muted); font-size:12px }
 body #island #drop-operation { margin-top:24px }
+body #island #drop-companion { width:28px; height:28px; flex:none; margin-right:8px }
+body #island #drop .section-heading { justify-content:flex-start }
+body #island #drop-back { margin-left:auto }
 body #island #drop-progress { width:100%; height:4px; accent-color:var(--accent) }
 body #island #drop-measure { min-height:16px; margin:8px 0 }
 body #island #drop-result { margin-top:18px }

@@ -3,17 +3,18 @@ import {createServer} from 'vite';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
-const root=fileURLToPath(new URL('../',import.meta.url)),output=new URL('../artifacts/actions/ui/',import.meta.url);
+const normal=process.env.NIVO_MOTION==='normal';
+const root=fileURLToPath(new URL('../',import.meta.url)),output=new URL(normal?'../artifacts/actions/motion/':'../artifacts/actions/ui/',import.meta.url);
 await mkdir(output,{recursive:true});
 const server=await createServer({configFile:false,root,logLevel:'error',server:{host:'127.0.0.1',port:0,watch:{ignored:['**/src-tauri/**','**/artifacts/**']}}});await server.listen();
 const browser=await chromium.launch({headless:true,chromiumSandbox:true});
 const report={status:'running',environment:'Chromium / labelled synthetic operation and media fixtures; no native file or mail side effects',checks:[],screenshots:[],errors:[]};
 let page;
 try{
- page=await browser.newPage({viewport:{width:700,height:520},reducedMotion:'reduce'});page.on('pageerror',e=>report.errors.push(e.message));
- await page.addInitScript(()=>{
+ page=await browser.newPage({viewport:{width:700,height:520},reducedMotion:normal?'no-preference':'reduce',...(normal?{recordVideo:{dir:fileURLToPath(output),size:{width:700,height:520}}}:{})});page.on('pageerror',e=>report.errors.push(e.message));
+ await page.addInitScript(normal=>{
   const listeners=new Map();let serial=0;
-  const settings={schema_version:1,motion:'reduced',privacy_mode:false,drop_enabled:true,media_enabled:true};
+  const settings={schema_version:1,motion:normal?'full':'reduced',privacy_mode:false,drop_enabled:true,media_enabled:true};
   window.__actions={calls:[],emit:(name,payload)=>listeners.get(name)?.({payload}),job:null};
   window.__TAURI__={event:{async listen(name,fn){listeners.set(name,fn);return()=>listeners.delete(name)}},core:{async invoke(command,args){
    if(command==='get_settings')return settings;
@@ -29,7 +30,7 @@ try{
      return new Promise(resolve=>{window.__actions.job={id:operationId,resolve};window.__actions.emit('nivo://action-progress',{operationId,phase:'destination',completed:0,total:null,cancellable:false});});
    }
   }}};
- });
+ },normal);
  await page.goto(`http://127.0.0.1:${server.httpServer.address().port}`);await page.waitForFunction(()=>!document.getElementById('toggle').disabled);
  const stable=()=>page.waitForFunction(()=>document.getElementById('island').getAnimations({subtree:true}).every(a=>a.playState!=='running'));
  const emit=async(name,value)=>{await page.evaluate(([n,v])=>window.__actions.emit(n,v),[name,value]);await stable();};
@@ -42,10 +43,12 @@ try{
  await emit('nivo://drop-phase','enter');await emit('nivo://drop-files',files);await emit('nivo://drop-phase','drop');
  assert.equal(await page.locator('#drop').isVisible(),true);assert.match(await page.locator('#drop-list').textContent(),/Documento PDF/);await shot('02-file');
  await page.locator('#drop-zip').click();await page.waitForFunction(()=>window.__actions.job!==null);
+ assert.equal(await page.locator('#drop-list .file-heading').isVisible(),true,'same file card remains during the operation');
  const running=()=>page.evaluate(()=>window.__actions.emit('nivo://action-progress',{operationId:window.__actions.job.id,phase:'running',completed:2,total:10,cancellable:true}));
  await running();assert.equal(await page.locator('#drop-progress').evaluate(el=>el.value),.2);await shot('03-measured-progress');
  await page.evaluate(()=>window.__actions.job.resolve({operationId:window.__actions.job.id,outcome:'success',message:'ZIP comprimido creado.',file:{id:'drop:9:0',name:'Entrega.zip',size:1024}}));
  await page.waitForFunction(()=>document.getElementById('drop').dataset.stage==='result');await shot('04-result');
+ assert.match(await page.locator('#drop-list .file-heading').textContent(),/Entrega.zip/);
  await page.locator('#drop-result-folder').click();
  assert.equal(await page.evaluate(()=>window.__actions.calls.at(-1).args.id),'drop:9:0');
  await page.locator('#drop-done').click();await stable();assert.equal(await page.locator('#media-widget').isVisible(),true);
