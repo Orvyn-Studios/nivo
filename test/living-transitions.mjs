@@ -12,7 +12,7 @@ const output=path.join(root,'artifacts/living-review',reduced?'reduced':'normal'
 await mkdir(output,{recursive:true});
 const report={status:'running',sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8',windowsHide:true}).trim(),reduced,
  environment:'Chromium; synthetic media, volume, Codex lifecycle and ZIP bytes/result. No native ZIP, GitHub account or DWM acceptance.',
- limits:'Screenshots perturb timing; sample timestamps are observed, not requested frame times or presented FPS.',transitions:[],errors:[]};
+ limits:'Screenshots perturb timing. Each PNG is bracketed by the state sample and capture completion; neither is a DWM exposure time or presented FPS.',transitions:[],errors:[]};
 const server=await createServer({configFile:false,root,logLevel:'error',server:{host:'127.0.0.1',port:0,watch:{ignored:['**/src-tauri/**','**/artifacts/**']}}});
 await server.listen();const browser=await chromium.launch({headless:true,chromiumSandbox:true});let page;
 try{
@@ -63,7 +63,8 @@ try{
    for(const exit of sample.exits){assert.equal(exit.inert,true);assert.equal(exit.aria,'true')}
    if(sample.exits.some(n=>['activity','notification','audio','drop','github'].includes(n.id)))assert.equal(sample.scrollOverflow,'visible','target scroll height must not crop departing content');
    assert.equal(sample.sameCard,true,'shared file card must retain identity');
-   const file=`${name}-${frames.length}.png`;await page.screenshot({path:path.join(output,file)});frames.push({...sample,file});
+   const file=`${name}-${frames.length}.png`;await page.screenshot({path:path.join(output,file)});
+   const captureCompletedMs=await page.evaluate(()=>performance.now()-window.__started);frames.push({...sample,captureCompletedMs,file});
   }
   await stable();assert.equal(await page.locator('[data-choreography-exiting]').count(),0);
   report.transitions.push({name,before:`${name}-before.png`,frames});
