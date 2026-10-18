@@ -39,6 +39,7 @@ try{
  assert.deepEqual(await prefs.evaluate(()=>window.__githubFixture.calls.at(-1).args.options.repositories),['Orvyn-Studios/nivo']);
  await prefs.getByRole('button',{name:'Desconectar y borrar credencial'}).click();await prefs.waitForFunction(()=>document.querySelector('#github-settings [role=status]').textContent==='Sin cuenta conectada');assert.equal(await prefs.locator('input[data-repository]').count(),0);
  const page=await context.newPage();page.on('pageerror',e=>report.errors.push(e.message));await page.goto(`http://127.0.0.1:${server.httpServer.address().port}`);await page.waitForFunction(()=>!document.getElementById('toggle').disabled);
+ await page.evaluate(()=>{const label=document.createElement('p');label.textContent='FIXTURE GitHub · sin cuenta real ni red';label.style.cssText='position:fixed;bottom:0;left:0;color:#a4abb7;font:12px sans-serif';document.body.append(label)});
  await page.evaluate(()=>{window.__githubFixture.emit('nivo://github',{snapshot:window.__githubFixture.connected,notices:[]});window.__githubFixture.emit('nivo://github-open',null)});
  await page.waitForFunction(()=>document.getElementById('island').getAnimations({subtree:true}).every(a=>a.playState!=='running'));
  await new Promise(r=>setTimeout(r,200));
@@ -47,10 +48,12 @@ try{
  report.geometry=await page.evaluate(()=>Object.fromEntries(['island','island-panel','github'].map(id=>{const n=document.getElementById(id),r=n.getBoundingClientRect();return[id,{x:r.x,y:r.y,height:r.height,scrollTop:n.scrollTop,parentScroll:n.parentElement.scrollTop}]})));
  assert.equal(report.geometry.github.parentScroll,0,'context fits without scrolling its heading out of the native mask');
  await page.locator('#github-detail').getByRole('button',{name:'Abrir PR',exact:true}).click();assert.deepEqual(await page.evaluate(()=>window.__githubFixture.calls.at(-1)),{command:'open_github_item',args:{id:'pr:42'}});
- await page.locator('#island').screenshot({path:fileURLToPath(new URL('pull-detail-fixture.png',output))});await page.locator('#github-detail').getByRole('button',{name:'Volver',exact:true}).click();await page.locator('[data-github-filter=calendar]').click();assert.equal(await page.locator('.github-calendar button').count(),28);
- await page.waitForFunction(()=>document.getElementById('island').getAnimations({subtree:true}).every(a=>a.playState!=='running'));await page.locator('#island').screenshot({path:fileURLToPath(new URL('contributions-fixture.png',output))});
+ // Element screenshots can crop Chromium's video screencast. Keep its viewport
+ // fixed so the recording cannot manufacture a zoom absent from the product.
+ await page.screenshot({path:fileURLToPath(new URL('pull-detail-fixture.png',output))});await page.locator('#github-detail').getByRole('button',{name:'Volver',exact:true}).click();await page.locator('[data-github-filter=calendar]').click();assert.equal(await page.locator('.github-calendar button').count(),28);
+ await page.waitForFunction(()=>document.getElementById('island').getAnimations({subtree:true}).every(a=>a.playState!=='running'));await page.screenshot({path:fileURLToPath(new URL('contributions-fixture.png',output))});
  await page.evaluate(()=>window.__githubFixture.emit('nivo://github',{snapshot:{...window.__githubFixture.connected,revision:9,status:'disconnected',profile:null,options:{...window.__githubFixture.connected.options,enabled:false}},notices:[]}));assert.equal(await page.locator('.github-calendar button').count(),0);
- const video=page.video();await page.close();await video.saveAs(fileURLToPath(new URL('github-context-fixture.webm',output)));
+ await new Promise(r=>setTimeout(r,150));const video=page.video();await page.close();await video.saveAs(fileURLToPath(new URL('github-context-fixture.webm',output)));
  report.recording='github-context-fixture.webm: synthetic account/items/calendar only, no authentication or actual network.';
  report.checks.push('PAT field cleared before native invoke; connected identity and personal/org repo selection; disconnect clears private repository list; contextual PR details keep CI separate from approval; opening passes only opaque ID; actual-shape calendar cells; opt-out clears calendar.');assert.deepEqual(report.errors,[]);report.status='passed';
 }catch(error){report.status='failed';report.error=error.stack;process.exitCode=1}finally{await browser.close();await server.close();await writeFile(new URL('results.json',output),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))}
