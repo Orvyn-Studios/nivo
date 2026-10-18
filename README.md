@@ -68,6 +68,12 @@ Consulta [validación](docs/VALIDATION.md), [aceptación y medición nativa](doc
 
 El avance actual y sus pruebas se registran en [estado por fases](docs/PHASE_STATUS.md). Los informes anteriores en VALIDATION conservan su contexto histórico; sus bloqueos no deben atribuirse automáticamente a esta torre. No se declaran cifras de CPU, RAM o FPS sin mediciones del ejecutable.
 
+La iteración actual incorpora [Living Island](docs/LIVING_ISLAND.md),
+[acciones y correo básico](docs/NIVO_ACTIONS.md) y [GitHub opcional de solo lectura](docs/GITHUB_INTEGRATION.md).
+GitHub se configura con PAT fine-grained dentro de Preferencias; no se deben pegar
+tokens en el chat. Los documentos separan el ejecutable Windows, los fixtures
+visuales y los casos que todavía requieren aceptación real.
+
 La prueba web permite seleccionar Edge mediante `NIVO_TEST_BROWSER=msedge`, o desactivar el uso de GPU únicamente en el navegador de pruebas mediante `NIVO_TEST_SOFTWARE_RENDERING=1`. Ambos mantienen el sandbox. El informe registra estas condiciones; sus tiempos RAF no acreditan rendimiento nativo.
 
 Se conserva un workflow Windows manual en `.github/workflows/windows-validation.yml`, sin disparadores automáticos. Una ejecución autorizada terminó sin asignar runner ni ejecutar pasos; el usuario informó de un problema de facturación y pidió continuar localmente. No se volverá a ejecutar Actions sin una nueva indicación. El workflow no publica releases ni ejecutables automáticamente, y no sustituye la prueba del ejecutable en un escritorio real.

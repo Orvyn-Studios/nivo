@@ -61,9 +61,14 @@ la UI de cuenta, campo borrado, repositorios, desconexión, detalle PR, separaci
 CI/revisión, IDs de apertura y calendario. Capturas en `artifacts/github/ui`.
 
 Todavía no se ha usado un PAT real ni se ha confirmado una cuenta real desde Nivo.
-Las capturas muestran fixtures, no una conexión autenticada. Quedan aceptación
-con permisos/organización reales, pruebas de transporte con fallos/interrupción,
-revisión nativa final y comparación de rendimiento del ejecutable resultante.
+Las capturas muestran fixtures, no una conexión autenticada. El transporte se ha
+probado contra un servidor local ficticio: ETag/304, 401, 429/Retry-After, respuesta
+excesiva y aborto tras aceptar una conexión real sin respuesta. Ese origen de
+pruebas solo existe bajo cfg(test), sin URL configurable en el producto.
+Las capacidades se han comprobado además en el ejecutable Windows: la isla no
+puede conectar/enumerar cuentas y Preferencias no puede abrir items ni correo.
+Queda aceptación con permisos, token y organización reales; véase LIVING_ISLAND.md
+para resultados nativos y rendimiento del hash final.
 
 ## Referencias
 
