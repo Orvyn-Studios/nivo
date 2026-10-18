@@ -261,6 +261,13 @@ fn change_visibility(
         next.reported = Some(visible);
     }
     *current = next;
+    drop(current);
+    if let Some(github) = window
+        .app_handle()
+        .try_state::<Arc<crate::github::GithubService>>()
+    {
+        github.inner().set_active(visible);
+    }
     Ok(())
 }
 

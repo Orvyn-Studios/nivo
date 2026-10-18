@@ -175,6 +175,13 @@
             </div>
             </div>
           </section>
+          <section id="github" aria-label="Actividad de GitHub" hidden>
+            <div class="section-heading"><h1>GitHub</h1><button id="github-back" class="text-action">Volver</button></div>
+            <p id="github-status" class="detail-note" role="status"></p>
+            <div class="github-filters" role="group" aria-label="Filtrar actividad"><button data-github-filter="pull">Mis PR</button><button data-github-filter="reviews">Revisiones</button><button data-github-filter="run">CI</button><button data-github-filter="issue">Issues</button><button data-github-filter="calendar">Días</button></div>
+            <div id="github-list" data-choreography="github-list"></div><div id="github-detail" data-choreography="github-detail" hidden></div>
+            <div class="github-actions"><button id="github-refresh" class="text-action">Actualizar</button><button id="github-settings" class="text-action">Configurar</button></div>
+          </section>
           <section id="drop" aria-label="Nivo Drop" hidden>
             <div class="section-heading"><h1>Nivo Drop</h1><button id="drop-back" class="text-action">Volver</button></div>
             <p id="drop-status" class="detail-note" role="status">Suelta hasta 16 archivos locales sobre Nivo.</p>
@@ -224,7 +231,7 @@
             </h2>
             <p id="notification-body">
             </p>
-            <progress id="notification-progress" max="1" hidden aria-label="Nivel de volumen"></progress></div>
+            <progress id="notification-progress" max="1" hidden aria-label="Nivel de volumen"></progress><button id="notification-action" class="text-action" hidden></button></div>
           </section>
         </div>
         <p id="bridge-status" role="status">

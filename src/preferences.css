@@ -22,5 +22,18 @@
 .settings-page .setting-note { margin-top:12px; line-height:1.6; color:var(--muted); font-size:12px }
 #settings-status { position:absolute; top:15px; right:28px; color:var(--muted); max-width:80%; font-size:11px }
 .about-version { color:var(--muted); line-height:1.8; white-space:pre-line; font-size:13px }
+.github-settings { border-top:1px solid var(--line); margin-top:28px; padding-top:24px }
+.github-settings h2 { font-size:18px; font-weight:550 }
+.github-settings form { display:flex; flex-wrap:wrap; gap:10px; align-items:center }
+.github-settings form label { width:100%; font-size:12px; color:var(--muted) }
+.github-settings input[type=password] { flex:1; min-width:120px; background:var(--surface); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px 12px }
+.github-settings button { font-size:12px; padding:8px 12px; border-radius:8px; color:var(--text); background:var(--raised) }
+.github-settings .github-options { margin-top:22px }
+.github-settings .github-options .setting { min-height:48px; padding:12px 0; font-size:12px }
+.github-settings fieldset { border:1px solid var(--line); border-radius:10px; padding:12px; margin:20px 0; max-height:220px; overflow:auto }
+.github-settings legend,.github-settings summary { font-size:12px; color:var(--muted) }
+.github-settings .github-repository { display:flex; gap:10px; align-items:center; margin:10px 0; font-size:12px }
+.github-settings details { margin-top:20px }
+.github-settings .settings-intro { margin-bottom:18px }
 .settings-body[data-environment=native] { background:var(--bg); min-height:480px; overflow:hidden }
 @media(max-width:620px) { .settings-body { grid-template-columns:150px 1fr } #settings-content { padding:38px 20px } .settings-sidebar { padding-left:8px; padding-right:8px } }

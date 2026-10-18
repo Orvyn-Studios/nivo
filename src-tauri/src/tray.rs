@@ -6,7 +6,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    App, Manager,
+    App, Emitter, Manager,
 };
 
 fn icon() -> Image<'static> {
@@ -31,14 +31,24 @@ pub fn install(app: &App) -> tauri::Result<()> {
     let hide = MenuItem::with_id(app, "hide", "Ocultar Nivo", true, None::<&str>)?;
     let pause = MenuItem::with_id(app, "pause", "Pausar Nivo", true, None::<&str>)?;
     let preferences = MenuItem::with_id(app, "preferences", "Preferencias", true, None::<&str>)?;
+    let github = MenuItem::with_id(app, "github", "Actividad de GitHub", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Salir de Nivo", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &hide, &pause, &preferences, &quit])?;
+    let menu = Menu::with_items(app, &[&show, &hide, &pause, &github, &preferences, &quit])?;
     TrayIconBuilder::with_id("nivo")
         .icon(icon())
         .tooltip("Nivo by Orvyn")
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "quit" => app.exit(0),
+            "github" => {
+                if let Some(island) = app.get_webview_window("island") {
+                    if let Ok(settings) = app.state::<SettingsStore>().snapshot() {
+                        if window::show(&island, &app.state::<IslandState>(), &settings).is_ok() {
+                            let _ = app.emit_to("island", "nivo://github-open", ());
+                        }
+                    }
+                }
+            }
             "preferences" => {
                 let handle = app.clone();
                 tauri::async_runtime::spawn(async move {

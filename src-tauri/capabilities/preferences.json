@@ -1,6 +1,6 @@
 {
   "identifier": "preferences",
-  "description": "Only local configuration and the explicit Nivo startup toggle. No media controls, Drop, window regions, filesystem or shell.",
+  "description": "Local preferences, explicit startup and read-only GitHub connection/configuration. No token retrieval, media controls, Drop, arbitrary filesystem or shell.",
   "windows": ["preferences"],
-  "permissions": ["allow-close-preferences", "allow-get-settings", "allow-save-settings", "allow-get-displays", "allow-get-power-snapshot", "allow-get-autostart", "allow-set-autostart", "core:event:allow-listen", "core:event:allow-unlisten"]
+  "permissions": ["allow-close-preferences", "allow-get-settings", "allow-save-settings", "allow-get-displays", "allow-get-power-snapshot", "allow-get-autostart", "allow-set-autostart", "allow-get-github-connection", "allow-connect-github", "allow-disconnect-github", "allow-configure-github", "allow-refresh-github", "core:event:allow-listen", "core:event:allow-unlisten"]
 }

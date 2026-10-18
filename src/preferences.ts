@@ -1,6 +1,7 @@
 import { bridge, isNative } from './bridge.ts';
 import { parsePreferences, shouldReduceMotion, type Preferences } from './domain/index.ts';
 import { createWindowsPreferences } from './components/windows-preferences.ts';
+import {createGithubPreferences} from './components/github-preferences.ts';
 
 const get = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 let preferences = parsePreferences(null), pending = Promise.resolve();
@@ -11,7 +12,7 @@ const categories = [
   ['audio', 'Audio', 'Tu sonido, a mano.', 'Controles de Windows, sin grabar audio.'],
   ['activity', 'Actividad', 'Solo cuando importa.', 'Elige qué merece un aviso.'],
   ['integrations', 'Integraciones', 'Conecta lo que utilizas.', 'Cada integración es opcional. Tú decides.'],
-  ['privacy', 'Privacidad', 'Tu espacio es tuyo.', 'Sin cuentas, telemetría ni historial de actividad.'],
+  ['privacy', 'Privacidad', 'Tu espacio es tuyo.', 'Sin telemetría. Las cuentas externas se conectan solo si tú las configuras.'],
   ['about', 'Acerca de Nivo', 'Nivo by Orvyn.', 'Una isla pequeña. Un poco más de calma.'],
 ] as const;
 const groups = new Map<string, HTMLElement>();
@@ -35,6 +36,8 @@ move('audio-enabled', 'audio');
 for (const id of ['notifications-enabled', 'caps-lock-enabled', 'num-lock-enabled']) move(id, 'activity');
 move('battery-settings', 'activity');
 for (const id of ['media-enabled', 'integrations-enabled', 'drop-enabled']) move(id, 'integrations');
+const github=createGithubPreferences(groups.get('integrations')!);
+window.addEventListener('beforeunload',()=>github.dispose());
 move('privacy-mode', 'privacy');
 const about = document.createElement('p'); about.className = 'about-version';
 about.textContent = '0.1.0 · Alpha\nHecho para Windows. Datos locales.\nLas integraciones dependen de las capacidades de Windows y de cada aplicación.';

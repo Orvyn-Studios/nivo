@@ -6,6 +6,7 @@ mod display;
 mod drop_files;
 mod events;
 mod fullscreen;
+mod github;
 mod instance;
 mod integration;
 mod media;
@@ -22,6 +23,81 @@ pub use activity_bridge::native_messaging_host;
 use settings::{Settings, SettingsStore};
 use std::sync::Arc;
 use tauri::{Emitter, Manager, State, WebviewWindow, WindowEvent};
+
+fn require_preferences(window: &WebviewWindow) -> Result<(), String> {
+    if window.label() == "preferences" {
+        Ok(())
+    } else {
+        Err("Esta operación solo está disponible en Preferencias.".into())
+    }
+}
+#[tauri::command]
+fn get_github_snapshot(
+    window: WebviewWindow,
+    github: State<Arc<github::GithubService>>,
+) -> Result<github::Snapshot, String> {
+    window::require_island(&window)?;
+    github.snapshot()
+}
+#[tauri::command]
+fn get_github_connection(
+    window: WebviewWindow,
+    github: State<Arc<github::GithubService>>,
+) -> Result<github::Connection, String> {
+    require_preferences(&window)?;
+    github.connection()
+}
+#[tauri::command]
+async fn connect_github(
+    window: WebviewWindow,
+    github: State<'_, Arc<github::GithubService>>,
+    token: String,
+) -> Result<github::Connection, String> {
+    require_preferences(&window)?;
+    let service = Arc::clone(github.inner());
+    service.connect(token).await
+}
+#[tauri::command]
+fn disconnect_github(
+    window: WebviewWindow,
+    github: State<Arc<github::GithubService>>,
+) -> Result<github::Connection, String> {
+    require_preferences(&window)?;
+    github.inner().disconnect()
+}
+#[tauri::command]
+fn configure_github(
+    window: WebviewWindow,
+    github: State<Arc<github::GithubService>>,
+    options: github::Options,
+) -> Result<github::Connection, String> {
+    require_preferences(&window)?;
+    github.inner().configure(options)
+}
+#[tauri::command]
+fn refresh_github(
+    window: WebviewWindow,
+    github: State<Arc<github::GithubService>>,
+) -> Result<github::Snapshot, String> {
+    preferences_window::require_known(&window)?;
+    github.inner().refresh()
+}
+#[tauri::command]
+fn open_github_item(
+    window: WebviewWindow,
+    github: State<Arc<github::GithubService>>,
+    id: String,
+) -> Result<(), String> {
+    window::require_island(&window)?;
+    if id.len() > 240 {
+        return Err("Identificador no válido.".into());
+    }
+    #[cfg(windows)]
+    let owner = window.hwnd().map_err(|_| "Ventana no disponible.")?.0 as isize;
+    #[cfg(not(windows))]
+    let owner = 0;
+    github.open_item(&id, owner)
+}
 use window::IslandState;
 
 #[tauri::command]
@@ -390,6 +466,13 @@ pub fn run() {
             get_drop_snapshot,
             drop_action,
             cancel_drop_action,
+            get_github_snapshot,
+            get_github_connection,
+            connect_github,
+            disconnect_github,
+            configure_github,
+            refresh_github,
+            open_github_item,
             audio_control,
             open_sound_settings,
             media_control,
@@ -399,6 +482,10 @@ pub fn run() {
         .setup(|app| {
             app.manage(power::PowerService::default());
             app.manage(Arc::new(drop_files::DropFiles::default()));
+            app.manage(github::GithubService::new(
+                app.path().app_config_dir()?.join("github.json"),
+                app.handle().clone(),
+            ));
             let settings = match app.path().app_config_dir() {
                 Ok(directory) => SettingsStore::open(directory.join("settings.json")),
                 Err(error) => SettingsStore::unavailable(format!(
@@ -529,6 +616,9 @@ pub fn run() {
     match result {
         Ok(app) => app.run(|handle, event| {
             if matches!(event, tauri::RunEvent::Exit) {
+                if let Some(github) = handle.try_state::<Arc<github::GithubService>>() {
+                    github.shutdown();
+                }
                 if let Some(activity) = handle.try_state::<activity_bridge::ActivityBridge>() {
                     activity.shutdown();
                 }

@@ -128,3 +128,22 @@ body #island #drop-result h2 { font-size:16px; font-weight:550; margin:0 0 8px }
 body #island #drop-result-detail { overflow-wrap:anywhere; max-height:48px; overflow:auto }
 body #island[data-context=drop] #drop-list:empty { border:1px dashed rgb(184 212 255 / 20%); border-radius:12px; height:24px; margin-top:10px }
 body #island[data-context=drop] #drop-zip:disabled { display:none }
+body #island #github .section-heading { display:flex; justify-content:space-between }
+body #island #github-status { font-size:10px; color:var(--muted); margin:8px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+body #island .github-filters { display:flex; gap:5px; margin:8px 0 }
+body #island .github-filters button { min-height:24px; font-size:10px; padding:4px 8px; border-radius:10px; background:transparent; color:var(--muted) }
+body #island .github-filters button[aria-pressed=true] { background:var(--raised); color:var(--text) }
+body #island #github-list,body #island #github-detail { height:124px; overflow:auto; scrollbar-width:none; overscroll-behavior:contain }
+body #island .github-card { display:flex; flex-direction:column; gap:4px; width:100%; text-align:left; border-radius:10px; padding:8px 10px; margin:0 0 5px; background:rgb(255 255 255 / 3%); color:var(--text) }
+body #island .github-card strong { font-size:12px; font-weight:550; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+body #island .github-card[data-ci=failure] { box-shadow:inset 2px 0 rgb(230 143 143 / 55%) }
+body #island #github-detail h2 { font-size:14px; margin:8px 0 }
+body #island #github-detail .text-action { margin-right:16px }
+body #island .github-actions { display:flex; gap:16px; margin-top:10px }
+body #island .github-calendar { display:grid; grid-template-columns:repeat(13,1fr); grid-auto-flow:column; grid-template-rows:repeat(7,10px); gap:4px; margin-top:10px }
+body #island .github-calendar button { min-width:0; min-height:0; padding:0; border-radius:2px; background:rgb(184 212 255 / 8%) }
+body #island .github-calendar button[data-level="1"] { background:rgb(184 212 255 / 22%) }
+body #island .github-calendar button[data-level="2"] { background:rgb(184 212 255 / 40%) }
+body #island .github-calendar button[data-level="3"] { background:rgb(184 212 255 / 65%) }
+body #island .github-calendar button[data-level="4"] { background:rgb(184 212 255 / 90%) }
+body #island #notification-action { margin-top:8px }

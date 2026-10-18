@@ -7,6 +7,7 @@ import { emptyAudio, parseAudioSnapshot, type AudioSnapshot, type AudioAction } 
 import { parsePowerSnapshot, type PowerSnapshot } from './power-state.ts';
 import { parseIntegrationEvent, type IntegrationEvent } from './integration-state.ts';
 import { parseDroppedFiles, type DroppedFile, type DropAction } from './drop-state.ts';
+import {emptyGithub,parseGithub,parseGithubConnection,parseGithubNotices,type GithubOptions,type GithubConnection,type GithubSnapshot,type GithubNotice} from './github-state.ts';
 export type { Display } from './display-state.ts';
 
 type Core = { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> };
@@ -17,6 +18,15 @@ export const isNative = Boolean(core);
 let surfaceEpoch = 0;
 let surfaceSnapshot: SurfaceSnapshot | undefined;
 export const bridge = {
+  onGithubOpen:(handler:()=>void):Promise<()=>void>=>core?window.__TAURI__!.event.listen('nivo://github-open',handler,{target:'island'}):Promise.resolve(()=>{}),
+  github:async():Promise<GithubSnapshot>=>{const value=core?await core.invoke('get_github_snapshot'):undefined;if(value===undefined)return emptyGithub();const state=parseGithub(value);if(!state)throw new Error('Estado de GitHub no válido.');return state;},
+  githubConnection:async():Promise<GithubConnection>=>{const value=core?await core.invoke('get_github_connection'):undefined;if(value===undefined)return{snapshot:emptyGithub(),repositories:[],truncated:false};const state=parseGithubConnection(value);if(!state)throw new Error('Conexión de GitHub no válida.');return state;},
+  connectGithub:async(token:string):Promise<GithubConnection>=>{if(!core)throw new Error('Requiere Nivo para Windows.');const state=parseGithubConnection(await core.invoke('connect_github',{token}));if(!state)throw new Error('Conexión de GitHub no válida.');return state;},
+  configureGithub:async(options:GithubOptions):Promise<GithubConnection>=>{if(!core)throw new Error('Requiere Nivo para Windows.');const state=parseGithubConnection(await core.invoke('configure_github',{options}));if(!state)throw new Error('Configuración no válida.');return state;},
+  disconnectGithub:async():Promise<GithubConnection>=>{if(!core)throw new Error('Requiere Nivo para Windows.');const state=parseGithubConnection(await core.invoke('disconnect_github'));if(!state)throw new Error('Estado no válido.');return state;},
+  refreshGithub:async()=>{if(core)await core.invoke('refresh_github');},
+  openGithubItem:(id:string)=>core?.invoke<void>('open_github_item',{id})??Promise.reject(new Error('Requiere Nivo para Windows.')),
+  onGithub:async(handler:(snapshot:GithubSnapshot,notices:GithubNotice[])=>void):Promise<()=>void>=>core?window.__TAURI__!.event.listen<unknown>('nivo://github',({payload})=>{if(!payload||typeof payload!=='object')return;const v=payload as Record<string,unknown>,snapshot=parseGithub(v.snapshot);if(snapshot)handler(snapshot,parseGithubNotices(v.notices))},{target:location.pathname.includes('preferences')?'preferences':'island'}):()=>{},
   trackCursor: (enabled: boolean) => core?.invoke<void>('set_companion_tracking', { enabled }) ?? Promise.resolve(),
   onCursor: (handler: (point: { x: number; y: number }) => void): Promise<() => void> => core
     ? window.__TAURI__!.event.listen<{ x: number; y: number }>('nivo://cursor', ({ payload }) => {

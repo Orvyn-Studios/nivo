@@ -13,6 +13,7 @@ export interface IslandNotification {
   compact?: boolean;
   progress?: number;
   reaction?: 'attention' | 'working' | 'complete' | 'error' | 'device' | 'download';
+  action?:{provider:'github';id:string;label:string};
 }
 export interface PendingNotification { notification: IslandNotification; remainingMs: number }
 export interface ActiveNotification { notification: IslandNotification; expiresAtMs: number }
@@ -45,6 +46,7 @@ export function parseActivityEvent(value: unknown): IslandNotification | null {
     groupKey: clean(item.groupKey, 120) || undefined, compact: item.compact === true,
     progress: typeof item.progress === 'number' && Number.isFinite(item.progress) && item.progress >= 0 && item.progress <= 1 ? item.progress : undefined,
     reaction: reactions.includes(item.reaction as string) ? item.reaction as IslandNotification['reaction'] : undefined,
+    action: item.action&&typeof item.action==='object'&&!Array.isArray(item.action)&&'provider' in item.action&&item.action.provider==='github'&&'id' in item.action&&'label' in item.action&&clean(item.action.id,256)&&clean(item.action.label,40)?{provider:'github',id:clean(item.action.id,256),label:clean(item.action.label,40)}:undefined,
   };
 }
 
