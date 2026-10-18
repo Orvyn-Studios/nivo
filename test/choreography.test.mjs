@@ -38,10 +38,13 @@ test('hidden, reduced and disposed choreography retains no animation work',()=>{
 });
 test('outgoing controls are inert, leave flow immediately and cannot hide a reversed state later',async()=>{
  const f=fixture();try{
+  f.node.style.minHeight='100%';
   f.engine.change(()=>{f.node.hidden=true});assert.equal(f.node.hidden,false);assert.equal(f.node.inert,true);assert.equal(f.node.style.position,'absolute');
+  assert.equal(f.node.style.minHeight,'0px','incoming height cannot recenter a departing notice');
   assert.equal(f.node.getAttribute('aria-hidden'),'true');
   f.engine.change(()=>{f.node.hidden=false});await Promise.resolve();await Promise.resolve();
   assert.equal(f.node.hidden,false);assert.equal(f.node.inert,false);assert.equal(f.node.getAttribute('aria-hidden'),null);
+  assert.equal(f.node.style.minHeight,'100%');
   f.engine.change(()=>{f.node.hidden=true});f.node.style.opacity='.42';f.engine.settle();assert.equal(f.node.hidden,true);assert.equal(f.node.inert,false);assert.equal(f.node.style.opacity,'.42','cleanup must not restore stale properties owned by the surface engine');
  }finally{f.engine.dispose();f.restore()}
 });
