@@ -40,7 +40,9 @@ export function createChoreography(root:HTMLElement,reduced:()=>boolean,selector
           node.hidden=false;node.inert=true;node.setAttribute('aria-hidden','true');node.dataset.choreographyExiting='true';
           // A notice uses min-height:100% in normal flow. Once departing, that
           // percentage must not expand against the incoming panel's new height.
-          Object.assign(node.style,{position:'absolute',left:`${old.left-bounds.left+root.scrollLeft}px`,top:`${old.top-bounds.top+root.scrollTop}px`,width:`${old.width}px`,height:`${old.height}px`,minWidth:'0px',minHeight:'0px',pointerEvents:'none'});
+          // The surface stays centred while its panel width changes. Anchor to
+          // that centre so changing the incoming width cannot jump old content.
+          Object.assign(node.style,{position:'absolute',left:`calc(50% + ${old.left-bounds.left-bounds.width/2+root.scrollLeft}px)`,top:`${old.top-bounds.top+root.scrollTop}px`,width:`${old.width}px`,height:`${old.height}px`,minWidth:'0px',minHeight:'0px',pointerEvents:'none'});
           const release=()=>{node.hidden=true;node.inert=inert;for(const p of style){if(p.value)node.style.setProperty(p.key,p.value,p.priority);else node.style.removeProperty(p.key);}if(aria===null)node.removeAttribute('aria-hidden');else node.setAttribute('aria-hidden',aria);delete node.dataset.choreographyExiting;};
           releases.set(node,release);
           const animation=node.animate([{opacity:old.opacity,transform:'translateY(0px)'},{opacity:0,transform:'translateY(-2px)'}],{...choreographyProfiles.dismiss,duration:60});active.set(node,animation);

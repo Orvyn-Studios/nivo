@@ -46,14 +46,14 @@ try{
  async function transition(name,action){
   await stable();
   await page.screenshot({path:path.join(output,`${name}-before.png`)});
-  await page.evaluate(()=>{window.__sharedCard=document.querySelector('#drop-list .file-heading');window.__started=performance.now()});
+  await page.evaluate(()=>{window.__sharedCard=document.querySelector('#drop-list .file-heading');window.__started=performance.now();window.__outgoingLeft=Object.fromEntries([...document.querySelectorAll('[data-context-panel]')].filter(n=>n.getBoundingClientRect().width).map(n=>[n.id,n.getBoundingClientRect().left]))});
   await action();const frames=[];
   for(const wait of [0,35,45,70,100,180]){
    if(wait)await new Promise(r=>setTimeout(r,wait));
    const sample=await page.evaluate(()=>{
     const island=document.getElementById('island'),r=island.getBoundingClientRect();
     return{ms:performance.now()-window.__started,width:r.width,height:r.height,context:island.dataset.context,
-     exits:[...document.querySelectorAll('[data-choreography-exiting]')].map(n=>({id:n.id,inert:n.inert,aria:n.getAttribute('aria-hidden')})),
+     exits:[...document.querySelectorAll('[data-choreography-exiting]')].map(n=>({id:n.id,inert:n.inert,aria:n.getAttribute('aria-hidden'),left:n.getBoundingClientRect().left,previousLeft:window.__outgoingLeft[n.id]})),
      scrollOverflow:getComputedStyle(document.querySelector('.panel-scroll')).overflow,
      sameCard:!window.__sharedCard||window.__sharedCard===document.querySelector('#drop-list .file-heading'),
      animations:island.getAnimations({subtree:true}).map(a=>({target:a.effect?.target?.id||a.effect?.target?.className,time:a.currentTime,duration:a.effect?.getTiming().duration,frames:a.effect?.getKeyframes().map(f=>({offset:f.offset,opacity:f.opacity}))})),
@@ -61,7 +61,8 @@ try{
    });
    assert.equal(sample.footerCount,1);assert.equal(new Set(sample.ids).size,sample.ids.length,'no duplicate DOM IDs');delete sample.ids;
    for(const exit of sample.exits){assert.equal(exit.inert,true);assert.equal(exit.aria,'true')}
-   if(sample.exits.some(n=>['activity','notification','audio','drop','github'].includes(n.id)))assert.equal(sample.scrollOverflow,'visible','target scroll height must not crop departing content');
+   for(const exit of sample.exits)if(exit.previousLeft!==undefined)assert.ok(Math.abs(exit.left-exit.previousLeft)<1,'changing target width must not jump outgoing content sideways');
+   if(sample.exits.length)assert.equal(sample.scrollOverflow,'visible','target scroll height must not crop departing content');
    assert.equal(sample.sameCard,true,'shared file card must retain identity');
    const file=`${name}-${frames.length}.png`;await page.screenshot({path:path.join(output,file)});
    const captureCompletedMs=await page.evaluate(()=>performance.now()-window.__started);frames.push({...sample,captureCompletedMs,file});

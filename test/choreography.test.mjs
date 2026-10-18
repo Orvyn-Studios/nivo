@@ -41,6 +41,7 @@ test('outgoing controls are inert, leave flow immediately and cannot hide a reve
   f.node.style.minHeight='100%';
   f.engine.change(()=>{f.node.hidden=true});assert.equal(f.node.hidden,false);assert.equal(f.node.inert,true);assert.equal(f.node.style.position,'absolute');
   assert.equal(f.node.style.minHeight,'0px','incoming height cannot recenter a departing notice');
+  assert.equal(f.node.style.left,'calc(50% + -156px)','outgoing position follows the fixed surface centre, not the changing panel edge');
   assert.equal(f.node.getAttribute('aria-hidden'),'true');
   f.engine.change(()=>{f.node.hidden=false});await Promise.resolve();await Promise.resolve();
   assert.equal(f.node.hidden,false);assert.equal(f.node.inert,false);assert.equal(f.node.getAttribute('aria-hidden'),null);

@@ -20,7 +20,7 @@ body #island-panel { height:100% }
 body #island .panel-scroll { position:relative; height:100%; padding:20px; overflow:auto }
 /* The HWND/island mask owns clipping during a context change. The target scroll
    height must not cut the departing music controls in half before their fade. */
-body #island .panel-scroll:has(> [data-choreography-exiting=true]) { overflow:visible }
+body #island .panel-scroll:has([data-choreography-exiting=true]) { overflow:visible }
 body #island * { scrollbar-width:none }
 body #island ::-webkit-scrollbar { display:none }
 body #island h1 { font-size:var(--type-title); letter-spacing:-.35px; line-height:1.3 }
