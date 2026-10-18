@@ -62,6 +62,7 @@ struct Context {
     keyboard_registered: Cell<bool>,
     cursor_registered: Cell<bool>,
     cursor_pending: Cell<bool>,
+    last_cursor: Cell<Option<(i32, i32)>>,
     lock_states: Cell<[Option<bool>; 2]>,
 }
 
@@ -90,6 +91,7 @@ impl Context {
             return;
         }
         self.cursor_registered.set(enabled);
+        self.last_cursor.set(None);
         if !enabled {
             unsafe { KillTimer(hwnd, CURSOR_FRAME) };
             self.cursor_pending.set(false);
@@ -105,10 +107,12 @@ impl Context {
         }
         let mut point = POINT::default();
         if unsafe { GetCursorPos(&mut point) } != 0 {
-            self.emit(SystemEvent::CursorMoved {
-                x: point.x,
-                y: point.y,
-            });
+            self.cursor_position(point.x, point.y);
+        }
+    }
+    fn cursor_position(&self, x: i32, y: i32) {
+        if self.last_cursor.replace(Some((x, y))) != Some((x, y)) {
+            self.emit(SystemEvent::CursorMoved { x, y });
         }
     }
 
@@ -418,6 +422,7 @@ fn create(shared: Arc<ObserverState>, callback: Callback) -> Result<Resources, S
             keyboard_registered: Cell::new(false),
             cursor_registered: Cell::new(false),
             cursor_pending: Cell::new(false),
+            last_cursor: Cell::new(None),
             lock_states: Cell::new([None, None]),
         }),
     };
@@ -525,6 +530,7 @@ mod tests {
             keyboard_registered: Cell::new(false),
             cursor_registered: Cell::new(false),
             cursor_pending: Cell::new(false),
+            last_cursor: Cell::new(None),
             lock_states: Cell::new([None, None]),
         };
         assert!(events.lock().unwrap().is_empty());
@@ -543,6 +549,18 @@ mod tests {
                 SystemEvent::Resumed,
                 SystemEvent::SessionLocked,
                 SystemEvent::SessionUnlocked
+            ]
+        );
+        events.lock().unwrap().clear();
+        context.cursor_position(-500, 120);
+        context.cursor_position(-500, 120);
+        context.cursor_position(2400, 120);
+        context.cursor_position(2400, 120);
+        assert_eq!(
+            *events.lock().unwrap(),
+            [
+                SystemEvent::CursorMoved { x: -500, y: 120 },
+                SystemEvent::CursorMoved { x: 2400, y: 120 }
             ]
         );
     }

@@ -31,6 +31,18 @@ public static class NivoVisibilityFixture {
   [DllImport("user32.dll")] static extern bool GetCursorPos(out Point point);
   [DllImport("user32.dll")] static extern bool SetCursorPos(int x,int y);
   [DllImport("user32.dll")] static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra);
+  [StructLayout(LayoutKind.Sequential)] struct MouseInput {public int x,y;public uint data,flags,time;public UIntPtr extra;}
+  [StructLayout(LayoutKind.Sequential)] struct Input {public uint type;public MouseInput mouse;}
+  [DllImport("user32.dll",SetLastError=true)] static extern uint SendInput(uint count,Input[] inputs,int size);
+  [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
+  static void ClickOwned(Point point){
+    var move=new Input{mouse=new MouseInput{x=(int)Math.Round((point.x-GetSystemMetrics(76))*65535.0/Math.Max(1,GetSystemMetrics(78)-1)),y=(int)Math.Round((point.y-GetSystemMetrics(77))*65535.0/Math.Max(1,GetSystemMetrics(79)-1)),flags=0xC001}};
+    var down=new Input{mouse=new MouseInput{flags=2}};var up=new Input{mouse=new MouseInput{flags=4}};
+    if(SendInput(3,new[]{move,down,up},Marshal.SizeOf(typeof(Input)))!=3)throw new Exception("Windows rejected the owned fixture click.");
+    // Let the actual input messages reach this form before restoring position
+    // and z-order; otherwise the fallback can demote itself ahead of activation.
+    Application.DoEvents();Thread.Sleep(30);Application.DoEvents();
+  }
   [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr hwnd,int attribute,out Rect rect,int size);
   [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int l,int t,int r,int b);
   [DllImport("gdi32.dll")] static extern int GetRgnBox(IntPtr region,out Rect rect);
@@ -71,7 +83,7 @@ public static class NivoVisibilityFixture {
             // Windows may deny programmatic foreground activation. Click only
             // our verified fixture surface, then restore the physical pointer.
             if(target==form.Handle||IsChild(form.Handle,target)){
-              try {SetCursorPos(center.x,center.y);mouse_event(2,0,0,0,UIntPtr.Zero);mouse_event(4,0,0,0,UIntPtr.Zero);}
+              try {ClickOwned(center);}
               finally {SetCursorPos(saved.x,saved.y);}
             }
             SetWindowPos(form.Handle,new IntPtr(-2),0,0,0,0,1|2|16);
