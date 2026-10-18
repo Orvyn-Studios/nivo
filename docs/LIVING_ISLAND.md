@@ -1,5 +1,9 @@
 # Living Island — continuidad de contenido
 
+Revisión posterior de defectos, evidencia temporal y aceptación pendiente:
+[LIVING_ISLAND_REVIEW.md](LIVING_ISLAND_REVIEW.md). Las cifras de esta página
+documentan la iteración anterior, no sustituyen las del nuevo informe.
+
 ## Auditoría y primer alcance
 
 El motor existente ya conserva posición y velocidad de la superficie nativa al

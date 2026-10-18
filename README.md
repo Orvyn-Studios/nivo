@@ -1,10 +1,12 @@
 # Nivo by Orvyn
 
-Isla de escritorio para Windows, independiente de StarOptimizer. Tauri 2 + Rust + TypeScript + Vite, sin framework de interfaz ni servicios externos. Versión de desarrollo `0.1.0-alpha.1`; todavía no es una beta validada.
+Isla de escritorio para Windows, independiente de StarOptimizer. Tauri 2 + Rust + TypeScript + Vite, sin framework de interfaz. GitHub es una integración externa opcional y desactivada por defecto. Versión de desarrollo `0.1.0-alpha.1`; todavía no es una beta validada.
 
 Repositorio de Nivo: [Orvyn-Studios/nivo](https://github.com/Orvyn-Studios/nivo). El desarrollo continúa en `feature/nivo-mvp`. Los cambios de Nivo se guardan en este repositorio independiente; las releases requieren autorización y aceptación nativa.
 
 La primera subida se realizó mediante el conector de GitHub, con autorización para inicializar el repositorio vacío. El historial local se conserva y los commits remotos de importación tienen SHA diferentes. Consulta [la importación y sincronización](docs/GITHUB_IMPORT.md) antes de reconciliar ambas historias.
+
+Revisión actual: [continuidad y evidencia temporal](docs/LIVING_ISLAND_REVIEW.md). El [arrastre Explorer y ZIP completo](docs/MANUAL_DROP_ACCEPTANCE.md) y GitHub con cuenta real siguen pendientes de aceptación.
 
 ## Preparar y ejecutar
 
@@ -32,8 +34,8 @@ El [rediseño contextual](docs/REDESIGN.md) sustituye el panel con pestañas por
 
 - Máquina de estados TypeScript: intención compacta/expandida, hover, notificaciones superpuestas con prioridad y restauración, colas acotadas y protección frente a eventos multimedia obsoletos.
 - Temporizador retirado del dominio, controles, eventos y persistencia activa. El almacenamiento antiguo se conserva sin leerlo. Coordinador de actividad con prioridades, interrupción, agrupación, cola acotada y pausa de avisos.
-- Cápsula de 112 × 34 DIP; calma 260 × 138, música 360 × 174/202 y HUDs compactos. Tamaños centralizados, listas acotadas y configuración independiente desde la bandeja o el icono de ajustes. Máscara y región Win32 comparten geometría, con épocas y envíos serializados. Fluidez perceptiva pendiente de aceptación.
-- Compañero vectorial original y opcional: mirada dentro de la isla, parpadeo al pulsar y reacción a estados reales. Sin seguimiento global ni movimiento continuo. Activo por defecto en configuraciones nuevas; respeta las preferencias existentes.
+- Cápsula de 112 × 34 DIP; calma 260 × 138, música 360 × 172/140 (con/sin tiempos) y HUDs compactos. Tamaños centralizados, listas acotadas y configuración independiente desde la bandeja o el icono de ajustes. Máscara y región Win32 comparten geometría, con épocas y envíos serializados. Fluidez perceptiva pendiente de aceptación.
+- Compañero vectorial original y opcional: mirada acotada al cursor en todo el escritorio mediante Raw Input por eventos, parpadeo al pulsar y reacción a estados reales. Sin polling ni animación continua en reposo; se suspende al ocultar, desactivar o reducir movimiento. Activo por defecto en configuraciones nuevas; respeta las preferencias existentes.
 - Backend modular con preferencias validadas y guardado local atómico, selección de pantalla y posición, región redondeada Win32, estilo de herramienta y operaciones sin activación.
 - Proveedor GSMTC real por eventos: sesiones, metadatos, portada acotada y controles cuando Windows los permite. El frontend nunca inventa una sesión. Desactivar la integración borra inmediatamente sus datos y descarta respuestas obsoletas.
 - Observación Win32 de pantalla completa, bloqueo, suspensión y cambios de pantalla. La intención de ocultar o pausar sobrevive a estos eventos. No usa hooks de entrada ni inyección. Su matriz de aceptación en juegos y varios monitores está pendiente.
