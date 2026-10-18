@@ -149,6 +149,17 @@ try {
   denied=false;
   try { await preferencesPage.evaluate(() => window.__TAURI__.core.invoke('set_companion_tracking',{enabled:true})); } catch { denied=true; }
   assert.equal(denied,true,'preferences capability must not enable desktop cursor tracking');
+  for(const command of ['open_github_item','open_mail_draft']){
+    const blocked=await preferencesPage.evaluate(async command=>{try{await window.__TAURI__.core.invoke(command,{id:'invalid',draft:{recipient:'invalid',subject:'',body:''}});return false}catch{return true}},command);
+    assert.equal(blocked,true,'preferences must not open GitHub items or mail drafts');
+  }
+  for(const command of ['connect_github','get_github_connection']){
+    const blocked=await page.evaluate(async command=>{try{await window.__TAURI__.core.invoke(command,{token:'invalid-fixture'});return false}catch{return true}},command);
+    assert.equal(blocked,true,'island must not configure or enumerate the GitHub account');
+  }
+  const githubBoundary=await page.evaluate(async()=>{const s=await window.__TAURI__.core.invoke('get_github_snapshot');return{hasToken:Object.hasOwn(s,'token'),bounded:Array.isArray(s.items)&&s.items.length<=240}});
+  assert.deepEqual(githubBoundary,{hasToken:false,bounded:true});
+  report.checks.push('Actual capability boundaries: island cannot connect/enumerate the GitHub account; preferences cannot open GitHub items or mail drafts; snapshot has no token field and remains bounded. No real credential or mail client used.');
   await preferencesPage.keyboard.press('Escape');
   await page.locator('#open-audio').click();
   await page.waitForFunction(() => !document.getElementById('audio-controls').hidden);
